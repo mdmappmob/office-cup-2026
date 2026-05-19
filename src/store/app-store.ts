@@ -2,8 +2,8 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { mockMatches } from "@/mocks/matches";
 import { mockPredictions } from "@/mocks/predictions";
-import { mockLeagueMembers } from "@/mocks/leagues";
-import { CURRENT_USER_ID, CURRENT_LEAGUE_ID } from "@/mocks/profiles";
+import { mockLeagueMembers, CURRENT_LEAGUE_ID } from "@/mocks/leagues";
+import { CURRENT_USER_ID } from "@/mocks/profiles";
 import type {
   MockMatch,
   MockPrediction,
