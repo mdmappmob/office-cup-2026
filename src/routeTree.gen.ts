@@ -9,38 +9,177 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as PagamentoRouteImport } from './routes/pagamento'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as CriarBolaoRouteImport } from './routes/criar-bolao'
+import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppRankingRouteImport } from './routes/_app.ranking'
+import { Route as AppPerfilRouteImport } from './routes/_app.perfil'
+import { Route as AppPalpitesRouteImport } from './routes/_app.palpites'
+import { Route as AppGestaoRouteImport } from './routes/_app.gestao'
+import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
 
+const PagamentoRoute = PagamentoRouteImport.update({
+  id: '/pagamento',
+  path: '/pagamento',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CriarBolaoRoute = CriarBolaoRouteImport.update({
+  id: '/criar-bolao',
+  path: '/criar-bolao',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppRankingRoute = AppRankingRouteImport.update({
+  id: '/ranking',
+  path: '/ranking',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPerfilRoute = AppPerfilRouteImport.update({
+  id: '/perfil',
+  path: '/perfil',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPalpitesRoute = AppPalpitesRouteImport.update({
+  id: '/palpites',
+  path: '/palpites',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppGestaoRoute = AppGestaoRouteImport.update({
+  id: '/gestao',
+  path: '/gestao',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDashboardRoute = AppDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/criar-bolao': typeof CriarBolaoRoute
+  '/login': typeof LoginRoute
+  '/pagamento': typeof PagamentoRoute
+  '/dashboard': typeof AppDashboardRoute
+  '/gestao': typeof AppGestaoRoute
+  '/palpites': typeof AppPalpitesRoute
+  '/perfil': typeof AppPerfilRoute
+  '/ranking': typeof AppRankingRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/criar-bolao': typeof CriarBolaoRoute
+  '/login': typeof LoginRoute
+  '/pagamento': typeof PagamentoRoute
+  '/dashboard': typeof AppDashboardRoute
+  '/gestao': typeof AppGestaoRoute
+  '/palpites': typeof AppPalpitesRoute
+  '/perfil': typeof AppPerfilRoute
+  '/ranking': typeof AppRankingRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_app': typeof AppRouteWithChildren
+  '/criar-bolao': typeof CriarBolaoRoute
+  '/login': typeof LoginRoute
+  '/pagamento': typeof PagamentoRoute
+  '/_app/dashboard': typeof AppDashboardRoute
+  '/_app/gestao': typeof AppGestaoRoute
+  '/_app/palpites': typeof AppPalpitesRoute
+  '/_app/perfil': typeof AppPerfilRoute
+  '/_app/ranking': typeof AppRankingRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/criar-bolao'
+    | '/login'
+    | '/pagamento'
+    | '/dashboard'
+    | '/gestao'
+    | '/palpites'
+    | '/perfil'
+    | '/ranking'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/criar-bolao'
+    | '/login'
+    | '/pagamento'
+    | '/dashboard'
+    | '/gestao'
+    | '/palpites'
+    | '/perfil'
+    | '/ranking'
+  id:
+    | '__root__'
+    | '/'
+    | '/_app'
+    | '/criar-bolao'
+    | '/login'
+    | '/pagamento'
+    | '/_app/dashboard'
+    | '/_app/gestao'
+    | '/_app/palpites'
+    | '/_app/perfil'
+    | '/_app/ranking'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AppRoute: typeof AppRouteWithChildren
+  CriarBolaoRoute: typeof CriarBolaoRoute
+  LoginRoute: typeof LoginRoute
+  PagamentoRoute: typeof PagamentoRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/pagamento': {
+      id: '/pagamento'
+      path: '/pagamento'
+      fullPath: '/pagamento'
+      preLoaderRoute: typeof PagamentoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/criar-bolao': {
+      id: '/criar-bolao'
+      path: '/criar-bolao'
+      fullPath: '/criar-bolao'
+      preLoaderRoute: typeof CriarBolaoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app': {
+      id: '/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +187,69 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/ranking': {
+      id: '/_app/ranking'
+      path: '/ranking'
+      fullPath: '/ranking'
+      preLoaderRoute: typeof AppRankingRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/perfil': {
+      id: '/_app/perfil'
+      path: '/perfil'
+      fullPath: '/perfil'
+      preLoaderRoute: typeof AppPerfilRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/palpites': {
+      id: '/_app/palpites'
+      path: '/palpites'
+      fullPath: '/palpites'
+      preLoaderRoute: typeof AppPalpitesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/gestao': {
+      id: '/_app/gestao'
+      path: '/gestao'
+      fullPath: '/gestao'
+      preLoaderRoute: typeof AppGestaoRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/dashboard': {
+      id: '/_app/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AppDashboardRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
+interface AppRouteChildren {
+  AppDashboardRoute: typeof AppDashboardRoute
+  AppGestaoRoute: typeof AppGestaoRoute
+  AppPalpitesRoute: typeof AppPalpitesRoute
+  AppPerfilRoute: typeof AppPerfilRoute
+  AppRankingRoute: typeof AppRankingRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppDashboardRoute: AppDashboardRoute,
+  AppGestaoRoute: AppGestaoRoute,
+  AppPalpitesRoute: AppPalpitesRoute,
+  AppPerfilRoute: AppPerfilRoute,
+  AppRankingRoute: AppRankingRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppRoute: AppRouteWithChildren,
+  CriarBolaoRoute: CriarBolaoRoute,
+  LoginRoute: LoginRoute,
+  PagamentoRoute: PagamentoRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

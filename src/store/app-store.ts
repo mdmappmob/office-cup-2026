@@ -1,0 +1,207 @@
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import { mockMatches } from "@/mocks/matches";
+import { mockPredictions } from "@/mocks/predictions";
+import { mockLeagueMembers, CURRENT_LEAGUE_ID } from "@/mocks/leagues";
+import { CURRENT_USER_ID } from "@/mocks/profiles";
+import type {
+  MockMatch,
+  MockPrediction,
+  MockLeagueMember,
+  MatchPhase,
+} from "@/mocks/types";
+import { PHASE_ORDER } from "@/mocks/types";
+
+interface AppState {
+  currentUserId: string;
+  currentLeagueId: string;
+  isAdmin: boolean;
+  matches: MockMatch[];
+  predictions: MockPrediction[];
+  members: MockLeagueMember[];
+  theme: "light" | "dark";
+  setTheme: (t: "light" | "dark") => void;
+  toggleTheme: () => void;
+  setAdmin: (v: boolean) => void;
+  upsertPrediction: (matchId: string, patch: Partial<MockPrediction>) => void;
+  toggleMemberPaid: (memberId: string) => void;
+  unlockedPhases: () => MatchPhase[];
+  matchesByPhase: (phase: MatchPhase) => MockMatch[];
+  predictionFor: (matchId: string) => MockPrediction | undefined;
+  phaseProgress: (phase: MatchPhase) => { filled: number; total: number };
+  regenerateBracket: () => void;
+}
+
+function makeEmptyPrediction(matchId: string): MockPrediction {
+  return {
+    id: `p-${matchId}-${CURRENT_USER_ID}`,
+    user_id: CURRENT_USER_ID,
+    league_id: CURRENT_LEAGUE_ID,
+    match_id: matchId,
+    predicted_home_score: null,
+    predicted_away_score: null,
+    predicted_home_lineup: [],
+    predicted_away_lineup: [],
+    predicted_goalscorers: [],
+    is_zebra: false,
+    points_earned: 0,
+  };
+}
+
+function computeBracket(matches: MockMatch[], predictions: MockPrediction[]): MockMatch[] {
+  // Determinar classificados de cada grupo a partir dos palpites do usuário.
+  const next = matches.map((m) => ({ ...m }));
+  const groupMatches = next.filter((m) => m.phase === "grupos");
+  const groups = Array.from(new Set(groupMatches.map((m) => m.group!).filter(Boolean)));
+
+  type Standing = { team: string; flag: string; pts: number; gd: number };
+  const winnersPerGroup: Record<string, Standing[]> = {};
+
+  for (const g of groups) {
+    const gms = groupMatches.filter((m) => m.group === g);
+    const table: Record<string, Standing> = {};
+    const teams = new Set<string>();
+    gms.forEach((m) => {
+      teams.add(m.home_team);
+      teams.add(m.away_team);
+      table[m.home_team] = { team: m.home_team, flag: m.home_flag, pts: 0, gd: 0 };
+      table[m.away_team] = { team: m.away_team, flag: m.away_flag, pts: 0, gd: 0 };
+    });
+    for (const m of gms) {
+      const p = predictions.find((x) => x.match_id === m.id);
+      if (!p || p.predicted_home_score === null || p.predicted_away_score === null) continue;
+      const hs = p.predicted_home_score;
+      const as = p.predicted_away_score;
+      table[m.home_team].gd += hs - as;
+      table[m.away_team].gd += as - hs;
+      if (hs > as) table[m.home_team].pts += 3;
+      else if (as > hs) table[m.away_team].pts += 3;
+      else {
+        table[m.home_team].pts += 1;
+        table[m.away_team].pts += 1;
+      }
+    }
+    const sorted = Object.values(table).sort((a, b) => b.pts - a.pts || b.gd - a.gd);
+    winnersPerGroup[g] = sorted.slice(0, 2);
+  }
+
+  // Verifica se todos os jogos da fase de grupos foram preenchidos.
+  const groupsFilled = groupMatches.every((m) => {
+    const p = predictions.find((x) => x.match_id === m.id);
+    return p && p.predicted_home_score !== null && p.predicted_away_score !== null;
+  });
+
+  if (groupsFilled) {
+    // Preenche oitavas com pares 1Ax2B, 1Bx2A... simples e didático
+    const order = Object.keys(winnersPerGroup);
+    const oitavas = next.filter((m) => m.phase === "oitavas");
+    for (let i = 0; i < oitavas.length; i++) {
+      const gA = order[(i * 2) % order.length];
+      const gB = order[(i * 2 + 1) % order.length];
+      const home = winnersPerGroup[gA]?.[0];
+      const away = winnersPerGroup[gB]?.[1];
+      if (home && away) {
+        oitavas[i].home_team = home.team;
+        oitavas[i].home_flag = home.flag;
+        oitavas[i].away_team = away.team;
+        oitavas[i].away_flag = away.flag;
+      }
+    }
+  }
+
+  // Propagação simples: para quartas/semi/final, usar vencedores dos palpites da fase anterior
+  const propagate = (from: MatchPhase, to: MatchPhase) => {
+    const fromMatches = next.filter((m) => m.phase === from);
+    const toMatches = next.filter((m) => m.phase === to);
+    const allFilled = fromMatches.every((m) => {
+      if (m.home_team === "—") return false;
+      const p = predictions.find((x) => x.match_id === m.id);
+      return p && p.predicted_home_score !== null && p.predicted_away_score !== null;
+    });
+    if (!allFilled) return;
+    const winners = fromMatches.map((m) => {
+      const p = predictions.find((x) => x.match_id === m.id)!;
+      return p.predicted_home_score! >= p.predicted_away_score!
+        ? { team: m.home_team, flag: m.home_flag }
+        : { team: m.away_team, flag: m.away_flag };
+    });
+    for (let i = 0; i < toMatches.length; i++) {
+      const h = winners[i * 2];
+      const a = winners[i * 2 + 1];
+      if (h) { toMatches[i].home_team = h.team; toMatches[i].home_flag = h.flag; }
+      if (a) { toMatches[i].away_team = a.team; toMatches[i].away_flag = a.flag; }
+    }
+  };
+
+  propagate("oitavas", "quartas");
+  propagate("quartas", "semi");
+  propagate("semi", "final");
+
+  return next;
+}
+
+export const useAppStore = create<AppState>()(
+  persist(
+    (set, get) => ({
+      currentUserId: CURRENT_USER_ID,
+      currentLeagueId: CURRENT_LEAGUE_ID,
+      isAdmin: true,
+      matches: mockMatches,
+      predictions: mockPredictions,
+      members: mockLeagueMembers,
+      theme: "light",
+      setTheme: (t) => set({ theme: t }),
+      toggleTheme: () => set({ theme: get().theme === "light" ? "dark" : "light" }),
+      setAdmin: (v) => set({ isAdmin: v }),
+      upsertPrediction: (matchId, patch) => {
+        const existing = get().predictions.find((p) => p.match_id === matchId);
+        const merged: MockPrediction = existing
+          ? { ...existing, ...patch }
+          : { ...makeEmptyPrediction(matchId), ...patch };
+        const others = get().predictions.filter((p) => p.match_id !== matchId);
+        const newPredictions = [...others, merged];
+        const newMatches = computeBracket(get().matches, newPredictions);
+        set({ predictions: newPredictions, matches: newMatches });
+      },
+      toggleMemberPaid: (memberId) => {
+        set({
+          members: get().members.map((m) =>
+            m.id === memberId ? { ...m, has_paid_admin: !m.has_paid_admin } : m,
+          ),
+        });
+      },
+      regenerateBracket: () => {
+        set({ matches: computeBracket(get().matches, get().predictions) });
+      },
+      matchesByPhase: (phase) => get().matches.filter((m) => m.phase === phase),
+      predictionFor: (matchId) => get().predictions.find((p) => p.match_id === matchId),
+      phaseProgress: (phase) => {
+        const matches = get().matchesByPhase(phase);
+        const filled = matches.filter((m) => {
+          const p = get().predictionFor(m.id);
+          return p && p.predicted_home_score !== null && p.predicted_away_score !== null;
+        }).length;
+        return { filled, total: matches.length };
+      },
+      unlockedPhases: () => {
+        const unlocked: MatchPhase[] = ["grupos"];
+        for (let i = 1; i < PHASE_ORDER.length; i++) {
+          const prev = PHASE_ORDER[i - 1];
+          const { filled, total } = get().phaseProgress(prev);
+          if (total > 0 && filled === total) unlocked.push(PHASE_ORDER[i]);
+          else break;
+        }
+        return unlocked;
+      },
+    }),
+    {
+      name: "officecup-2026",
+      partialize: (s) => ({
+        predictions: s.predictions,
+        members: s.members,
+        theme: s.theme,
+        isAdmin: s.isAdmin,
+      }),
+    },
+  ),
+);
