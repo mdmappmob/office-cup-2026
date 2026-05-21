@@ -21,10 +21,13 @@ function makeGroupMatches(): MockMatch[] {
   let i = 0;
   for (const g of groups) {
     const ts = TEAMS.filter((t) => t.group === g);
-    const pairs: Array<[typeof ts[number], typeof ts[number]]> = [
-      [ts[0], ts[1]],
-      [ts[2], ts[3]],
-    ];
+    // Round-robin: todos contra todos (6 jogos por grupo)
+    const pairs: Array<[typeof ts[number], typeof ts[number]]> = [];
+    for (let a = 0; a < ts.length; a++) {
+      for (let b = a + 1; b < ts.length; b++) {
+        pairs.push([ts[a], ts[b]]);
+      }
+    }
     for (const [h, a] of pairs) {
       matches.push({
         id: `g${i}`,
@@ -32,7 +35,7 @@ function makeGroupMatches(): MockMatch[] {
         away_team: a.name,
         home_flag: h.flag,
         away_flag: a.flag,
-        match_date: `2026-06-${String(11 + (i % 14)).padStart(2, "0")}T16:00:00Z`,
+        match_date: `2026-06-${String(11 + (i % 18)).padStart(2, "0")}T${String(13 + (i % 6)).padStart(2, "0")}:00:00Z`,
         phase: "grupos",
         group: g,
         home_score: null,
