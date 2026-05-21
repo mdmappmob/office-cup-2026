@@ -92,20 +92,20 @@ function computeBracket(matches: MockMatch[], predictions: MockPrediction[]): Mo
   });
 
   if (groupsFilled) {
-    // Preenche oitavas com pares 1Ax2B, 1Bx2A... simples e didático
-    const order = Object.keys(winnersPerGroup);
-    const oitavas = next.filter((m) => m.phase === "oitavas");
-    for (let i = 0; i < oitavas.length; i++) {
-      const gA = order[(i * 2) % order.length];
-      const gB = order[(i * 2 + 1) % order.length];
-      const home = winnersPerGroup[gA]?.[0];
-      const away = winnersPerGroup[gB]?.[1];
-      if (home && away) {
-        oitavas[i].home_team = home.team;
-        oitavas[i].home_flag = home.flag;
-        oitavas[i].away_team = away.team;
-        oitavas[i].away_flag = away.flag;
+    // Pré-preenche os 16-avos com os 24 classificados (1º e 2º de cada grupo).
+    // Os 8 melhores 3ºs ficam como "—" para o usuário preencher manualmente.
+    const qualifiers: Array<{ team: string; flag: string }> = [];
+    for (const g of Object.keys(winnersPerGroup)) {
+      for (const s of winnersPerGroup[g]) {
+        qualifiers.push({ team: s.team, flag: s.flag });
       }
+    }
+    const r32 = next.filter((m) => m.phase === "r32");
+    for (let i = 0; i < r32.length; i++) {
+      const home = qualifiers[i * 2];
+      const away = qualifiers[i * 2 + 1];
+      if (home) { r32[i].home_team = home.team; r32[i].home_flag = home.flag; }
+      if (away) { r32[i].away_team = away.team; r32[i].away_flag = away.flag; }
     }
   }
 
@@ -133,6 +133,7 @@ function computeBracket(matches: MockMatch[], predictions: MockPrediction[]): Mo
     }
   };
 
+  propagate("r32", "oitavas");
   propagate("oitavas", "quartas");
   propagate("quartas", "semi");
   propagate("semi", "final");

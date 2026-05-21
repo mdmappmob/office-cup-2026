@@ -1,61 +1,134 @@
 import type { MockMatch, MatchPhase } from "./types";
 
-const TEAMS: Array<{ name: string; flag: string; group: string }> = [
-  { name: "Brasil", flag: "🇧🇷", group: "A" }, { name: "México", flag: "🇲🇽", group: "A" },
-  { name: "Canadá", flag: "🇨🇦", group: "A" }, { name: "Marrocos", flag: "🇲🇦", group: "A" },
-  { name: "Argentina", flag: "🇦🇷", group: "B" }, { name: "Espanha", flag: "🇪🇸", group: "B" },
-  { name: "Japão", flag: "🇯🇵", group: "B" }, { name: "Senegal", flag: "🇸🇳", group: "B" },
-  { name: "França", flag: "🇫🇷", group: "C" }, { name: "Alemanha", flag: "🇩🇪", group: "C" },
-  { name: "Croácia", flag: "🇭🇷", group: "C" }, { name: "Nigéria", flag: "🇳🇬", group: "C" },
-  { name: "Inglaterra", flag: "🇬🇧", group: "D" }, { name: "Portugal", flag: "🇵🇹", group: "D" },
-  { name: "Uruguai", flag: "🇺🇾", group: "D" }, { name: "Coreia do Sul", flag: "🇰🇷", group: "D" },
-  { name: "Holanda", flag: "🇳🇱", group: "E" }, { name: "Bélgica", flag: "🇧🇪", group: "E" },
-  { name: "EUA", flag: "🇺🇸", group: "E" }, { name: "Equador", flag: "🇪🇨", group: "E" },
-  { name: "Itália", flag: "🇮🇹", group: "F" }, { name: "Colômbia", flag: "🇨🇴", group: "F" },
-  { name: "Suíça", flag: "🇨🇭", group: "F" }, { name: "Camarões", flag: "🇨🇲", group: "F" },
+// Bandeiras por seleção (Copa do Mundo 2026 — 48 seleções, 12 grupos)
+const FLAGS: Record<string, string> = {
+  "México": "🇲🇽", "África do Sul": "🇿🇦", "Coreia do Sul": "🇰🇷", "República Tcheca": "🇨🇿",
+  "Canadá": "🇨🇦", "Bósnia-Herzegovina": "🇧🇦", "Qatar": "🇶🇦", "Suíça": "🇨🇭",
+  "Brasil": "🇧🇷", "Marrocos": "🇲🇦", "Haiti": "🇭🇹", "Escócia": "🏴󠁧󠁢󠁳󠁣󠁴󠁿",
+  "Estados Unidos": "🇺🇸", "Paraguai": "🇵🇾", "Austrália": "🇦🇺", "Turquia": "🇹🇷",
+  "Alemanha": "🇩🇪", "Curaçao": "🇨🇼", "Costa do Marfim": "🇨🇮", "Equador": "🇪🇨",
+  "Holanda": "🇳🇱", "Japão": "🇯🇵", "Suécia": "🇸🇪", "Tunísia": "🇹🇳",
+  "Bélgica": "🇧🇪", "Egito": "🇪🇬", "Irã": "🇮🇷", "Nova Zelândia": "🇳🇿",
+  "Espanha": "🇪🇸", "Cabo Verde": "🇨🇻", "Arábia Saudita": "🇸🇦", "Uruguai": "🇺🇾",
+  "França": "🇫🇷", "Senegal": "🇸🇳", "Iraque": "🇮🇶", "Noruega": "🇳🇴",
+  "Argentina": "🇦🇷", "Argélia": "🇩🇿", "Áustria": "🇦🇹", "Jordânia": "🇯🇴",
+  "Portugal": "🇵🇹", "RD do Congo": "🇨🇩", "Uzbequistão": "🇺🇿", "Colômbia": "🇨🇴",
+  "Inglaterra": "🏴󠁧󠁢󠁥󠁮󠁧󠁿", "Croácia": "🇭🇷", "Gana": "🇬🇭", "Panamá": "🇵🇦",
+};
+
+type Fixture = [string, string, string, string]; // [group, dateISO, home, away]
+
+const GROUP_FIXTURES: Fixture[] = [
+  // Grupo A
+  ["A", "2026-06-11T16:00:00Z", "México", "África do Sul"],
+  ["A", "2026-06-11T23:00:00Z", "Coreia do Sul", "República Tcheca"],
+  ["A", "2026-06-18T13:00:00Z", "República Tcheca", "África do Sul"],
+  ["A", "2026-06-18T22:00:00Z", "México", "Coreia do Sul"],
+  ["A", "2026-06-24T22:00:00Z", "República Tcheca", "México"],
+  ["A", "2026-06-24T22:00:00Z", "África do Sul", "Coreia do Sul"],
+  // Grupo B
+  ["B", "2026-06-12T16:00:00Z", "Canadá", "Bósnia-Herzegovina"],
+  ["B", "2026-06-13T16:00:00Z", "Qatar", "Suíça"],
+  ["B", "2026-06-18T16:00:00Z", "Suíça", "Bósnia-Herzegovina"],
+  ["B", "2026-06-18T19:00:00Z", "Canadá", "Qatar"],
+  ["B", "2026-06-24T16:00:00Z", "Suíça", "Canadá"],
+  ["B", "2026-06-24T16:00:00Z", "Bósnia-Herzegovina", "Qatar"],
+  // Grupo C
+  ["C", "2026-06-13T19:00:00Z", "Brasil", "Marrocos"],
+  ["C", "2026-06-13T22:00:00Z", "Haiti", "Escócia"],
+  ["C", "2026-06-19T19:00:00Z", "Escócia", "Marrocos"],
+  ["C", "2026-06-19T21:30:00Z", "Brasil", "Haiti"],
+  ["C", "2026-06-24T19:00:00Z", "Escócia", "Brasil"],
+  ["C", "2026-06-24T19:00:00Z", "Marrocos", "Haiti"],
+  // Grupo D
+  ["D", "2026-06-12T22:00:00Z", "Estados Unidos", "Paraguai"],
+  ["D", "2026-06-14T01:00:00Z", "Austrália", "Turquia"],
+  ["D", "2026-06-19T16:00:00Z", "Estados Unidos", "Austrália"],
+  ["D", "2026-06-20T00:00:00Z", "Turquia", "Paraguai"],
+  ["D", "2026-06-25T23:00:00Z", "Turquia", "Estados Unidos"],
+  ["D", "2026-06-25T23:00:00Z", "Paraguai", "Austrália"],
+  // Grupo E
+  ["E", "2026-06-14T14:00:00Z", "Alemanha", "Curaçao"],
+  ["E", "2026-06-14T20:00:00Z", "Costa do Marfim", "Equador"],
+  ["E", "2026-06-20T17:00:00Z", "Alemanha", "Costa do Marfim"],
+  ["E", "2026-06-20T21:00:00Z", "Equador", "Curaçao"],
+  ["E", "2026-06-25T17:00:00Z", "Equador", "Alemanha"],
+  ["E", "2026-06-25T17:00:00Z", "Curaçao", "Costa do Marfim"],
+  // Grupo F
+  ["F", "2026-06-14T17:00:00Z", "Holanda", "Japão"],
+  ["F", "2026-06-14T23:00:00Z", "Suécia", "Tunísia"],
+  ["F", "2026-06-20T14:00:00Z", "Holanda", "Suécia"],
+  ["F", "2026-06-21T01:00:00Z", "Tunísia", "Japão"],
+  ["F", "2026-06-25T20:00:00Z", "Tunísia", "Holanda"],
+  ["F", "2026-06-25T20:00:00Z", "Japão", "Suécia"],
+  // Grupo G
+  ["G", "2026-06-15T16:00:00Z", "Bélgica", "Egito"],
+  ["G", "2026-06-15T22:00:00Z", "Irã", "Nova Zelândia"],
+  ["G", "2026-06-21T16:00:00Z", "Bélgica", "Irã"],
+  ["G", "2026-06-21T22:00:00Z", "Nova Zelândia", "Egito"],
+  ["G", "2026-06-27T00:00:00Z", "Nova Zelândia", "Bélgica"],
+  ["G", "2026-06-27T00:00:00Z", "Egito", "Irã"],
+  // Grupo H
+  ["H", "2026-06-15T13:00:00Z", "Espanha", "Cabo Verde"],
+  ["H", "2026-06-15T19:00:00Z", "Arábia Saudita", "Uruguai"],
+  ["H", "2026-06-21T13:00:00Z", "Espanha", "Arábia Saudita"],
+  ["H", "2026-06-21T19:00:00Z", "Uruguai", "Cabo Verde"],
+  ["H", "2026-06-26T21:00:00Z", "Uruguai", "Espanha"],
+  ["H", "2026-06-26T21:00:00Z", "Cabo Verde", "Arábia Saudita"],
+  // Grupo I
+  ["I", "2026-06-16T16:00:00Z", "França", "Senegal"],
+  ["I", "2026-06-16T19:00:00Z", "Iraque", "Noruega"],
+  ["I", "2026-06-22T18:00:00Z", "França", "Iraque"],
+  ["I", "2026-06-22T21:00:00Z", "Noruega", "Senegal"],
+  ["I", "2026-06-26T16:00:00Z", "Noruega", "França"],
+  ["I", "2026-06-26T16:00:00Z", "Senegal", "Iraque"],
+  // Grupo J
+  ["J", "2026-06-16T22:00:00Z", "Argentina", "Argélia"],
+  ["J", "2026-06-17T01:00:00Z", "Áustria", "Jordânia"],
+  ["J", "2026-06-22T14:00:00Z", "Argentina", "Áustria"],
+  ["J", "2026-06-23T00:00:00Z", "Jordânia", "Argélia"],
+  ["J", "2026-06-27T23:00:00Z", "Jordânia", "Argentina"],
+  ["J", "2026-06-27T23:00:00Z", "Argélia", "Áustria"],
+  // Grupo K
+  ["K", "2026-06-17T14:00:00Z", "Portugal", "RD do Congo"],
+  ["K", "2026-06-17T23:00:00Z", "Uzbequistão", "Colômbia"],
+  ["K", "2026-06-23T14:00:00Z", "Portugal", "Uzbequistão"],
+  ["K", "2026-06-23T23:00:00Z", "Colômbia", "RD do Congo"],
+  ["K", "2026-06-27T20:30:00Z", "Colômbia", "Portugal"],
+  ["K", "2026-06-27T20:30:00Z", "RD do Congo", "Uzbequistão"],
+  // Grupo L
+  ["L", "2026-06-17T17:00:00Z", "Inglaterra", "Croácia"],
+  ["L", "2026-06-17T20:00:00Z", "Gana", "Panamá"],
+  ["L", "2026-06-23T17:00:00Z", "Inglaterra", "Gana"],
+  ["L", "2026-06-23T20:00:00Z", "Panamá", "Croácia"],
+  ["L", "2026-06-27T18:00:00Z", "Panamá", "Inglaterra"],
+  ["L", "2026-06-27T18:00:00Z", "Croácia", "Gana"],
 ];
 
 function makeGroupMatches(): MockMatch[] {
-  const matches: MockMatch[] = [];
-  const groups = Array.from(new Set(TEAMS.map((t) => t.group)));
-  let i = 0;
-  for (const g of groups) {
-    const ts = TEAMS.filter((t) => t.group === g);
-    // Round-robin: todos contra todos (6 jogos por grupo)
-    const pairs: Array<[typeof ts[number], typeof ts[number]]> = [];
-    for (let a = 0; a < ts.length; a++) {
-      for (let b = a + 1; b < ts.length; b++) {
-        pairs.push([ts[a], ts[b]]);
-      }
-    }
-    for (const [h, a] of pairs) {
-      matches.push({
-        id: `g${i}`,
-        home_team: h.name,
-        away_team: a.name,
-        home_flag: h.flag,
-        away_flag: a.flag,
-        match_date: `2026-06-${String(11 + (i % 18)).padStart(2, "0")}T${String(13 + (i % 6)).padStart(2, "0")}:00:00Z`,
-        phase: "grupos",
-        group: g,
-        home_score: null,
-        away_score: null,
-        status: "scheduled",
-      });
-      i++;
-    }
-  }
-  return matches;
+  return GROUP_FIXTURES.map(([g, date, home, away], i) => ({
+    id: `g${i}`,
+    home_team: home,
+    away_team: away,
+    home_flag: FLAGS[home] ?? "🏳️",
+    away_flag: FLAGS[away] ?? "🏳️",
+    match_date: date,
+    phase: "grupos" as const,
+    group: g,
+    home_score: null,
+    away_score: null,
+    status: "scheduled" as const,
+  }));
 }
 
-function makeBracket(phase: MatchPhase, count: number, idPrefix: string): MockMatch[] {
+function makeBracket(phase: MatchPhase, count: number, idPrefix: string, baseDate: string): MockMatch[] {
   return Array.from({ length: count }).map((_, i) => ({
     id: `${idPrefix}${i}`,
     home_team: "—",
     away_team: "—",
     home_flag: "🏳️",
     away_flag: "🏳️",
-    match_date: "2026-07-01T16:00:00Z",
+    match_date: baseDate,
     phase,
     home_score: null,
     away_score: null,
@@ -66,8 +139,10 @@ function makeBracket(phase: MatchPhase, count: number, idPrefix: string): MockMa
 
 export const mockMatches: MockMatch[] = [
   ...makeGroupMatches(),
-  ...makeBracket("oitavas", 8, "o"),
-  ...makeBracket("quartas", 4, "q"),
-  ...makeBracket("semi", 2, "s"),
-  ...makeBracket("final", 1, "f"),
+  // Copa 2026 traz uma fase a mais: 16-avos (32 → 16) com 16 jogos
+  ...makeBracket("r32", 16, "r", "2026-06-30T16:00:00Z"),
+  ...makeBracket("oitavas", 8, "o", "2026-07-04T16:00:00Z"),
+  ...makeBracket("quartas", 4, "q", "2026-07-09T16:00:00Z"),
+  ...makeBracket("semi", 2, "s", "2026-07-14T20:00:00Z"),
+  ...makeBracket("final", 1, "f", "2026-07-19T16:00:00Z"),
 ];
