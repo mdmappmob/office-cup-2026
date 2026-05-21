@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAppStore } from "@/store/app-store";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,23 +6,41 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
-  Accordion, AccordionContent, AccordionItem, AccordionTrigger,
-} from "@/components/ui/accordion";
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import {
+  Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
+} from "@/components/ui/sheet";
+import { Separator } from "@/components/ui/separator";
 import { PHASE_LABEL, PHASE_ORDER, type MatchPhase } from "@/mocks/types";
-import { Lock, Sparkles, Users, Goal, Brain } from "lucide-react";
+import { Lock, Sparkles, Users, Goal, Brain, Settings2, CheckCircle2 } from "lucide-react";
 import { analyzeMatch } from "@/lib/copilot";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 
 export function PalpitesPage() {
   const unlocked = useAppStore((s) => s.unlockedPhases());
   const [activePhase, setActivePhase] = useState<MatchPhase>("grupos");
+  const [detailMatchId, setDetailMatchId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        toast.success("Palpites salvos", { description: "Sincronizados localmente." });
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
-    <div className="max-w-5xl mx-auto px-8 py-10">
+    <div className="max-w-6xl mx-auto px-8 py-10">
       <header className="mb-8">
         <h1 className="text-3xl font-bold tracking-tighter">Palpites</h1>
         <p className="text-sm text-muted-foreground">
-          Preencha todos os jogos de uma fase para liberar a próxima.
+          Preencha todos os jogos de uma fase para liberar a próxima. Use{" "}
+          <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded border border-border bg-muted">Ctrl + S</kbd> para salvar.
         </p>
       </header>
 
@@ -53,8 +71,14 @@ export function PalpitesPage() {
       <PhaseProgress phase={activePhase} />
 
       <div className="mt-6 space-y-3">
-        <MatchListByGroup phase={activePhase} />
+        <MatchListByGroup phase={activePhase} onOpenDetails={setDetailMatchId} />
       </div>
+
+      <Sheet open={!!detailMatchId} onOpenChange={(o) => !o && setDetailMatchId(null)}>
+        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+          {detailMatchId && <MatchDetailsSheet matchId={detailMatchId} />}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
@@ -73,7 +97,9 @@ function PhaseProgress({ phase }: { phase: MatchPhase }) {
   );
 }
 
-function MatchListByGroup({ phase }: { phase: MatchPhase }) {
+function MatchListByGroup({
+  phase, onOpenDetails,
+}: { phase: MatchPhase; onOpenDetails: (id: string) => void }) {
   const matches = useAppStore((s) => s.matchesByPhase(phase));
   const grouped = useMemo(() => {
     if (phase !== "grupos") return { __all: matches };
@@ -85,27 +111,161 @@ function MatchListByGroup({ phase }: { phase: MatchPhase }) {
     }, {});
   }, [matches, phase]);
 
+  if (phase !== "grupos") {
+    return (
+      <div className="space-y-3">
+        {matches.map((m) => (
+          <BracketRow key={m.id} matchId={m.id} onOpenDetails={onOpenDetails} />
+        ))}
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {Object.entries(grouped).map(([groupKey, gMatches]) => (
-        <div key={groupKey}>
-          {phase === "grupos" && (
-            <h3 className="text-xs font-mono uppercase tracking-widest text-muted-foreground mb-3 mt-4">
-              Grupo {groupKey}
-            </h3>
-          )}
-          <div className="space-y-3">
-            {gMatches.map((m) => (
-              <MatchCard key={m.id} matchId={m.id} />
-            ))}
-          </div>
-        </div>
+        <GroupTable
+          key={groupKey}
+          groupKey={groupKey}
+          matchIds={gMatches.map((m) => m.id)}
+          onOpenDetails={onOpenDetails}
+        />
       ))}
     </div>
   );
 }
 
-function MatchCard({ matchId }: { matchId: string }) {
+function GroupTable({
+  groupKey, matchIds, onOpenDetails,
+}: { groupKey: string; matchIds: string[]; onOpenDetails: (id: string) => void }) {
+  const filledCount = useAppStore((s) =>
+    matchIds.filter((id) => {
+      const p = s.predictionFor(id);
+      return p && p.predicted_home_score !== null && p.predicted_away_score !== null;
+    }).length,
+  );
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2 }}
+      className="border border-border rounded-md bg-card overflow-hidden"
+    >
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
+        <div className="flex items-center gap-3">
+          <h3 className="text-sm font-bold tracking-tight">Grupo {groupKey}</h3>
+          <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+            {matchIds.length} jogos
+          </span>
+        </div>
+        <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+          {filledCount} / {matchIds.length} preenchidos
+        </span>
+      </div>
+      <Table>
+        <TableHeader>
+          <TableRow className="bg-muted/10 hover:bg-muted/10">
+            <TableHead className="font-mono text-[10px] uppercase tracking-widest w-[110px]">Data</TableHead>
+            <TableHead className="font-mono text-[10px] uppercase tracking-widest text-right">Mandante</TableHead>
+            <TableHead className="font-mono text-[10px] uppercase tracking-widest text-center w-[160px]">Placar</TableHead>
+            <TableHead className="font-mono text-[10px] uppercase tracking-widest">Visitante</TableHead>
+            <TableHead className="font-mono text-[10px] uppercase tracking-widest text-center w-[90px]">Status</TableHead>
+            <TableHead className="w-[50px]"></TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {matchIds.map((id) => (
+            <MatchRow key={id} matchId={id} onOpenDetails={onOpenDetails} />
+          ))}
+        </TableBody>
+      </Table>
+    </motion.div>
+  );
+}
+
+function MatchRow({
+  matchId, onOpenDetails,
+}: { matchId: string; onOpenDetails: (id: string) => void }) {
+  const match = useAppStore((s) => s.matches.find((x) => x.id === matchId)!);
+  const prediction = useAppStore((s) => s.predictionFor(matchId));
+  const upsert = useAppStore((s) => s.upsertPrediction);
+  const tbd = match.home_team === "—" || match.away_team === "—";
+  const filled =
+    prediction?.predicted_home_score !== null && prediction?.predicted_home_score !== undefined &&
+    prediction?.predicted_away_score !== null && prediction?.predicted_away_score !== undefined;
+
+  const dateStr = new Date(match.match_date).toLocaleDateString("pt-BR", {
+    day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
+  });
+
+  return (
+    <TableRow className={filled ? "bg-accent/5" : ""}>
+      <TableCell className="font-mono text-xs text-muted-foreground">{dateStr}</TableCell>
+      <TableCell className="text-right">
+        <div className="flex items-center gap-2 justify-end">
+          <span className="font-semibold text-sm">{match.home_team}</span>
+          <span className="text-lg">{match.home_flag}</span>
+        </div>
+      </TableCell>
+      <TableCell>
+        <div className="flex items-center gap-1.5 justify-center">
+          <Input
+            type="number"
+            min={0}
+            disabled={tbd}
+            className="w-12 h-9 text-center font-mono text-base font-bold p-0"
+            value={prediction?.predicted_home_score ?? ""}
+            onChange={(e) =>
+              upsert(matchId, { predicted_home_score: e.target.value === "" ? null : Number(e.target.value) })
+            }
+          />
+          <span className="text-muted-foreground font-mono text-xs">×</span>
+          <Input
+            type="number"
+            min={0}
+            disabled={tbd}
+            className="w-12 h-9 text-center font-mono text-base font-bold p-0"
+            value={prediction?.predicted_away_score ?? ""}
+            onChange={(e) =>
+              upsert(matchId, { predicted_away_score: e.target.value === "" ? null : Number(e.target.value) })
+            }
+          />
+        </div>
+      </TableCell>
+      <TableCell>
+        <div className="flex items-center gap-2">
+          <span className="text-lg">{match.away_flag}</span>
+          <span className="font-semibold text-sm">{match.away_team}</span>
+        </div>
+      </TableCell>
+      <TableCell className="text-center">
+        {filled ? (
+          <Badge className="bg-accent/15 text-accent border-accent/30 hover:bg-accent/15 font-mono text-[10px]">
+            <CheckCircle2 className="size-3 mr-1" /> OK
+          </Badge>
+        ) : (
+          <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">—</span>
+        )}
+      </TableCell>
+      <TableCell>
+        <Button
+          size="icon"
+          variant="ghost"
+          disabled={tbd}
+          onClick={() => onOpenDetails(matchId)}
+          title="Detalhes (escalação, artilheiros, Copilot)"
+        >
+          <Settings2 className="size-4" />
+        </Button>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+function BracketRow({
+  matchId, onOpenDetails,
+}: { matchId: string; onOpenDetails: (id: string) => void }) {
   const match = useAppStore((s) => s.matches.find((x) => x.id === matchId)!);
   const prediction = useAppStore((s) => s.predictionFor(matchId));
   const upsert = useAppStore((s) => s.upsertPrediction);
@@ -115,81 +275,76 @@ function MatchCard({ matchId }: { matchId: string }) {
     prediction?.predicted_away_score !== null && prediction?.predicted_away_score !== undefined;
 
   return (
-    <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
-      <Card className={`overflow-hidden transition-colors ${filled ? "border-accent/40" : ""}`}>
-        <CardContent className="p-0">
-          <div className="p-5">
-            <div className="flex items-center justify-between mb-4 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              <span>{new Date(match.match_date).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
-              {filled && <Badge className="bg-accent/15 text-accent border-accent/30 hover:bg-accent/15">PALPITE OK</Badge>}
-            </div>
+    <Card className={`transition-colors ${filled ? "border-accent/40" : ""}`}>
+      <CardContent className="p-4 grid grid-cols-[1fr_auto_1fr_auto] items-center gap-4">
+        <div className="flex items-center gap-3 justify-end">
+          <span className="font-semibold">{match.home_team}</span>
+          <span className="text-2xl">{match.home_flag}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Input
+            type="number" min={0} disabled={tbd}
+            className="w-12 h-10 text-center font-mono text-lg font-bold p-0"
+            value={prediction?.predicted_home_score ?? ""}
+            onChange={(e) => upsert(matchId, { predicted_home_score: e.target.value === "" ? null : Number(e.target.value) })}
+          />
+          <span className="text-muted-foreground font-mono">×</span>
+          <Input
+            type="number" min={0} disabled={tbd}
+            className="w-12 h-10 text-center font-mono text-lg font-bold p-0"
+            value={prediction?.predicted_away_score ?? ""}
+            onChange={(e) => upsert(matchId, { predicted_away_score: e.target.value === "" ? null : Number(e.target.value) })}
+          />
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">{match.away_flag}</span>
+          <span className="font-semibold">{match.away_team}</span>
+        </div>
+        <Button size="icon" variant="ghost" disabled={tbd} onClick={() => onOpenDetails(matchId)}>
+          <Settings2 className="size-4" />
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
 
-            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
-              <div className="flex items-center gap-3 justify-end">
-                <span className="font-semibold text-right">{match.home_team}</span>
-                <span className="text-2xl">{match.home_flag}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  min={0}
-                  disabled={tbd}
-                  className="w-14 h-12 text-center font-mono text-xl font-bold"
-                  value={prediction?.predicted_home_score ?? ""}
-                  onChange={(e) =>
-                    upsert(matchId, { predicted_home_score: e.target.value === "" ? null : Number(e.target.value) })
-                  }
-                />
-                <span className="text-muted-foreground font-mono">×</span>
-                <Input
-                  type="number"
-                  min={0}
-                  disabled={tbd}
-                  className="w-14 h-12 text-center font-mono text-xl font-bold"
-                  value={prediction?.predicted_away_score ?? ""}
-                  onChange={(e) =>
-                    upsert(matchId, { predicted_away_score: e.target.value === "" ? null : Number(e.target.value) })
-                  }
-                />
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">{match.away_flag}</span>
-                <span className="font-semibold">{match.away_team}</span>
-              </div>
-            </div>
-          </div>
-
-          {!tbd && (
-            <Accordion type="multiple" className="border-t border-border bg-muted/20">
-              <AccordionItem value="lineup" className="border-0">
-                <AccordionTrigger className="px-5 py-3 text-xs font-mono uppercase tracking-widest hover:no-underline">
-                  <span className="flex items-center gap-2"><Users className="size-3.5" /> Escalações</span>
-                </AccordionTrigger>
-                <AccordionContent className="px-5 pb-4">
-                  <LineupForm matchId={matchId} />
-                </AccordionContent>
-              </AccordionItem>
-              <AccordionItem value="scorers" className="border-0 border-t border-border">
-                <AccordionTrigger className="px-5 py-3 text-xs font-mono uppercase tracking-widest hover:no-underline">
-                  <span className="flex items-center gap-2"><Goal className="size-3.5" /> Artilheiros do jogo</span>
-                </AccordionTrigger>
-                <AccordionContent className="px-5 pb-4">
-                  <ScorersForm matchId={matchId} />
-                </AccordionContent>
-              </AccordionItem>
-              <AccordionItem value="copilot" className="border-0 border-t border-border">
-                <AccordionTrigger className="px-5 py-3 text-xs font-mono uppercase tracking-widest hover:no-underline">
-                  <span className="flex items-center gap-2"><Brain className="size-3.5 text-primary" /> Copilot das Zebras</span>
-                </AccordionTrigger>
-                <AccordionContent className="px-5 pb-4">
-                  <CopilotPanel matchId={matchId} />
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-          )}
-        </CardContent>
-      </Card>
-    </motion.div>
+function MatchDetailsSheet({ matchId }: { matchId: string }) {
+  const match = useAppStore((s) => s.matches.find((x) => x.id === matchId)!);
+  return (
+    <>
+      <SheetHeader>
+        <SheetTitle className="flex items-center gap-2 text-base">
+          <span className="text-xl">{match.home_flag}</span>
+          {match.home_team} <span className="text-muted-foreground font-mono">×</span> {match.away_team}
+          <span className="text-xl">{match.away_flag}</span>
+        </SheetTitle>
+        <SheetDescription className="font-mono text-[10px] uppercase tracking-widest">
+          {new Date(match.match_date).toLocaleString("pt-BR")}
+        </SheetDescription>
+      </SheetHeader>
+      <div className="mt-6 space-y-6">
+        <section>
+          <h4 className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground mb-3">
+            <Users className="size-3.5" /> Escalações
+          </h4>
+          <LineupForm matchId={matchId} />
+        </section>
+        <Separator />
+        <section>
+          <h4 className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground mb-3">
+            <Goal className="size-3.5" /> Artilheiros do jogo
+          </h4>
+          <ScorersForm matchId={matchId} />
+        </section>
+        <Separator />
+        <section>
+          <h4 className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground mb-3">
+            <Brain className="size-3.5 text-primary" /> Copilot das Zebras
+          </h4>
+          <CopilotPanel matchId={matchId} />
+        </section>
+      </div>
+    </>
   );
 }
 
