@@ -19,7 +19,23 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 
 export function PalpitesPage() {
-  const unlocked = useAppStore((s) => s.unlockedPhases());
+  const matches = useAppStore((s) => s.matches);
+  const predictions = useAppStore((s) => s.predictions);
+  const unlocked = useMemo(() => {
+    const isFilled = (id: string) => {
+      const p = predictions.find((x) => x.match_id === id);
+      return !!p && p.predicted_home_score !== null && p.predicted_away_score !== null;
+    };
+    const result: MatchPhase[] = ["grupos"];
+    for (let i = 1; i < PHASE_ORDER.length; i++) {
+      const prev = PHASE_ORDER[i - 1];
+      const prevMatches = matches.filter((m) => m.phase === prev);
+      if (prevMatches.length > 0 && prevMatches.every((m) => isFilled(m.id))) {
+        result.push(PHASE_ORDER[i]);
+      } else break;
+    }
+    return result;
+  }, [matches, predictions]);
   const [activePhase, setActivePhase] = useState<MatchPhase>("grupos");
   const [detailMatchId, setDetailMatchId] = useState<string | null>(null);
 
@@ -84,7 +100,16 @@ export function PalpitesPage() {
 }
 
 function PhaseProgress({ phase }: { phase: MatchPhase }) {
-  const progress = useAppStore((s) => s.phaseProgress(phase));
+  const matches = useAppStore((s) => s.matches);
+  const predictions = useAppStore((s) => s.predictions);
+  const progress = useMemo(() => {
+    const ms = matches.filter((m) => m.phase === phase);
+    const filled = ms.filter((m) => {
+      const p = predictions.find((x) => x.match_id === m.id);
+      return !!p && p.predicted_home_score !== null && p.predicted_away_score !== null;
+    }).length;
+    return { filled, total: ms.length };
+  }, [matches, predictions, phase]);
   const pct = progress.total === 0 ? 0 : (progress.filled / progress.total) * 100;
   return (
     <div className="border border-border rounded-md bg-card p-4">
@@ -100,7 +125,8 @@ function PhaseProgress({ phase }: { phase: MatchPhase }) {
 function MatchListByGroup({
   phase, onOpenDetails,
 }: { phase: MatchPhase; onOpenDetails: (id: string) => void }) {
-  const matches = useAppStore((s) => s.matchesByPhase(phase));
+  const allMatches = useAppStore((s) => s.matches);
+  const matches = useMemo(() => allMatches.filter((m) => m.phase === phase), [allMatches, phase]);
   const grouped = useMemo(() => {
     if (phase !== "grupos") return { __all: matches };
     return matches.reduce<Record<string, typeof matches>>((acc, m) => {
@@ -138,11 +164,14 @@ function MatchListByGroup({
 function GroupTable({
   groupKey, matchIds, onOpenDetails,
 }: { groupKey: string; matchIds: string[]; onOpenDetails: (id: string) => void }) {
-  const filledCount = useAppStore((s) =>
-    matchIds.filter((id) => {
-      const p = s.predictionFor(id);
-      return p && p.predicted_home_score !== null && p.predicted_away_score !== null;
-    }).length,
+  const predictions = useAppStore((s) => s.predictions);
+  const filledCount = useMemo(
+    () =>
+      matchIds.filter((id) => {
+        const p = predictions.find((x) => x.match_id === id);
+        return !!p && p.predicted_home_score !== null && p.predicted_away_score !== null;
+      }).length,
+    [matchIds, predictions],
   );
 
   return (
@@ -188,7 +217,7 @@ function MatchRow({
   matchId, onOpenDetails,
 }: { matchId: string; onOpenDetails: (id: string) => void }) {
   const match = useAppStore((s) => s.matches.find((x) => x.id === matchId)!);
-  const prediction = useAppStore((s) => s.predictionFor(matchId));
+  const prediction = useAppStore((s) => s.predictions.find((p) => p.match_id === matchId));
   const upsert = useAppStore((s) => s.upsertPrediction);
   const tbd = match.home_team === "—" || match.away_team === "—";
   const filled =
@@ -267,7 +296,7 @@ function BracketRow({
   matchId, onOpenDetails,
 }: { matchId: string; onOpenDetails: (id: string) => void }) {
   const match = useAppStore((s) => s.matches.find((x) => x.id === matchId)!);
-  const prediction = useAppStore((s) => s.predictionFor(matchId));
+  const prediction = useAppStore((s) => s.predictions.find((p) => p.match_id === matchId));
   const upsert = useAppStore((s) => s.upsertPrediction);
   const tbd = match.home_team === "—" || match.away_team === "—";
   const filled =
@@ -349,7 +378,7 @@ function MatchDetailsSheet({ matchId }: { matchId: string }) {
 }
 
 function LineupForm({ matchId }: { matchId: string }) {
-  const prediction = useAppStore((s) => s.predictionFor(matchId));
+  const prediction = useAppStore((s) => s.predictions.find((p) => p.match_id === matchId));
   const match = useAppStore((s) => s.matches.find((x) => x.id === matchId)!);
   const upsert = useAppStore((s) => s.upsertPrediction);
   const [home, setHome] = useState(prediction?.predicted_home_lineup?.join(", ") ?? "");
@@ -377,7 +406,7 @@ function LineupForm({ matchId }: { matchId: string }) {
 }
 
 function ScorersForm({ matchId }: { matchId: string }) {
-  const prediction = useAppStore((s) => s.predictionFor(matchId));
+  const prediction = useAppStore((s) => s.predictions.find((p) => p.match_id === matchId));
   const upsert = useAppStore((s) => s.upsertPrediction);
   const [val, setVal] = useState(prediction?.predicted_goalscorers?.join(", ") ?? "");
   return (
@@ -395,7 +424,7 @@ function ScorersForm({ matchId }: { matchId: string }) {
 
 function CopilotPanel({ matchId }: { matchId: string }) {
   const match = useAppStore((s) => s.matches.find((x) => x.id === matchId)!);
-  const prediction = useAppStore((s) => s.predictionFor(matchId));
+  const prediction = useAppStore((s) => s.predictions.find((p) => p.match_id === matchId));
   const upsert = useAppStore((s) => s.upsertPrediction);
   const analysis = useMemo(() => analyzeMatch(match, prediction), [match, prediction]);
 
