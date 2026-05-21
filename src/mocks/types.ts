@@ -1,7 +1,8 @@
-export type MatchPhase = "grupos" | "oitavas" | "quartas" | "semi" | "final";
-export const PHASE_ORDER: MatchPhase[] = ["grupos", "oitavas", "quartas", "semi", "final"];
+export type MatchPhase = "grupos" | "r32" | "oitavas" | "quartas" | "semi" | "final";
+export const PHASE_ORDER: MatchPhase[] = ["grupos", "r32", "oitavas", "quartas", "semi", "final"];
 export const PHASE_LABEL: Record<MatchPhase, string> = {
   grupos: "Fase de Grupos",
+  r32: "16-avos de Final",
   oitavas: "Oitavas de Final",
   quartas: "Quartas de Final",
   semi: "Semifinais",
