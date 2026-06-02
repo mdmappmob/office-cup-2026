@@ -8,14 +8,12 @@ import { Progress } from "@/components/ui/progress";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import {
-  Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
-} from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { PHASE_LABEL, PHASE_ORDER, type MatchPhase } from "@/mocks/types";
-import { Lock, Sparkles, Users, Goal, Brain, Settings2, CheckCircle2 } from "lucide-react";
+import { Lock, Sparkles, Users, Goal, Brain, ChevronDown, CheckCircle2, X } from "lucide-react";
 import { analyzeMatch } from "@/lib/copilot";
-import { motion } from "framer-motion";
+import { matchesRepo, predictionsRepo } from "@/lib/db";
+import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
 export function PalpitesPage() {
@@ -37,7 +35,7 @@ export function PalpitesPage() {
     return result;
   }, [matches, predictions]);
   const [activePhase, setActivePhase] = useState<MatchPhase>("grupos");
-  const [detailMatchId, setDetailMatchId] = useState<string | null>(null);
+  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -87,14 +85,13 @@ export function PalpitesPage() {
       <PhaseProgress phase={activePhase} />
 
       <div className="mt-6 space-y-3">
-        <MatchListByGroup phase={activePhase} onOpenDetails={setDetailMatchId} />
+        <MatchListByGroup
+          phase={activePhase}
+          selectedMatchId={selectedMatchId}
+          onSelect={(id) => setSelectedMatchId((cur) => (cur === id ? null : id))}
+          onClear={() => setSelectedMatchId(null)}
+        />
       </div>
-
-      <Sheet open={!!detailMatchId} onOpenChange={(o) => !o && setDetailMatchId(null)}>
-        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
-          {detailMatchId && <MatchDetailsSheet matchId={detailMatchId} />}
-        </SheetContent>
-      </Sheet>
     </div>
   );
 }
@@ -123,8 +120,13 @@ function PhaseProgress({ phase }: { phase: MatchPhase }) {
 }
 
 function MatchListByGroup({
-  phase, onOpenDetails,
-}: { phase: MatchPhase; onOpenDetails: (id: string) => void }) {
+  phase, selectedMatchId, onSelect, onClear,
+}: {
+  phase: MatchPhase;
+  selectedMatchId: string | null;
+  onSelect: (id: string) => void;
+  onClear: () => void;
+}) {
   const allMatches = useAppStore((s) => s.matches);
   const matches = useMemo(() => allMatches.filter((m) => m.phase === phase), [allMatches, phase]);
   const grouped = useMemo(() => {
@@ -141,7 +143,18 @@ function MatchListByGroup({
     return (
       <div className="space-y-3">
         {matches.map((m) => (
-          <BracketRow key={m.id} matchId={m.id} onOpenDetails={onOpenDetails} />
+          <div key={m.id}>
+            <BracketRow
+              matchId={m.id}
+              isSelected={selectedMatchId === m.id}
+              onSelect={onSelect}
+            />
+            <AnimatePresence initial={false}>
+              {selectedMatchId === m.id && (
+                <MatchDetailsInline matchId={m.id} onClose={onClear} />
+              )}
+            </AnimatePresence>
+          </div>
         ))}
       </div>
     );
@@ -154,7 +167,9 @@ function MatchListByGroup({
           key={groupKey}
           groupKey={groupKey}
           matchIds={gMatches.map((m) => m.id)}
-          onOpenDetails={onOpenDetails}
+          selectedMatchId={selectedMatchId}
+          onSelect={onSelect}
+          onClear={onClear}
         />
       ))}
     </div>
@@ -162,8 +177,14 @@ function MatchListByGroup({
 }
 
 function GroupTable({
-  groupKey, matchIds, onOpenDetails,
-}: { groupKey: string; matchIds: string[]; onOpenDetails: (id: string) => void }) {
+  groupKey, matchIds, selectedMatchId, onSelect, onClear,
+}: {
+  groupKey: string;
+  matchIds: string[];
+  selectedMatchId: string | null;
+  onSelect: (id: string) => void;
+  onClear: () => void;
+}) {
   const predictions = useAppStore((s) => s.predictions);
   const filledCount = useMemo(
     () =>
@@ -173,6 +194,7 @@ function GroupTable({
       }).length,
     [matchIds, predictions],
   );
+  const selectedInGroup = selectedMatchId && matchIds.includes(selectedMatchId) ? selectedMatchId : null;
 
   return (
     <motion.div
@@ -205,20 +227,30 @@ function GroupTable({
         </TableHeader>
         <TableBody>
           {matchIds.map((id) => (
-            <MatchRow key={id} matchId={id} onOpenDetails={onOpenDetails} />
+            <MatchRow
+              key={id}
+              matchId={id}
+              isSelected={selectedInGroup === id}
+              onSelect={onSelect}
+            />
           ))}
         </TableBody>
       </Table>
+      <AnimatePresence initial={false}>
+        {selectedInGroup && (
+          <MatchDetailsInline matchId={selectedInGroup} onClose={onClear} />
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
 
 function MatchRow({
-  matchId, onOpenDetails,
-}: { matchId: string; onOpenDetails: (id: string) => void }) {
+  matchId, isSelected, onSelect,
+}: { matchId: string; isSelected: boolean; onSelect: (id: string) => void }) {
   const match = useAppStore((s) => s.matches.find((x) => x.id === matchId)!);
   const prediction = useAppStore((s) => s.predictions.find((p) => p.match_id === matchId));
-  const upsert = useAppStore((s) => s.upsertPrediction);
+  const upsert = predictionsRepo.upsertPrediction;
   const tbd = match.home_team === "—" || match.away_team === "—";
   const filled =
     prediction?.predicted_home_score !== null && prediction?.predicted_home_score !== undefined &&
@@ -228,8 +260,24 @@ function MatchRow({
     day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
   });
 
+  const analysis = useMemo(
+    () => (filled ? analyzeMatch(match, prediction) : null),
+    [filled, match, prediction],
+  );
+  const isZebra = !!analysis?.isZebra;
+
+  // Sincroniza flag is_zebra automaticamente conforme heurística (sem loop).
+  useEffect(() => {
+    if (!prediction) return;
+    if (isZebra !== prediction.is_zebra) {
+      upsert(matchId, { is_zebra: isZebra });
+    }
+  }, [isZebra, prediction, matchId, upsert]);
+
   return (
-    <TableRow className={filled ? "bg-accent/5" : ""}>
+    <TableRow
+      className={`${filled ? "bg-accent/5" : ""} ${isSelected ? "bg-accent/10 border-l-2 border-l-primary" : ""}`}
+    >
       <TableCell className="font-mono text-xs text-muted-foreground">{dateStr}</TableCell>
       <TableCell className="text-right">
         <div className="flex items-center gap-2 justify-end">
@@ -269,7 +317,11 @@ function MatchRow({
         </div>
       </TableCell>
       <TableCell className="text-center">
-        {filled ? (
+        {isZebra ? (
+          <Badge className="bg-primary/15 text-primary border-primary/30 hover:bg-primary/15 font-mono text-[10px]">
+            ZEBRA
+          </Badge>
+        ) : filled ? (
           <Badge className="bg-accent/15 text-accent border-accent/30 hover:bg-accent/15 font-mono text-[10px]">
             <CheckCircle2 className="size-3 mr-1" /> OK
           </Badge>
@@ -280,12 +332,18 @@ function MatchRow({
       <TableCell>
         <Button
           size="icon"
-          variant="ghost"
+          variant={isSelected ? "secondary" : "ghost"}
           disabled={tbd}
-          onClick={() => onOpenDetails(matchId)}
-          title="Detalhes (escalação, artilheiros, Copilot)"
+          onClick={() => onSelect(matchId)}
+          title={isZebra ? "Zebra detectada — abrir análise" : "Detalhes (escalação, artilheiros, Copilot)"}
         >
-          <Settings2 className="size-4" />
+          {isZebra ? (
+            <span className="text-base leading-none" aria-label="zebra">🦓</span>
+          ) : (
+            <ChevronDown
+              className={`size-4 transition-transform ${isSelected ? "rotate-180" : ""}`}
+            />
+          )}
         </Button>
       </TableCell>
     </TableRow>
@@ -293,18 +351,30 @@ function MatchRow({
 }
 
 function BracketRow({
-  matchId, onOpenDetails,
-}: { matchId: string; onOpenDetails: (id: string) => void }) {
+  matchId, isSelected, onSelect,
+}: { matchId: string; isSelected: boolean; onSelect: (id: string) => void }) {
   const match = useAppStore((s) => s.matches.find((x) => x.id === matchId)!);
   const prediction = useAppStore((s) => s.predictions.find((p) => p.match_id === matchId));
-  const upsert = useAppStore((s) => s.upsertPrediction);
+  const upsert = predictionsRepo.upsertPrediction;
   const tbd = match.home_team === "—" || match.away_team === "—";
   const filled =
     prediction?.predicted_home_score !== null && prediction?.predicted_home_score !== undefined &&
     prediction?.predicted_away_score !== null && prediction?.predicted_away_score !== undefined;
+  const analysis = useMemo(
+    () => (filled ? analyzeMatch(match, prediction) : null),
+    [filled, match, prediction],
+  );
+  const isZebra = !!analysis?.isZebra;
+
+  useEffect(() => {
+    if (!prediction) return;
+    if (isZebra !== prediction.is_zebra) {
+      upsert(matchId, { is_zebra: isZebra });
+    }
+  }, [isZebra, prediction, matchId, upsert]);
 
   return (
-    <Card className={`transition-colors ${filled ? "border-accent/40" : ""}`}>
+    <Card className={`transition-colors ${isSelected ? "border-primary" : filled ? "border-accent/40" : ""}`}>
       <CardContent className="p-4 grid grid-cols-[1fr_auto_1fr_auto] items-center gap-4">
         <div className="flex items-center gap-3 justify-end">
           <span className="font-semibold">{match.home_team}</span>
@@ -329,58 +399,83 @@ function BracketRow({
           <span className="text-2xl">{match.away_flag}</span>
           <span className="font-semibold">{match.away_team}</span>
         </div>
-        <Button size="icon" variant="ghost" disabled={tbd} onClick={() => onOpenDetails(matchId)}>
-          <Settings2 className="size-4" />
+        <Button
+          size="icon"
+          variant={isSelected ? "secondary" : "ghost"}
+          disabled={tbd}
+          onClick={() => onSelect(matchId)}
+          title={isZebra ? "Zebra detectada — abrir análise" : "Detalhes"}
+        >
+          {isZebra ? (
+            <span className="text-base leading-none" aria-label="zebra">🦓</span>
+          ) : (
+            <ChevronDown className={`size-4 transition-transform ${isSelected ? "rotate-180" : ""}`} />
+          )}
         </Button>
       </CardContent>
     </Card>
   );
 }
 
-function MatchDetailsSheet({ matchId }: { matchId: string }) {
-  const match = useAppStore((s) => s.matches.find((x) => x.id === matchId)!);
+function MatchDetailsInline({ matchId, onClose }: { matchId: string; onClose: () => void }) {
+  const match = matchesRepo.getMatch(matchId);
+  if (!match) return null;
   return (
-    <>
-      <SheetHeader>
-        <SheetTitle className="flex items-center gap-2 text-base">
-          <span className="text-xl">{match.home_flag}</span>
-          {match.home_team} <span className="text-muted-foreground font-mono">×</span> {match.away_team}
-          <span className="text-xl">{match.away_flag}</span>
-        </SheetTitle>
-        <SheetDescription className="font-mono text-[10px] uppercase tracking-widest">
-          {new Date(match.match_date).toLocaleString("pt-BR")}
-        </SheetDescription>
-      </SheetHeader>
-      <div className="mt-6 space-y-6">
-        <section>
-          <h4 className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground mb-3">
-            <Users className="size-3.5" /> Escalações
-          </h4>
-          <LineupForm matchId={matchId} />
-        </section>
-        <Separator />
-        <section>
-          <h4 className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground mb-3">
-            <Goal className="size-3.5" /> Artilheiros do jogo
-          </h4>
-          <ScorersForm matchId={matchId} />
-        </section>
-        <Separator />
-        <section>
-          <h4 className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground mb-3">
-            <Brain className="size-3.5 text-primary" /> Copilot das Zebras
-          </h4>
-          <CopilotPanel matchId={matchId} />
-        </section>
+    <motion.div
+      key={matchId}
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: "auto" }}
+      exit={{ opacity: 0, height: 0 }}
+      transition={{ duration: 0.18 }}
+      className="overflow-hidden border-t border-dashed border-border bg-muted/10"
+    >
+      <div className="px-4 py-5">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <div className="flex items-center gap-2 text-sm font-bold">
+              <span className="text-lg">{match.home_flag}</span>
+              {match.home_team}
+              <span className="text-muted-foreground font-mono">×</span>
+              {match.away_team}
+              <span className="text-lg">{match.away_flag}</span>
+            </div>
+            <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mt-1">
+              {new Date(match.match_date).toLocaleString("pt-BR")}
+            </div>
+          </div>
+          <Button size="icon" variant="ghost" onClick={onClose} title="Fechar">
+            <X className="size-4" />
+          </Button>
+        </div>
+        <div className="grid lg:grid-cols-3 gap-5">
+          <section>
+            <h4 className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground mb-3">
+              <Users className="size-3.5" /> Escalações
+            </h4>
+            <LineupForm matchId={matchId} />
+          </section>
+          <section>
+            <h4 className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground mb-3">
+              <Goal className="size-3.5" /> Artilheiros do jogo
+            </h4>
+            <ScorersForm matchId={matchId} />
+          </section>
+          <section>
+            <h4 className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground mb-3">
+              <Brain className="size-3.5 text-primary" /> Copilot das Zebras
+            </h4>
+            <CopilotPanel matchId={matchId} />
+          </section>
+        </div>
       </div>
-    </>
+    </motion.div>
   );
 }
 
 function LineupForm({ matchId }: { matchId: string }) {
   const prediction = useAppStore((s) => s.predictions.find((p) => p.match_id === matchId));
   const match = useAppStore((s) => s.matches.find((x) => x.id === matchId)!);
-  const upsert = useAppStore((s) => s.upsertPrediction);
+  const upsert = predictionsRepo.upsertPrediction;
   const [home, setHome] = useState(prediction?.predicted_home_lineup?.join(", ") ?? "");
   const [away, setAway] = useState(prediction?.predicted_away_lineup?.join(", ") ?? "");
 
@@ -407,7 +502,7 @@ function LineupForm({ matchId }: { matchId: string }) {
 
 function ScorersForm({ matchId }: { matchId: string }) {
   const prediction = useAppStore((s) => s.predictions.find((p) => p.match_id === matchId));
-  const upsert = useAppStore((s) => s.upsertPrediction);
+  const upsert = predictionsRepo.upsertPrediction;
   const [val, setVal] = useState(prediction?.predicted_goalscorers?.join(", ") ?? "");
   return (
     <div>
@@ -425,7 +520,7 @@ function ScorersForm({ matchId }: { matchId: string }) {
 function CopilotPanel({ matchId }: { matchId: string }) {
   const match = useAppStore((s) => s.matches.find((x) => x.id === matchId)!);
   const prediction = useAppStore((s) => s.predictions.find((p) => p.match_id === matchId));
-  const upsert = useAppStore((s) => s.upsertPrediction);
+  const upsert = predictionsRepo.upsertPrediction;
   const analysis = useMemo(() => analyzeMatch(match, prediction), [match, prediction]);
 
   return (

@@ -1,39 +1,62 @@
-## Diagnóstico
+# Plano: Painel inline, zebrinha automática e camada de dados
 
-A rota `/palpites` está registrada e o link funciona, mas a tela atual apresenta os jogos como **cards verticais**, o que não corresponde ao formato esperado. A referência enviada mostra uma **tabela de jogos por grupo** (estilo FIFA), e é isso que será implementado.
+## 1. Camada de acesso "tipo DB" (pronta pra trocar por SQLite/Postgres)
 
-Também há um bug pequeno: na fase de grupos, o `mockMatches` só gera **2 jogos por grupo** (ex.: A×B e C×D). O correto na Copa é **6 jogos por grupo** (todos contra todos). Sem isso a tabela de classificação derivada dos palpites não fecha.
+Novo arquivo `src/lib/db/index.ts` com uma interface única `MatchesRepo` e `PredictionsRepo`:
 
-## O que será feito
+- `listMatches()`, `getMatch(id)`, `listByPhase(phase)`, `listByGroup(group)`
+- `getPrediction(matchId)`, `upsertPrediction(matchId, patch)`, `listPredictions()`
 
-### 1. Corrigir geração de jogos da fase de grupos
-Arquivo: `src/mocks/matches.ts`
-- Gerar os 6 confrontos round-robin de cada grupo (A×B, A×C, A×D, B×C, B×D, C×D), totalizando **72 jogos** na fase de grupos (12 grupos seriam o ideal real, mas mantemos os 6 grupos atuais para não inflar o mock — total 36 jogos).
-- Distribuir as datas ao longo de junho/2026 com horários realistas.
+Implementação inicial `src/lib/db/local-repo.ts` que lê/escreve do Zustand store (mocks atuais + persistência local que já existe). Assim toda a UI passa a chamar `repo.*` em vez de `useAppStore` direto para dados de jogos — quando trocarmos por SQLite/Postgres, só essa camada muda.
 
-### 2. Reformular `Palpites.tsx` para layout de tabela por grupo
-Arquivo: `src/pages/Palpites.tsx`
-- Manter as **abas de fases** no topo (Grupos / Oitavas / Quartas / Semi / Final) com bloqueio progressivo.
-- Para a aba **Grupos**, renderizar **uma tabela por grupo** com colunas:
-  `Data | Mandante | Bandeira | Placar (input × input) | Bandeira | Visitante | Status`
-- Cabeçalho de cada grupo com nome do grupo + mini-resumo (jogos preenchidos / total).
-- Linhas zebradas, hover destacado, inputs compactos centralizados.
-- Para as fases eliminatórias, manter cards (faz mais sentido em chaveamento), mas com visual de tabela enxuta.
+Seed: `src/lib/db/seed.ts` exporta a tabela completa dos 72 jogos da fase de grupos (reaproveita `src/mocks/matches.ts`) e expõe `getSeedMatches()` — simula o "insert inicial" da tabela.
 
-### 3. Mover detalhes avançados para um Drawer/Sheet
-Os accordions de **Escalação / Artilheiros / Copilot** poluem a tabela. Serão movidos para um botão "Detalhes" por linha que abre um `Sheet` lateral com:
-- Escalações dos dois times
-- Artilheiros previstos
-- Painel do Copilot das Zebras
+Documento `src/lib/db/README.md` curto explicando como plugar SQLite (sql.js) ou Postgres depois.
 
-### 4. Barra de progresso + Ctrl+S
-- Manter a barra de progresso da fase acima da tabela.
-- Implementar atalho `Ctrl+S` que dispara um toast "Palpites salvos" (já estão persistidos em localStorage via Zustand).
+## 2. Remover o popup (Sheet)
 
-### 5. Visual alinhado ao Tactical Terminal
-- Bordas finas, tipografia mono nos cabeçalhos e placares
-- Acentos azul/verde para linhas preenchidas
-- Sem cores hardcoded — uso de tokens semânticos do `styles.css`
+Em `src/pages/Palpites.tsx`:
 
-## Resultado esperado
-Na rota `/palpites`, o usuário verá uma tabela limpa por grupo, igual em densidade à referência da FIFA, podendo digitar o placar diretamente em cada linha e abrir um painel lateral para escalações/artilheiros/Copilot quando quiser detalhar.
+- Remover `Sheet`, `SheetContent`, `MatchDetailsSheet`, `detailMatchId` state.
+- Manter `selectedMatchId` (substitui `detailMatchId`) — controla qual jogo está expandido no painel inline.
+
+## 3. Painel inline abaixo da tabela do grupo
+
+Novo componente `MatchDetailsInline` (mesmo arquivo ou `src/components/MatchDetailsPanel.tsx`):
+
+- Renderiza dentro de `GroupTable`, logo abaixo do `<Table>`, quando `selectedMatchId` pertence ao grupo.
+- Mostra 3 seções como hoje (Escalações, Artilheiros, Copilot das Zebras), mas em layout horizontal de 3 colunas em telas largas, empilhado em mobile.
+- Animação `motion.div` com `height: auto` e `opacity` para abrir/fechar suave.
+- Botão "fechar" no canto.
+- Ao clicar em outro jogo do mesmo grupo, o painel atualiza o conteúdo sem fechar/reabrir.
+- Em fases de mata-mata, o painel aparece abaixo da `BracketRow` selecionada.
+
+## 4. Zebrinha automática (substitui o ícone Settings2)
+
+Em `MatchRow`:
+
+- Calcular `analysis = analyzeMatch(match, prediction)` quando `filled === true`.
+- Se `analysis.isZebra`:
+  - Trocar `Settings2` por um ícone de zebra (emoji 🦓 ou ícone Lucide `Sparkles`/custom — vou usar `Sparkles` com cor `accent` + tooltip "Zebra detectada").
+  - Auto-marcar `is_zebra: true` via `upsertPrediction` se ainda não estiver (com guard pra não criar loop).
+- Caso contrário, mantém o ícone de "abrir detalhes" (uso `ChevronDown` que indica expansão, mais coerente que Settings2).
+- Clicar no ícone (qualquer um dos dois) abre/atualiza o painel inline com aquele jogo selecionado.
+- Tooltip via `title` no botão explicando o estado.
+
+## 5. Ajustes visuais
+
+- Linha selecionada na tabela ganha destaque (`bg-accent/10` + borda esquerda colorida).
+- Painel inline com border-top tracejada conectando visualmente à linha selecionada.
+- Badge "ZEBRA" pequena ao lado do placar quando a heurística detecta.
+
+## Arquivos afetados
+
+- novo: `src/lib/db/index.ts`, `src/lib/db/local-repo.ts`, `src/lib/db/seed.ts`, `src/lib/db/README.md`
+- novo: `src/components/MatchDetailsPanel.tsx` (extraído do Sheet atual)
+- editado: `src/pages/Palpites.tsx` (remove Sheet, adiciona painel inline, zebrinha automática)
+
+## Fora de escopo
+
+- Trocar Zustand pelo repo em outras páginas (Dashboard, Ranking) — fica pra depois.
+- SQLite real via sql.js — a camada fica pronta, mas a implementação WASM não entra agora (você escolheu manter mocks).
+- Controle de horário de cutoff dos jogos (explicitamente eliminado pelo pedido).
