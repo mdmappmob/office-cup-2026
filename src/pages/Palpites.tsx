@@ -8,14 +8,12 @@ import { Progress } from "@/components/ui/progress";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import {
-  Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
-} from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { PHASE_LABEL, PHASE_ORDER, type MatchPhase } from "@/mocks/types";
-import { Lock, Sparkles, Users, Goal, Brain, Settings2, CheckCircle2 } from "lucide-react";
+import { Lock, Sparkles, Users, Goal, Brain, ChevronDown, CheckCircle2, X } from "lucide-react";
 import { analyzeMatch } from "@/lib/copilot";
-import { motion } from "framer-motion";
+import { matchesRepo, predictionsRepo } from "@/lib/db";
+import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
 export function PalpitesPage() {
@@ -37,7 +35,7 @@ export function PalpitesPage() {
     return result;
   }, [matches, predictions]);
   const [activePhase, setActivePhase] = useState<MatchPhase>("grupos");
-  const [detailMatchId, setDetailMatchId] = useState<string | null>(null);
+  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -87,14 +85,13 @@ export function PalpitesPage() {
       <PhaseProgress phase={activePhase} />
 
       <div className="mt-6 space-y-3">
-        <MatchListByGroup phase={activePhase} onOpenDetails={setDetailMatchId} />
+        <MatchListByGroup
+          phase={activePhase}
+          selectedMatchId={selectedMatchId}
+          onSelect={(id) => setSelectedMatchId((cur) => (cur === id ? null : id))}
+          onClear={() => setSelectedMatchId(null)}
+        />
       </div>
-
-      <Sheet open={!!detailMatchId} onOpenChange={(o) => !o && setDetailMatchId(null)}>
-        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
-          {detailMatchId && <MatchDetailsSheet matchId={detailMatchId} />}
-        </SheetContent>
-      </Sheet>
     </div>
   );
 }
