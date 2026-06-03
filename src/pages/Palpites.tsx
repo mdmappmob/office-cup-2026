@@ -435,7 +435,7 @@ function MatchDetailsInline({ matchId, onClose }: { matchId: string; onClose: ()
       animate={{ opacity: 1, height: "auto" }}
       exit={{ opacity: 0, height: 0 }}
       transition={{ duration: 0.18 }}
-      className="overflow-hidden border-t border-dashed border-border bg-muted/10"
+      className="mx-3 my-2 overflow-hidden rounded-md border border-border bg-popover shadow-lg"
     >
       <div className="px-4 py-5">
         <div className="flex items-start justify-between mb-4">
@@ -471,7 +471,6 @@ function MatchDetailsInline({ matchId, onClose }: { matchId: string; onClose: ()
 function CopilotPanel({ matchId }: { matchId: string }) {
   const match = useAppStore((s) => s.matches.find((x) => x.id === matchId)!);
   const prediction = useAppStore((s) => s.predictions.find((p) => p.match_id === matchId));
-  const upsert = predictionsRepo.upsertPrediction;
   const analysis = useMemo(() => analyzeMatch(match, prediction), [match, prediction]);
 
   return (
@@ -488,16 +487,13 @@ function CopilotPanel({ matchId }: { matchId: string }) {
           <li key={i} className="text-xs text-muted-foreground leading-relaxed border-l-2 border-border pl-3">{r}</li>
         ))}
       </ul>
-      <div className="flex items-center justify-between pt-2 border-t border-border">
-        <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Marcar como zebra (multiplicador 2x)</span>
-        <Button
-          size="sm"
-          variant={prediction?.is_zebra ? "default" : "outline"}
-          onClick={() => upsert(matchId, { is_zebra: !prediction?.is_zebra })}
-        >
-          {prediction?.is_zebra ? "Zebra ativada" : "Ativar zebra"}
-        </Button>
-      </div>
+      {analysis.isZebra && (
+        <div className="pt-2 border-t border-border">
+          <span className="text-[10px] font-mono uppercase tracking-widest text-primary">
+            Zebra definida automaticamente pelo Copilot estatístico
+          </span>
+        </div>
+      )}
     </div>
   );
 }
