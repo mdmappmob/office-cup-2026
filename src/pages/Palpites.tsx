@@ -280,7 +280,8 @@ function MatchRow({
 
   return (
     <TableRow
-      className={`${filled ? "bg-accent/5" : ""} ${isSelected ? "bg-accent/10 border-l-2 border-l-primary" : ""}`}
+      onClick={() => !tbd && onSelect(matchId)}
+      className={`cursor-pointer ${filled ? "bg-accent/5" : ""} ${isSelected ? "bg-accent/10 border-l-2 border-l-primary" : ""}`}
     >
       <TableCell className="font-mono text-xs text-muted-foreground">{dateStr}</TableCell>
       <TableCell className="text-right">
@@ -339,7 +340,7 @@ function MatchRow({
           variant={isSelected ? "secondary" : "ghost"}
           disabled={tbd}
           onClick={() => onSelect(matchId)}
-          title={isZebra ? "Zebra detectada — abrir análise" : "Detalhes (escalação, artilheiros, Copilot)"}
+          title={isZebra ? "Zebra detectada pelo Copilot" : "Abrir Copilot"}
         >
           {isZebra ? (
             <span className="text-base leading-none" aria-label="zebra">🦓</span>
@@ -378,7 +379,10 @@ function BracketRow({
   }, [isZebra, prediction, matchId, upsert]);
 
   return (
-    <Card className={`transition-colors ${isSelected ? "border-primary" : filled ? "border-accent/40" : ""}`}>
+    <Card
+      onClick={() => !tbd && onSelect(matchId)}
+      className={`transition-colors ${tbd ? "" : "cursor-pointer"} ${isSelected ? "border-primary" : filled ? "border-accent/40" : ""}`}
+    >
       <CardContent className="p-4 grid grid-cols-[1fr_auto_1fr_auto] items-center gap-4">
         <div className="flex items-center gap-3 justify-end">
           <span className="font-semibold">{match.home_team}</span>
@@ -408,7 +412,7 @@ function BracketRow({
           variant={isSelected ? "secondary" : "ghost"}
           disabled={tbd}
           onClick={() => onSelect(matchId)}
-          title={isZebra ? "Zebra detectada — abrir análise" : "Detalhes"}
+          title={isZebra ? "Zebra detectada pelo Copilot" : "Abrir Copilot"}
         >
           {isZebra ? (
             <span className="text-base leading-none" aria-label="zebra">🦓</span>
