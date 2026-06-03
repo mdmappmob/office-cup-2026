@@ -6,7 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import { PHASE_LABEL, PHASE_ORDER, type MatchPhase } from "@/mocks/types";
 import { Lock, Sparkles, Brain, ChevronDown, CheckCircle2, X } from "lucide-react";
@@ -53,7 +58,10 @@ export function PalpitesPage() {
         <h1 className="text-3xl font-bold tracking-tighter">Palpites</h1>
         <p className="text-sm text-muted-foreground">
           Preencha todos os jogos de uma fase para liberar a próxima. Use{" "}
-          <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded border border-border bg-muted">Ctrl + S</kbd> para salvar.
+          <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded border border-border bg-muted">
+            Ctrl + S
+          </kbd>{" "}
+          para salvar.
         </p>
       </header>
 
@@ -111,7 +119,9 @@ function PhaseProgress({ phase }: { phase: MatchPhase }) {
     <div className="border border-border rounded-md bg-card p-4">
       <div className="flex justify-between text-xs font-mono uppercase tracking-widest mb-2">
         <span className="text-muted-foreground">Progresso da fase</span>
-        <span className="font-bold">{progress.filled} / {progress.total}</span>
+        <span className="font-bold">
+          {progress.filled} / {progress.total}
+        </span>
       </div>
       <Progress value={pct} />
     </div>
@@ -119,7 +129,10 @@ function PhaseProgress({ phase }: { phase: MatchPhase }) {
 }
 
 function MatchListByGroup({
-  phase, selectedMatchId, onSelect, onClear,
+  phase,
+  selectedMatchId,
+  onSelect,
+  onClear,
 }: {
   phase: MatchPhase;
   selectedMatchId: string | null;
@@ -143,15 +156,9 @@ function MatchListByGroup({
       <div className="space-y-3">
         {matches.map((m) => (
           <div key={m.id}>
-            <BracketRow
-              matchId={m.id}
-              isSelected={selectedMatchId === m.id}
-              onSelect={onSelect}
-            />
+            <BracketRow matchId={m.id} isSelected={selectedMatchId === m.id} onSelect={onSelect} />
             <AnimatePresence initial={false}>
-              {selectedMatchId === m.id && (
-                <MatchDetailsInline matchId={m.id} onClose={onClear} />
-              )}
+              {selectedMatchId === m.id && <MatchDetailsInline matchId={m.id} onClose={onClear} />}
             </AnimatePresence>
           </div>
         ))}
@@ -176,7 +183,11 @@ function MatchListByGroup({
 }
 
 function GroupTable({
-  groupKey, matchIds, selectedMatchId, onSelect, onClear,
+  groupKey,
+  matchIds,
+  selectedMatchId,
+  onSelect,
+  onClear,
 }: {
   groupKey: string;
   matchIds: string[];
@@ -193,7 +204,8 @@ function GroupTable({
       }).length,
     [matchIds, predictions],
   );
-  const selectedInGroup = selectedMatchId && matchIds.includes(selectedMatchId) ? selectedMatchId : null;
+  const selectedInGroup =
+    selectedMatchId && matchIds.includes(selectedMatchId) ? selectedMatchId : null;
 
   return (
     <motion.div
@@ -216,22 +228,28 @@ function GroupTable({
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/10 hover:bg-muted/10">
-            <TableHead className="font-mono text-[10px] uppercase tracking-widest w-[110px]">Data</TableHead>
-            <TableHead className="font-mono text-[10px] uppercase tracking-widest text-right">Mandante</TableHead>
-            <TableHead className="font-mono text-[10px] uppercase tracking-widest text-center w-[160px]">Placar</TableHead>
-            <TableHead className="font-mono text-[10px] uppercase tracking-widest">Visitante</TableHead>
-            <TableHead className="font-mono text-[10px] uppercase tracking-widest text-center w-[90px]">Status</TableHead>
+            <TableHead className="font-mono text-[10px] uppercase tracking-widest w-[110px]">
+              Data
+            </TableHead>
+            <TableHead className="font-mono text-[10px] uppercase tracking-widest text-right">
+              Mandante
+            </TableHead>
+            <TableHead className="font-mono text-[10px] uppercase tracking-widest text-center w-[160px]">
+              Placar
+            </TableHead>
+            <TableHead className="font-mono text-[10px] uppercase tracking-widest">
+              Visitante
+            </TableHead>
+            <TableHead className="font-mono text-[10px] uppercase tracking-widest text-center w-[90px]">
+              Status
+            </TableHead>
             <TableHead className="w-[50px]"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {matchIds.map((id) => (
             <Fragment key={id}>
-              <MatchRow
-                matchId={id}
-                isSelected={selectedInGroup === id}
-                onSelect={onSelect}
-              />
+              <MatchRow matchId={id} isSelected={selectedInGroup === id} onSelect={onSelect} />
               <AnimatePresence initial={false}>
                 {selectedInGroup === id && (
                   <TableRow className="hover:bg-transparent">
@@ -250,18 +268,29 @@ function GroupTable({
 }
 
 function MatchRow({
-  matchId, isSelected, onSelect,
-}: { matchId: string; isSelected: boolean; onSelect: (id: string) => void }) {
+  matchId,
+  isSelected,
+  onSelect,
+}: {
+  matchId: string;
+  isSelected: boolean;
+  onSelect: (id: string) => void;
+}) {
   const match = useAppStore((s) => s.matches.find((x) => x.id === matchId)!);
   const prediction = useAppStore((s) => s.predictions.find((p) => p.match_id === matchId));
   const upsert = predictionsRepo.upsertPrediction;
   const tbd = match.home_team === "—" || match.away_team === "—";
   const filled =
-    prediction?.predicted_home_score !== null && prediction?.predicted_home_score !== undefined &&
-    prediction?.predicted_away_score !== null && prediction?.predicted_away_score !== undefined;
+    prediction?.predicted_home_score !== null &&
+    prediction?.predicted_home_score !== undefined &&
+    prediction?.predicted_away_score !== null &&
+    prediction?.predicted_away_score !== undefined;
 
   const dateStr = new Date(match.match_date).toLocaleDateString("pt-BR", {
-    day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 
   const analysis = useMemo(
@@ -299,7 +328,9 @@ function MatchRow({
             className="w-12 h-9 text-center font-mono text-base font-bold p-0"
             value={prediction?.predicted_home_score ?? ""}
             onChange={(e) =>
-              upsert(matchId, { predicted_home_score: e.target.value === "" ? null : Number(e.target.value) })
+              upsert(matchId, {
+                predicted_home_score: e.target.value === "" ? null : Number(e.target.value),
+              })
             }
           />
           <span className="text-muted-foreground font-mono text-xs">×</span>
@@ -310,7 +341,9 @@ function MatchRow({
             className="w-12 h-9 text-center font-mono text-base font-bold p-0"
             value={prediction?.predicted_away_score ?? ""}
             onChange={(e) =>
-              upsert(matchId, { predicted_away_score: e.target.value === "" ? null : Number(e.target.value) })
+              upsert(matchId, {
+                predicted_away_score: e.target.value === "" ? null : Number(e.target.value),
+              })
             }
           />
         </div>
@@ -331,7 +364,9 @@ function MatchRow({
             <CheckCircle2 className="size-3 mr-1" /> OK
           </Badge>
         ) : (
-          <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">—</span>
+          <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+            —
+          </span>
         )}
       </TableCell>
       <TableCell>
@@ -343,7 +378,9 @@ function MatchRow({
           title={isZebra ? "Zebra detectada pelo Copilot" : "Abrir Copilot"}
         >
           {isZebra ? (
-            <span className="text-base leading-none" aria-label="zebra">🦓</span>
+            <span className="text-base leading-none" aria-label="zebra">
+              🦓
+            </span>
           ) : (
             <ChevronDown
               className={`size-4 transition-transform ${isSelected ? "rotate-180" : ""}`}
@@ -356,15 +393,23 @@ function MatchRow({
 }
 
 function BracketRow({
-  matchId, isSelected, onSelect,
-}: { matchId: string; isSelected: boolean; onSelect: (id: string) => void }) {
+  matchId,
+  isSelected,
+  onSelect,
+}: {
+  matchId: string;
+  isSelected: boolean;
+  onSelect: (id: string) => void;
+}) {
   const match = useAppStore((s) => s.matches.find((x) => x.id === matchId)!);
   const prediction = useAppStore((s) => s.predictions.find((p) => p.match_id === matchId));
   const upsert = predictionsRepo.upsertPrediction;
   const tbd = match.home_team === "—" || match.away_team === "—";
   const filled =
-    prediction?.predicted_home_score !== null && prediction?.predicted_home_score !== undefined &&
-    prediction?.predicted_away_score !== null && prediction?.predicted_away_score !== undefined;
+    prediction?.predicted_home_score !== null &&
+    prediction?.predicted_home_score !== undefined &&
+    prediction?.predicted_away_score !== null &&
+    prediction?.predicted_away_score !== undefined;
   const analysis = useMemo(
     () => (filled ? analyzeMatch(match, prediction) : null),
     [filled, match, prediction],
@@ -390,17 +435,29 @@ function BracketRow({
         </div>
         <div className="flex items-center gap-2">
           <Input
-            type="number" min={0} disabled={tbd}
+            type="number"
+            min={0}
+            disabled={tbd}
             className="w-12 h-10 text-center font-mono text-lg font-bold p-0"
             value={prediction?.predicted_home_score ?? ""}
-            onChange={(e) => upsert(matchId, { predicted_home_score: e.target.value === "" ? null : Number(e.target.value) })}
+            onChange={(e) =>
+              upsert(matchId, {
+                predicted_home_score: e.target.value === "" ? null : Number(e.target.value),
+              })
+            }
           />
           <span className="text-muted-foreground font-mono">×</span>
           <Input
-            type="number" min={0} disabled={tbd}
+            type="number"
+            min={0}
+            disabled={tbd}
             className="w-12 h-10 text-center font-mono text-lg font-bold p-0"
             value={prediction?.predicted_away_score ?? ""}
-            onChange={(e) => upsert(matchId, { predicted_away_score: e.target.value === "" ? null : Number(e.target.value) })}
+            onChange={(e) =>
+              upsert(matchId, {
+                predicted_away_score: e.target.value === "" ? null : Number(e.target.value),
+              })
+            }
           />
         </div>
         <div className="flex items-center gap-3">
@@ -415,9 +472,13 @@ function BracketRow({
           title={isZebra ? "Zebra detectada pelo Copilot" : "Abrir Copilot"}
         >
           {isZebra ? (
-            <span className="text-base leading-none" aria-label="zebra">🦓</span>
+            <span className="text-base leading-none" aria-label="zebra">
+              🦓
+            </span>
           ) : (
-            <ChevronDown className={`size-4 transition-transform ${isSelected ? "rotate-180" : ""}`} />
+            <ChevronDown
+              className={`size-4 transition-transform ${isSelected ? "rotate-180" : ""}`}
+            />
           )}
         </Button>
       </CardContent>
@@ -480,11 +541,18 @@ function CopilotPanel({ matchId }: { matchId: string }) {
           <Sparkles className="size-4 text-primary" />
           <span className="text-sm font-bold">{analysis.verdict}</span>
         </div>
-        <span className="font-mono text-xs text-muted-foreground">Prob. {analysis.probability}%</span>
+        <span className="font-mono text-xs text-muted-foreground">
+          Prob. {analysis.probability}%
+        </span>
       </div>
       <ul className="space-y-1.5">
         {analysis.reasoning.map((r, i) => (
-          <li key={i} className="text-xs text-muted-foreground leading-relaxed border-l-2 border-border pl-3">{r}</li>
+          <li
+            key={i}
+            className="text-xs text-muted-foreground leading-relaxed border-l-2 border-border pl-3"
+          >
+            {r}
+          </li>
         ))}
       </ul>
       {analysis.isZebra && (

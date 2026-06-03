@@ -13,7 +13,10 @@ export interface CopilotAnalysis {
   reasoning: string[];
 }
 
-export function analyzeMatch(match: MockMatch, prediction: MockPrediction | undefined): CopilotAnalysis {
+export function analyzeMatch(
+  match: MockMatch,
+  prediction: MockPrediction | undefined,
+): CopilotAnalysis {
   const seed = hashStr(match.id + (prediction?.id ?? ""));
 
   const phs = prediction?.predicted_home_score ?? 0;
@@ -22,10 +25,30 @@ export function analyzeMatch(match: MockMatch, prediction: MockPrediction | unde
 
   // Considera zebra se palpite contraria favorito (heurística: time "menor" ganhando por 2+)
   const favoritesMap: Record<string, number> = {
-    Brasil: 90, Argentina: 88, França: 87, Espanha: 85, Inglaterra: 84, Portugal: 82,
-    Alemanha: 81, Holanda: 80, Itália: 79, Bélgica: 76, Uruguai: 75, Croácia: 74,
-    Marrocos: 65, Japão: 64, México: 63, EUA: 62, Senegal: 60, Coreia: 58, Nigéria: 58,
-    Suíça: 60, Camarões: 55, Colômbia: 70, Equador: 55, Canadá: 52,
+    Brasil: 90,
+    Argentina: 88,
+    França: 87,
+    Espanha: 85,
+    Inglaterra: 84,
+    Portugal: 82,
+    Alemanha: 81,
+    Holanda: 80,
+    Itália: 79,
+    Bélgica: 76,
+    Uruguai: 75,
+    Croácia: 74,
+    Marrocos: 65,
+    Japão: 64,
+    México: 63,
+    EUA: 62,
+    Senegal: 60,
+    Coreia: 58,
+    Nigéria: 58,
+    Suíça: 60,
+    Camarões: 55,
+    Colômbia: 70,
+    Equador: 55,
+    Canadá: 52,
   };
   const homeRank = favoritesMap[match.home_team] ?? 60;
   const awayRank = favoritesMap[match.away_team] ?? 60;
