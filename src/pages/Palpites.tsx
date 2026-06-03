@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useAppStore } from "@/store/app-store";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,6 @@ import { Progress } from "@/components/ui/progress";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Separator } from "@/components/ui/separator";
 import { PHASE_LABEL, PHASE_ORDER, type MatchPhase } from "@/mocks/types";
 import { Lock, Sparkles, Brain, ChevronDown, CheckCircle2, X } from "lucide-react";
 import { analyzeMatch } from "@/lib/copilot";
