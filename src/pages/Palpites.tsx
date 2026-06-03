@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
 import { PHASE_LABEL, PHASE_ORDER, type MatchPhase } from "@/mocks/types";
-import { Lock, Sparkles, Users, Goal, Brain, ChevronDown, CheckCircle2, X } from "lucide-react";
+import { Lock, Sparkles, Brain, ChevronDown, CheckCircle2, X } from "lucide-react";
 import { analyzeMatch } from "@/lib/copilot";
 import { matchesRepo, predictionsRepo } from "@/lib/db";
 import { motion, AnimatePresence } from "framer-motion";
@@ -447,19 +447,7 @@ function MatchDetailsInline({ matchId, onClose }: { matchId: string; onClose: ()
             <X className="size-4" />
           </Button>
         </div>
-        <div className="grid lg:grid-cols-3 gap-5">
-          <section>
-            <h4 className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground mb-3">
-              <Users className="size-3.5" /> Escalações
-            </h4>
-            <LineupForm matchId={matchId} />
-          </section>
-          <section>
-            <h4 className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground mb-3">
-              <Goal className="size-3.5" /> Artilheiros do jogo
-            </h4>
-            <ScorersForm matchId={matchId} />
-          </section>
+        <div className="w-full">
           <section>
             <h4 className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground mb-3">
               <Brain className="size-3.5 text-primary" /> Copilot das Zebras
@@ -469,51 +457,6 @@ function MatchDetailsInline({ matchId, onClose }: { matchId: string; onClose: ()
         </div>
       </div>
     </motion.div>
-  );
-}
-
-function LineupForm({ matchId }: { matchId: string }) {
-  const prediction = useAppStore((s) => s.predictions.find((p) => p.match_id === matchId));
-  const match = useAppStore((s) => s.matches.find((x) => x.id === matchId)!);
-  const upsert = predictionsRepo.upsertPrediction;
-  const [home, setHome] = useState(prediction?.predicted_home_lineup?.join(", ") ?? "");
-  const [away, setAway] = useState(prediction?.predicted_away_lineup?.join(", ") ?? "");
-
-  const save = () => {
-    upsert(matchId, {
-      predicted_home_lineup: home.split(",").map((s) => s.trim()).filter(Boolean),
-      predicted_away_lineup: away.split(",").map((s) => s.trim()).filter(Boolean),
-    });
-  };
-
-  return (
-    <div className="grid md:grid-cols-2 gap-4">
-      <div>
-        <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">{match.home_team} (11 titulares)</label>
-        <Input value={home} onChange={(e) => setHome(e.target.value)} onBlur={save} placeholder="ex: Alisson, Vinicius..." />
-      </div>
-      <div>
-        <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">{match.away_team} (11 titulares)</label>
-        <Input value={away} onChange={(e) => setAway(e.target.value)} onBlur={save} placeholder="ex: Messi, Di María..." />
-      </div>
-    </div>
-  );
-}
-
-function ScorersForm({ matchId }: { matchId: string }) {
-  const prediction = useAppStore((s) => s.predictions.find((p) => p.match_id === matchId));
-  const upsert = predictionsRepo.upsertPrediction;
-  const [val, setVal] = useState(prediction?.predicted_goalscorers?.join(", ") ?? "");
-  return (
-    <div>
-      <label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Quem marca?</label>
-      <Input
-        value={val}
-        onChange={(e) => setVal(e.target.value)}
-        onBlur={() => upsert(matchId, { predicted_goalscorers: val.split(",").map((s) => s.trim()).filter(Boolean) })}
-        placeholder="ex: Vinicius Jr, Rodrygo"
-      />
-    </div>
   );
 }
 
