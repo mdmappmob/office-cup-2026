@@ -87,7 +87,7 @@ export function PalpitesPage() {
         <MatchListByGroup
           phase={activePhase}
           selectedMatchId={selectedMatchId}
-          onSelect={(id) => setSelectedMatchId((cur) => (cur === id ? null : id))}
+          onSelect={(id) => setSelectedMatchId(id)}
           onClear={() => setSelectedMatchId(null)}
         />
       </div>
@@ -226,20 +226,25 @@ function GroupTable({
         </TableHeader>
         <TableBody>
           {matchIds.map((id) => (
-            <MatchRow
-              key={id}
-              matchId={id}
-              isSelected={selectedInGroup === id}
-              onSelect={onSelect}
-            />
+            <Fragment key={id}>
+              <MatchRow
+                matchId={id}
+                isSelected={selectedInGroup === id}
+                onSelect={onSelect}
+              />
+              <AnimatePresence initial={false}>
+                {selectedInGroup === id && (
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell colSpan={6} className="p-0">
+                      <MatchDetailsInline matchId={id} onClose={onClear} />
+                    </TableCell>
+                  </TableRow>
+                )}
+              </AnimatePresence>
+            </Fragment>
           ))}
         </TableBody>
       </Table>
-      <AnimatePresence initial={false}>
-        {selectedInGroup && (
-          <MatchDetailsInline matchId={selectedInGroup} onClose={onClear} />
-        )}
-      </AnimatePresence>
     </motion.div>
   );
 }
