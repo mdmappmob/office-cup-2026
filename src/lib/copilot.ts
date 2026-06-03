@@ -15,7 +15,6 @@ export interface CopilotAnalysis {
 
 export function analyzeMatch(match: MockMatch, prediction: MockPrediction | undefined): CopilotAnalysis {
   const seed = hashStr(match.id + (prediction?.id ?? ""));
-  const winProb = 40 + (seed % 50);
 
   const phs = prediction?.predicted_home_score ?? 0;
   const pas = prediction?.predicted_away_score ?? 0;
@@ -32,13 +31,22 @@ export function analyzeMatch(match: MockMatch, prediction: MockPrediction | unde
   const awayRank = favoritesMap[match.away_team] ?? 60;
   const predictedWinner = phs > pas ? match.home_team : pas > phs ? match.away_team : null;
   const favorite = homeRank >= awayRank ? match.home_team : match.away_team;
-  const isUpset = predictedWinner !== null && predictedWinner !== favorite && goalDiff >= 1;
+  const favoriteRank = Math.max(homeRank, awayRank);
+  const underdogRank = Math.min(homeRank, awayRank);
+  const strengthGap = favoriteRank - underdogRank;
+  const isUnderdogWin = predictedWinner !== null && predictedWinner !== favorite;
+  const isBlowoutAgainstTrend = isUnderdogWin && goalDiff >= 2;
+  const isStatisticalOutlier = isUnderdogWin && strengthGap >= 12 && goalDiff >= 1;
+  const isUpset = isBlowoutAgainstTrend || isStatisticalOutlier;
+  const winProb = isUpset
+    ? Math.max(8, 34 - strengthGap - goalDiff * 3 + (seed % 6))
+    : Math.min(92, 50 + Math.max(0, strengthGap) + (seed % 18));
 
   const reasoning: string[] = [
-    `Histórico recente favorece ${favorite} (${Math.max(homeRank, awayRank)}% de força no ranking IA).`,
+    `Histórico recente favorece ${favorite} (${favoriteRank}% de força no ranking IA).`,
     `Probabilidade do seu placar (${phs}-${pas}) é estimada em ${winProb}%.`,
     isUpset
-      ? `Seu palpite quebra a lógica do favoritismo — característica clássica de zebra.`
+      ? `Seu palpite foge da tendência estatística do confronto — o Copilot classifica automaticamente como zebra.`
       : `Palpite alinhado ao favoritismo do jogo.`,
   ];
 
