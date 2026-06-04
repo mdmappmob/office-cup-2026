@@ -17,6 +17,7 @@ import { PHASE_LABEL, PHASE_ORDER, type MatchPhase } from "@/mocks/types";
 import { Lock, Sparkles, Brain, ChevronDown, CheckCircle2, X } from "lucide-react";
 import { analyzeMatch } from "@/lib/copilot";
 import { matchesRepo, predictionsRepo } from "@/lib/db";
+import { FLAGS } from "@/mocks/matches";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
@@ -316,7 +317,7 @@ function MatchRow({
       <TableCell className="text-right">
         <div className="flex items-center gap-2 justify-end">
           <span className="font-semibold text-sm">{match.home_team}</span>
-          <span className="text-lg">{match.home_flag}</span>
+          <span className="text-lg">{FLAGS[match.home_team] ?? match.home_flag}</span>
         </div>
       </TableCell>
       <TableCell>
@@ -350,7 +351,7 @@ function MatchRow({
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-2">
-          <span className="text-lg">{match.away_flag}</span>
+          <span className="text-lg">{FLAGS[match.away_team] ?? match.away_flag}</span>
           <span className="font-semibold text-sm">{match.away_team}</span>
         </div>
       </TableCell>
@@ -431,7 +432,7 @@ function BracketRow({
       <CardContent className="p-4 grid grid-cols-[1fr_auto_1fr_auto] items-center gap-4">
         <div className="flex items-center gap-3 justify-end">
           <span className="font-semibold">{match.home_team}</span>
-          <span className="text-2xl">{match.home_flag}</span>
+          <span className="text-2xl">{FLAGS[match.home_team] ?? match.home_flag}</span>
         </div>
         <div className="flex items-center gap-2">
           <Input
@@ -461,7 +462,7 @@ function BracketRow({
           />
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-2xl">{match.away_flag}</span>
+          <span className="text-2xl">{FLAGS[match.away_team] ?? match.away_flag}</span>
           <span className="font-semibold">{match.away_team}</span>
         </div>
         <Button

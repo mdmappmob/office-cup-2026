@@ -1,7 +1,7 @@
 import type { MockMatch, MatchPhase } from "./types";
 
 // Bandeiras por seleção (Copa do Mundo 2026 — 48 seleções, 12 grupos)
-const FLAGS: Record<string, string> = {
+export const FLAGS: Record<string, string> = {
   "México": "🇲🇽", "África do Sul": "🇿🇦", "Coreia do Sul": "🇰🇷", "República Tcheca": "🇨🇿",
   "Canadá": "🇨🇦", "Bósnia-Herzegovina": "🇧🇦", "Qatar": "🇶🇦", "Suíça": "🇨🇭",
   "Brasil": "🇧🇷", "Marrocos": "🇲🇦", "Haiti": "🇭🇹", "Escócia": "🏴󠁧󠁢󠁳󠁣󠁴󠁿",

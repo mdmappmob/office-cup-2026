@@ -2,6 +2,7 @@ import initSqlJs, { type Database, type SqlJsStatic } from "sql.js";
 import wasmUrl from "sql.js/dist/sql-wasm.wasm?url";
 import { getSeedMatches } from "./seed";
 import type { MockMatch, MockPrediction, MatchPhase } from "@/mocks/types";
+import { FLAGS } from "@/mocks/matches";
 
 const DB_NAME_KEY = "officecup-sqlite-name";
 const IDB_NAME = "officecup-sqlite";
@@ -124,6 +125,43 @@ function seedIfEmpty(database: Database) {
   return true;
 }
 
+/**
+ * Migra bandeiras armazenadas como ISO (ex.: "MX", "ZA") para emojis (🇲🇽, 🇿🇦)
+ * usando o mapa FLAGS por nome do time. Idempotente — só atualiza linhas onde
+ * o valor atual claramente não é um emoji.
+ */
+function migrateFlagsToEmoji(database: Database): boolean {
+  let changed = false;
+  const stmt = database.prepare(
+    `SELECT id, home_team, away_team, home_flag, away_flag FROM matches`,
+  );
+  const rows: Array<{ id: string; ht: string; at: string; hf: string; af: string }> = [];
+  while (stmt.step()) {
+    const r = stmt.getAsObject() as Record<string, unknown>;
+    rows.push({
+      id: String(r.id),
+      ht: String(r.home_team),
+      at: String(r.away_team),
+      hf: String(r.home_flag ?? ""),
+      af: String(r.away_flag ?? ""),
+    });
+  }
+  stmt.free();
+  // Heurística: emoji de bandeira ocupa >=4 bytes UTF-16; ISO tem 2-3 chars ASCII.
+  const looksLikeIso = (v: string) => /^[A-Z]{2,3}$/.test(v) || v.length <= 3;
+  const upd = database.prepare(`UPDATE matches SET home_flag = ?, away_flag = ? WHERE id = ?`);
+  for (const r of rows) {
+    const newHf = looksLikeIso(r.hf) && FLAGS[r.ht] ? FLAGS[r.ht] : r.hf;
+    const newAf = looksLikeIso(r.af) && FLAGS[r.at] ? FLAGS[r.at] : r.af;
+    if (newHf !== r.hf || newAf !== r.af) {
+      upd.run([newHf, newAf, r.id]);
+      changed = true;
+    }
+  }
+  upd.free();
+  return changed;
+}
+
 async function persist() {
   if (!db || !currentName) return;
   await idbPut(currentName, db.export());
@@ -144,11 +182,12 @@ export async function initSqliteRepo(name: string): Promise<void> {
     }
     ensureSchema(db);
     const seeded = seedIfEmpty(db);
+    const migrated = migrateFlagsToEmoji(db);
     currentName = name;
     if (typeof localStorage !== "undefined") localStorage.setItem(DB_NAME_KEY, name);
-    if (isFresh || seeded) await persist();
+    if (isFresh || seeded || migrated) await persist();
     console.info(
-      `[sqlite] DB "${name}" pronto (${existing ? "carregado do IndexedDB" : "novo"}${seeded ? ", seed aplicado" : ""}).`,
+      `[sqlite] DB "${name}" pronto (${existing ? "carregado do IndexedDB" : "novo"}${seeded ? ", seed aplicado" : ""}${migrated ? ", flags migradas" : ""}).`,
     );
     notify();
   })();

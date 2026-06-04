@@ -3,7 +3,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { initSqliteRepo, getSqliteName } from "./sqlite-repo";
+import { initSqliteRepo, getSqliteName, sqliteListMatches, onSqliteReady } from "./sqlite-repo";
+import { useAppStore } from "@/store/app-store";
 
 /**
  * Em browser não existe "caminho de arquivo SQLite". Pedimos um *nome*
@@ -22,9 +23,21 @@ export function SqliteBootstrap() {
     }
   }, []);
 
+  // Hidrata a store com os dados do SQLite (substituindo o seed in-memory de mocks)
+  useEffect(() => {
+    const hydrate = () => {
+      const rows = sqliteListMatches();
+      if (rows.length > 0) useAppStore.setState({ matches: rows });
+    };
+    const off = onSqliteReady(hydrate);
+    return off;
+  }, []);
+
   const submit = async () => {
     const v = name.trim() || "officecup-2026";
     await initSqliteRepo(v);
+    const rows = sqliteListMatches();
+    if (rows.length > 0) useAppStore.setState({ matches: rows });
     setOpen(false);
   };
 
