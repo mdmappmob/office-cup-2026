@@ -95,7 +95,7 @@ export function PalpitesPage() {
         <MatchListByGroup
           phase={activePhase}
           selectedMatchId={selectedMatchId}
-          onSelect={(id) => setSelectedMatchId(id)}
+          onSelect={(id) => setSelectedMatchId((cur) => (cur === id ? null : id))}
           onClear={() => setSelectedMatchId(null)}
         />
       </div>
