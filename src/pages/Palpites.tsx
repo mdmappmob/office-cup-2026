@@ -567,3 +567,107 @@ function CopilotPanel({ matchId }: { matchId: string }) {
     </div>
   );
 }
+
+function AlternativePalpites({ matchId }: { matchId: string }) {
+  const userId = useAppStore((s) => s.currentUserId);
+  const predictions = useAppStore((s) =>
+    s.predictions
+      .filter((p) => p.match_id === matchId && p.user_id === userId)
+      .sort((a, b) => a.slot - b.slot),
+  );
+  const addSlot = useAppStore((s) => s.addPredictionSlot);
+  const removePrediction = predictionsRepo.removePrediction;
+  const upsert = predictionsRepo.upsertPrediction;
+  const match = useAppStore((s) => s.matches.find((m) => m.id === matchId)!);
+  const tbd = match.home_team === "—" || match.away_team === "—";
+
+  return (
+    <section>
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground">
+          <Sparkles className="size-3.5 text-primary" /> Meus palpites para esta partida
+        </h4>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={tbd}
+          onClick={() => addSlot(matchId)}
+          className="h-7"
+        >
+          <Plus className="size-3.5 mr-1" /> Novo palpite
+        </Button>
+      </div>
+      <div className="space-y-2">
+        {predictions.length === 0 && (
+          <p className="text-xs text-muted-foreground italic">
+            Preencha o placar acima — seu 1º palpite aparece aqui automaticamente.
+          </p>
+        )}
+        {predictions.map((p) => (
+          <div
+            key={p.id}
+            className="flex items-center gap-3 px-3 py-2 rounded-md border border-border bg-background/50"
+          >
+            <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground w-12">
+              Slot {p.slot}
+            </span>
+            <div className="flex items-center gap-1.5 flex-1 justify-center">
+              <Flag team={match.home_team} iso={match.home_flag} size={14} />
+              <Input
+                type="number"
+                min={0}
+                disabled={tbd}
+                className="w-12 h-8 text-center font-mono text-sm font-bold p-0"
+                value={p.predicted_home_score ?? ""}
+                onChange={(e) =>
+                  upsert(
+                    matchId,
+                    {
+                      predicted_home_score: e.target.value === "" ? null : Number(e.target.value),
+                    },
+                    p.slot,
+                  )
+                }
+              />
+              <span className="text-muted-foreground font-mono text-xs">×</span>
+              <Input
+                type="number"
+                min={0}
+                disabled={tbd}
+                className="w-12 h-8 text-center font-mono text-sm font-bold p-0"
+                value={p.predicted_away_score ?? ""}
+                onChange={(e) =>
+                  upsert(
+                    matchId,
+                    {
+                      predicted_away_score: e.target.value === "" ? null : Number(e.target.value),
+                    },
+                    p.slot,
+                  )
+                }
+              />
+              <Flag team={match.away_team} iso={match.away_flag} size={14} />
+            </div>
+            {p.points_earned > 0 && (
+              <span className="font-mono text-xs text-accent font-bold">+{p.points_earned}pts</span>
+            )}
+            {p.slot > 1 && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="size-7"
+                onClick={() => removePrediction(p.id)}
+                title="Remover este palpite"
+              >
+                <Trash2 className="size-3.5" />
+              </Button>
+            )}
+          </div>
+        ))}
+        <p className="text-[10px] text-muted-foreground font-mono">
+          Pontuação considera o melhor palpite cadastrado.
+        </p>
+      </div>
+    </section>
+  );
+}
