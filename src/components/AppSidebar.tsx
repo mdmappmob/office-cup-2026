@@ -24,7 +24,7 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { useAppStore } from "@/store/app-store";
-import { mockProfiles } from "@/mocks/profiles";
+import { useAuthStore } from "@/store/auth-store";
 import { Button } from "@/components/ui/button";
 
 const mainItems = [
@@ -39,8 +39,9 @@ export function AppSidebar() {
   const isAdmin = useAppStore((s) => s.isAdmin);
   const theme = useAppStore((s) => s.theme);
   const toggleTheme = useAppStore((s) => s.toggleTheme);
-  const currentUserId = useAppStore((s) => s.currentUserId);
-  const user = mockProfiles.find((p) => p.id === currentUserId)!;
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
+  const fullName = user?.full_name ?? "Convidado";
 
   const isActive = (url: string) => (url === "/" ? pathname === "/" : pathname.startsWith(url));
 
@@ -102,7 +103,12 @@ export function AppSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={() => navigate({ to: "/login" })}>
+            <SidebarMenuButton
+              onClick={() => {
+                logout();
+                navigate({ to: "/login" });
+              }}
+            >
               <LogOut className="size-4" />
               <span>Sair</span>
             </SidebarMenuButton>
@@ -111,10 +117,10 @@ export function AppSidebar() {
 
         <div className="flex items-center gap-3 p-2 border-t border-sidebar-border mt-2">
           <div className="size-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold">
-            {user.full_name.split(" ").map((p) => p[0]).slice(0, 2).join("")}
+            {fullName.split(" ").map((p) => p[0]).slice(0, 2).join("")}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold truncate">{user.full_name}</p>
+            <p className="text-xs font-semibold truncate">{fullName}</p>
             <p className="text-[10px] text-muted-foreground truncate font-mono">
               {isAdmin ? "ADMIN · PRO" : "MEMBER"}
             </p>
