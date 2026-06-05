@@ -32,12 +32,13 @@ interface AppState {
   regenerateBracket: () => void;
 }
 
-function makeEmptyPrediction(matchId: string): MockPrediction {
+function makeEmptyPrediction(matchId: string, slot: number = 1, userId: string = CURRENT_USER_ID): MockPrediction {
   return {
-    id: `p-${matchId}-${CURRENT_USER_ID}`,
-    user_id: CURRENT_USER_ID,
+    id: `p-${matchId}-${userId}-s${slot}`,
+    user_id: userId,
     league_id: CURRENT_LEAGUE_ID,
     match_id: matchId,
+    slot,
     predicted_home_score: null,
     predicted_away_score: null,
     predicted_home_lineup: [],
