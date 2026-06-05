@@ -19,6 +19,7 @@ import { Route as AppPerfilRouteImport } from './routes/_app.perfil'
 import { Route as AppPalpitesRouteImport } from './routes/_app.palpites'
 import { Route as AppGestaoRouteImport } from './routes/_app.gestao'
 import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
+import { Route as AppAdminResultadosRouteImport } from './routes/_app.admin.resultados'
 
 const PagamentoRoute = PagamentoRouteImport.update({
   id: '/pagamento',
@@ -69,6 +70,11 @@ const AppDashboardRoute = AppDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAdminResultadosRoute = AppAdminResultadosRouteImport.update({
+  id: '/admin/resultados',
+  path: '/admin/resultados',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -80,6 +86,7 @@ export interface FileRoutesByFullPath {
   '/palpites': typeof AppPalpitesRoute
   '/perfil': typeof AppPerfilRoute
   '/ranking': typeof AppRankingRoute
+  '/admin/resultados': typeof AppAdminResultadosRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -91,6 +98,7 @@ export interface FileRoutesByTo {
   '/palpites': typeof AppPalpitesRoute
   '/perfil': typeof AppPerfilRoute
   '/ranking': typeof AppRankingRoute
+  '/admin/resultados': typeof AppAdminResultadosRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -104,6 +112,7 @@ export interface FileRoutesById {
   '/_app/palpites': typeof AppPalpitesRoute
   '/_app/perfil': typeof AppPerfilRoute
   '/_app/ranking': typeof AppRankingRoute
+  '/_app/admin/resultados': typeof AppAdminResultadosRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -117,6 +126,7 @@ export interface FileRouteTypes {
     | '/palpites'
     | '/perfil'
     | '/ranking'
+    | '/admin/resultados'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -128,6 +138,7 @@ export interface FileRouteTypes {
     | '/palpites'
     | '/perfil'
     | '/ranking'
+    | '/admin/resultados'
   id:
     | '__root__'
     | '/'
@@ -140,6 +151,7 @@ export interface FileRouteTypes {
     | '/_app/palpites'
     | '/_app/perfil'
     | '/_app/ranking'
+    | '/_app/admin/resultados'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -222,6 +234,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDashboardRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/admin/resultados': {
+      id: '/_app/admin/resultados'
+      path: '/admin/resultados'
+      fullPath: '/admin/resultados'
+      preLoaderRoute: typeof AppAdminResultadosRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -231,6 +250,7 @@ interface AppRouteChildren {
   AppPalpitesRoute: typeof AppPalpitesRoute
   AppPerfilRoute: typeof AppPerfilRoute
   AppRankingRoute: typeof AppRankingRoute
+  AppAdminResultadosRoute: typeof AppAdminResultadosRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -239,6 +259,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppPalpitesRoute: AppPalpitesRoute,
   AppPerfilRoute: AppPerfilRoute,
   AppRankingRoute: AppRankingRoute,
+  AppAdminResultadosRoute: AppAdminResultadosRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
@@ -253,3 +274,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

@@ -9,6 +9,7 @@ import {
   Moon,
   Sun,
   Sparkles,
+  Gavel,
 } from "lucide-react";
 import {
   Sidebar,
@@ -82,6 +83,16 @@ export function AppSidebar() {
                     <Link to="/gestao">
                       <Settings2 className="size-4" />
                       <span>Gestão do Bolão</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+              {isAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={isActive("/admin/resultados")}>
+                    <Link to="/admin/resultados">
+                      <Gavel className="size-4" />
+                      <span>Apuração</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
