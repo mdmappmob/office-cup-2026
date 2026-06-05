@@ -317,7 +317,7 @@ function MatchRow({
       <TableCell className="text-right">
         <div className="flex items-center gap-2 justify-end">
           <span className="font-semibold text-sm">{match.home_team}</span>
-          <span className="text-lg">{FLAGS[match.home_team] ?? match.home_flag}</span>
+          <Flag team={match.home_team} iso={match.home_flag} size={16} />
         </div>
       </TableCell>
       <TableCell>
@@ -351,7 +351,7 @@ function MatchRow({
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-2">
-          <span className="text-lg">{FLAGS[match.away_team] ?? match.away_flag}</span>
+          <Flag team={match.away_team} iso={match.away_flag} size={16} />
           <span className="font-semibold text-sm">{match.away_team}</span>
         </div>
       </TableCell>
@@ -432,7 +432,7 @@ function BracketRow({
       <CardContent className="p-4 grid grid-cols-[1fr_auto_1fr_auto] items-center gap-4">
         <div className="flex items-center gap-3 justify-end">
           <span className="font-semibold">{match.home_team}</span>
-          <span className="text-2xl">{FLAGS[match.home_team] ?? match.home_flag}</span>
+          <Flag team={match.home_team} iso={match.home_flag} size={22} />
         </div>
         <div className="flex items-center gap-2">
           <Input
@@ -462,7 +462,7 @@ function BracketRow({
           />
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-2xl">{FLAGS[match.away_team] ?? match.away_flag}</span>
+          <Flag team={match.away_team} iso={match.away_flag} size={22} />
           <span className="font-semibold">{match.away_team}</span>
         </div>
         <Button
@@ -503,11 +503,11 @@ function MatchDetailsInline({ matchId, onClose }: { matchId: string; onClose: ()
         <div className="flex items-start justify-between mb-4">
           <div>
             <div className="flex items-center gap-2 text-sm font-bold">
-              <span className="text-lg">{match.home_flag}</span>
+              <Flag team={match.home_team} iso={match.home_flag} size={16} />
               {match.home_team}
               <span className="text-muted-foreground font-mono">×</span>
               {match.away_team}
-              <span className="text-lg">{match.away_flag}</span>
+              <Flag team={match.away_team} iso={match.away_flag} size={16} />
             </div>
             <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mt-1">
               {new Date(match.match_date).toLocaleString("pt-BR")}
@@ -517,7 +517,8 @@ function MatchDetailsInline({ matchId, onClose }: { matchId: string; onClose: ()
             <X className="size-4" />
           </Button>
         </div>
-        <div className="w-full">
+        <div className="w-full space-y-5">
+          <AlternativePalpites matchId={matchId} />
           <section>
             <h4 className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground mb-3">
               <Brain className="size-3.5 text-primary" /> Copilot das Zebras
