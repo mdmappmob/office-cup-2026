@@ -14,10 +14,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PHASE_LABEL, PHASE_ORDER, type MatchPhase } from "@/mocks/types";
-import { Lock, Sparkles, Brain, ChevronDown, CheckCircle2, X } from "lucide-react";
+import { Lock, Sparkles, Brain, ChevronDown, CheckCircle2, X, Plus, Trash2 } from "lucide-react";
 import { analyzeMatch } from "@/lib/copilot";
 import { matchesRepo, predictionsRepo } from "@/lib/db";
-import { FLAGS } from "@/mocks/matches";
+import { Flag } from "@/components/Flag";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
