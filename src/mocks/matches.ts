@@ -1,20 +1,9 @@
 import type { MockMatch, MatchPhase } from "./types";
+import { TEAM_ISO } from "@/lib/teams";
 
-// Bandeiras por seleção (Copa do Mundo 2026 — 48 seleções, 12 grupos)
-export const FLAGS: Record<string, string> = {
-  "México": "🇲🇽", "África do Sul": "🇿🇦", "Coreia do Sul": "🇰🇷", "República Tcheca": "🇨🇿",
-  "Canadá": "🇨🇦", "Bósnia-Herzegovina": "🇧🇦", "Qatar": "🇶🇦", "Suíça": "🇨🇭",
-  "Brasil": "🇧🇷", "Marrocos": "🇲🇦", "Haiti": "🇭🇹", "Escócia": "🏴󠁧󠁢󠁳󠁣󠁴󠁿",
-  "Estados Unidos": "🇺🇸", "Paraguai": "🇵🇾", "Austrália": "🇦🇺", "Turquia": "🇹🇷",
-  "Alemanha": "🇩🇪", "Curaçao": "🇨🇼", "Costa do Marfim": "🇨🇮", "Equador": "🇪🇨",
-  "Holanda": "🇳🇱", "Japão": "🇯🇵", "Suécia": "🇸🇪", "Tunísia": "🇹🇳",
-  "Bélgica": "🇧🇪", "Egito": "🇪🇬", "Irã": "🇮🇷", "Nova Zelândia": "🇳🇿",
-  "Espanha": "🇪🇸", "Cabo Verde": "🇨🇻", "Arábia Saudita": "🇸🇦", "Uruguai": "🇺🇾",
-  "França": "🇫🇷", "Senegal": "🇸🇳", "Iraque": "🇮🇶", "Noruega": "🇳🇴",
-  "Argentina": "🇦🇷", "Argélia": "🇩🇿", "Áustria": "🇦🇹", "Jordânia": "🇯🇴",
-  "Portugal": "🇵🇹", "RD do Congo": "🇨🇩", "Uzbequistão": "🇺🇿", "Colômbia": "🇨🇴",
-  "Inglaterra": "🏴󠁧󠁢󠁥󠁮󠁧󠁿", "Croácia": "🇭🇷", "Gana": "🇬🇭", "Panamá": "🇵🇦",
-};
+// Compat: alguns componentes ainda importam FLAGS. Re-exporta ISO-2 (mapa por nome do time).
+// O componente <Flag /> usa esse mesmo mapa para renderizar SVG.
+export const FLAGS: Record<string, string> = TEAM_ISO;
 
 type Fixture = [string, string, string, string]; // [group, dateISO, home, away]
 
@@ -110,8 +99,8 @@ function makeGroupMatches(): MockMatch[] {
     id: `g${i}`,
     home_team: home,
     away_team: away,
-    home_flag: FLAGS[home] ?? "🏳️",
-    away_flag: FLAGS[away] ?? "🏳️",
+    home_flag: TEAM_ISO[home] ?? "",
+    away_flag: TEAM_ISO[away] ?? "",
     match_date: date,
     phase: "grupos" as const,
     group: g,
@@ -126,8 +115,8 @@ function makeBracket(phase: MatchPhase, count: number, idPrefix: string, baseDat
     id: `${idPrefix}${i}`,
     home_team: "—",
     away_team: "—",
-    home_flag: "🏳️",
-    away_flag: "🏳️",
+    home_flag: "",
+    away_flag: "",
     match_date: baseDate,
     phase,
     home_score: null,

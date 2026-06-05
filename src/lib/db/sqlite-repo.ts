@@ -2,7 +2,8 @@ import initSqlJs, { type Database, type SqlJsStatic } from "sql.js";
 import wasmUrl from "sql.js/dist/sql-wasm.wasm?url";
 import { getSeedMatches } from "./seed";
 import type { MockMatch, MockPrediction, MatchPhase } from "@/mocks/types";
-import { FLAGS } from "@/mocks/matches";
+import { TEAM_ISO } from "@/lib/teams";
+import { mockProfiles } from "@/mocks/profiles";
 
 const DB_NAME_KEY = "officecup-sqlite-name";
 const IDB_NAME = "officecup-sqlite";
@@ -92,9 +93,25 @@ function ensureSchema(database: Database) {
       is_zebra INTEGER NOT NULL DEFAULT 0,
       points_earned INTEGER NOT NULL DEFAULT 0
     );
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL UNIQUE,
+      full_name TEXT NOT NULL,
+      password TEXT NOT NULL,
+      is_admin INTEGER NOT NULL DEFAULT 0
+    );
     CREATE INDEX IF NOT EXISTS idx_matches_phase ON matches(phase);
     CREATE INDEX IF NOT EXISTS idx_predictions_match ON predictions(match_id);
+    CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
   `);
+  // Coluna slot (multi-palpite) — adicionada via ALTER se a base for antiga.
+  const cols = database.exec("PRAGMA table_info(predictions)");
+  const hasSlot =
+    cols[0]?.values.some((row) => String(row[1]) === "slot") ?? false;
+  if (!hasSlot) {
+    database.run(`ALTER TABLE predictions ADD COLUMN slot INTEGER NOT NULL DEFAULT 1`);
+    database.run(`CREATE INDEX IF NOT EXISTS idx_predictions_user_match_slot ON predictions(user_id, match_id, slot)`);
+  }
 }
 
 function seedIfEmpty(database: Database) {
@@ -126,11 +143,11 @@ function seedIfEmpty(database: Database) {
 }
 
 /**
- * Migra bandeiras armazenadas como ISO (ex.: "MX", "ZA") para emojis (🇲🇽, 🇿🇦)
- * usando o mapa FLAGS por nome do time. Idempotente — só atualiza linhas onde
- * o valor atual claramente não é um emoji.
+ * Garante que matches.home_flag/away_flag estejam armazenados como ISO-2
+ * (ex.: "BR", "MX"). O render no front usa <Flag /> (SVG), independente de SO.
+ * Idempotente — só atualiza linhas onde o valor atual não é o ISO esperado.
  */
-function migrateFlagsToEmoji(database: Database): boolean {
+function migrateFlagsToIso(database: Database): boolean {
   let changed = false;
   const stmt = database.prepare(
     `SELECT id, home_team, away_team, home_flag, away_flag FROM matches`,
@@ -147,12 +164,10 @@ function migrateFlagsToEmoji(database: Database): boolean {
     });
   }
   stmt.free();
-  // Heurística: emoji de bandeira ocupa >=4 bytes UTF-16; ISO tem 2-3 chars ASCII.
-  const looksLikeIso = (v: string) => /^[A-Z]{2,3}$/.test(v) || v.length <= 3;
   const upd = database.prepare(`UPDATE matches SET home_flag = ?, away_flag = ? WHERE id = ?`);
   for (const r of rows) {
-    const newHf = looksLikeIso(r.hf) && FLAGS[r.ht] ? FLAGS[r.ht] : r.hf;
-    const newAf = looksLikeIso(r.af) && FLAGS[r.at] ? FLAGS[r.at] : r.af;
+    const newHf = TEAM_ISO[r.ht] ?? (r.ht === "—" ? "" : r.hf);
+    const newAf = TEAM_ISO[r.at] ?? (r.at === "—" ? "" : r.af);
     if (newHf !== r.hf || newAf !== r.af) {
       upd.run([newHf, newAf, r.id]);
       changed = true;
@@ -160,6 +175,20 @@ function migrateFlagsToEmoji(database: Database): boolean {
   }
   upd.free();
   return changed;
+}
+
+function seedUsersIfEmpty(database: Database): boolean {
+  const res = database.exec("SELECT COUNT(*) AS c FROM users");
+  const count = res[0] ? Number(res[0].values[0][0]) : 0;
+  if (count > 0) return false;
+  const stmt = database.prepare(
+    `INSERT INTO users (id, email, full_name, password, is_admin) VALUES (?,?,?,?,?)`,
+  );
+  for (const p of mockProfiles) {
+    stmt.run([p.id, p.email, p.full_name, "demo", p.id === "u1" ? 1 : 0]);
+  }
+  stmt.free();
+  return true;
 }
 
 async function persist() {
@@ -182,12 +211,13 @@ export async function initSqliteRepo(name: string): Promise<void> {
     }
     ensureSchema(db);
     const seeded = seedIfEmpty(db);
-    const migrated = migrateFlagsToEmoji(db);
+    const migrated = migrateFlagsToIso(db);
+    const seededUsers = seedUsersIfEmpty(db);
     currentName = name;
     if (typeof localStorage !== "undefined") localStorage.setItem(DB_NAME_KEY, name);
-    if (isFresh || seeded || migrated) await persist();
+    if (isFresh || seeded || migrated || seededUsers) await persist();
     console.info(
-      `[sqlite] DB "${name}" pronto (${existing ? "carregado do IndexedDB" : "novo"}${seeded ? ", seed aplicado" : ""}${migrated ? ", flags migradas" : ""}).`,
+      `[sqlite] DB "${name}" pronto (${existing ? "carregado do IndexedDB" : "novo"}${seeded ? ", matches seedados" : ""}${seededUsers ? ", users seedados" : ""}${migrated ? ", flags→ISO" : ""}).`,
     );
     notify();
   })();
@@ -242,9 +272,10 @@ export function sqliteListByGroup(group: string): MockMatch[] {
 export async function sqliteUpsertPrediction(p: MockPrediction): Promise<void> {
   if (!db) return;
   db.run(
-    `INSERT INTO predictions (id, user_id, league_id, match_id, predicted_home_score, predicted_away_score, is_zebra, points_earned)
-     VALUES (?,?,?,?,?,?,?,?)
+    `INSERT INTO predictions (id, user_id, league_id, match_id, slot, predicted_home_score, predicted_away_score, is_zebra, points_earned)
+     VALUES (?,?,?,?,?,?,?,?,?)
      ON CONFLICT(id) DO UPDATE SET
+       slot = excluded.slot,
        predicted_home_score = excluded.predicted_home_score,
        predicted_away_score = excluded.predicted_away_score,
        is_zebra = excluded.is_zebra,
@@ -254,6 +285,7 @@ export async function sqliteUpsertPrediction(p: MockPrediction): Promise<void> {
       p.user_id,
       p.league_id,
       p.match_id,
+      p.slot,
       p.predicted_home_score,
       p.predicted_away_score,
       p.is_zebra ? 1 : 0,
@@ -261,4 +293,50 @@ export async function sqliteUpsertPrediction(p: MockPrediction): Promise<void> {
     ],
   );
   await persist();
+}
+
+export async function sqliteDeletePrediction(id: string): Promise<void> {
+  if (!db) return;
+  db.run(`DELETE FROM predictions WHERE id = ?`, [id]);
+  await persist();
+}
+
+export async function sqliteUpdateMatchResult(
+  matchId: string,
+  homeScore: number,
+  awayScore: number,
+): Promise<void> {
+  if (!db) return;
+  db.run(
+    `UPDATE matches SET home_score = ?, away_score = ?, status = 'finished' WHERE id = ?`,
+    [homeScore, awayScore, matchId],
+  );
+  await persist();
+}
+
+export interface SqliteUser {
+  id: string;
+  email: string;
+  full_name: string;
+  is_admin: boolean;
+}
+
+export function sqliteLogin(email: string, password: string): SqliteUser | null {
+  if (!db) return null;
+  const stmt = db.prepare(
+    `SELECT id, email, full_name, is_admin FROM users WHERE email = ? AND password = ?`,
+  );
+  stmt.bind([email, password]);
+  if (!stmt.step()) {
+    stmt.free();
+    return null;
+  }
+  const r = stmt.getAsObject() as Record<string, unknown>;
+  stmt.free();
+  return {
+    id: String(r.id),
+    email: String(r.email),
+    full_name: String(r.full_name),
+    is_admin: Number(r.is_admin) === 1,
+  };
 }

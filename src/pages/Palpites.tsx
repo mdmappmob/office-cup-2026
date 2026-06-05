@@ -14,10 +14,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PHASE_LABEL, PHASE_ORDER, type MatchPhase } from "@/mocks/types";
-import { Lock, Sparkles, Brain, ChevronDown, CheckCircle2, X } from "lucide-react";
+import { Lock, Sparkles, Brain, ChevronDown, CheckCircle2, X, Plus, Trash2 } from "lucide-react";
 import { analyzeMatch } from "@/lib/copilot";
 import { matchesRepo, predictionsRepo } from "@/lib/db";
-import { FLAGS } from "@/mocks/matches";
+import { Flag } from "@/components/Flag";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
@@ -317,7 +317,7 @@ function MatchRow({
       <TableCell className="text-right">
         <div className="flex items-center gap-2 justify-end">
           <span className="font-semibold text-sm">{match.home_team}</span>
-          <span className="text-lg">{FLAGS[match.home_team] ?? match.home_flag}</span>
+          <Flag team={match.home_team} iso={match.home_flag} size={16} />
         </div>
       </TableCell>
       <TableCell>
@@ -351,7 +351,7 @@ function MatchRow({
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-2">
-          <span className="text-lg">{FLAGS[match.away_team] ?? match.away_flag}</span>
+          <Flag team={match.away_team} iso={match.away_flag} size={16} />
           <span className="font-semibold text-sm">{match.away_team}</span>
         </div>
       </TableCell>
@@ -432,7 +432,7 @@ function BracketRow({
       <CardContent className="p-4 grid grid-cols-[1fr_auto_1fr_auto] items-center gap-4">
         <div className="flex items-center gap-3 justify-end">
           <span className="font-semibold">{match.home_team}</span>
-          <span className="text-2xl">{FLAGS[match.home_team] ?? match.home_flag}</span>
+          <Flag team={match.home_team} iso={match.home_flag} size={22} />
         </div>
         <div className="flex items-center gap-2">
           <Input
@@ -462,7 +462,7 @@ function BracketRow({
           />
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-2xl">{FLAGS[match.away_team] ?? match.away_flag}</span>
+          <Flag team={match.away_team} iso={match.away_flag} size={22} />
           <span className="font-semibold">{match.away_team}</span>
         </div>
         <Button
@@ -503,11 +503,11 @@ function MatchDetailsInline({ matchId, onClose }: { matchId: string; onClose: ()
         <div className="flex items-start justify-between mb-4">
           <div>
             <div className="flex items-center gap-2 text-sm font-bold">
-              <span className="text-lg">{match.home_flag}</span>
+              <Flag team={match.home_team} iso={match.home_flag} size={16} />
               {match.home_team}
               <span className="text-muted-foreground font-mono">×</span>
               {match.away_team}
-              <span className="text-lg">{match.away_flag}</span>
+              <Flag team={match.away_team} iso={match.away_flag} size={16} />
             </div>
             <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mt-1">
               {new Date(match.match_date).toLocaleString("pt-BR")}
@@ -517,7 +517,8 @@ function MatchDetailsInline({ matchId, onClose }: { matchId: string; onClose: ()
             <X className="size-4" />
           </Button>
         </div>
-        <div className="w-full">
+        <div className="w-full space-y-5">
+          <AlternativePalpites matchId={matchId} />
           <section>
             <h4 className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground mb-3">
               <Brain className="size-3.5 text-primary" /> Copilot das Zebras
@@ -564,5 +565,109 @@ function CopilotPanel({ matchId }: { matchId: string }) {
         </div>
       )}
     </div>
+  );
+}
+
+function AlternativePalpites({ matchId }: { matchId: string }) {
+  const userId = useAppStore((s) => s.currentUserId);
+  const predictions = useAppStore((s) =>
+    s.predictions
+      .filter((p) => p.match_id === matchId && p.user_id === userId)
+      .sort((a, b) => a.slot - b.slot),
+  );
+  const addSlot = useAppStore((s) => s.addPredictionSlot);
+  const removePrediction = predictionsRepo.removePrediction;
+  const upsert = predictionsRepo.upsertPrediction;
+  const match = useAppStore((s) => s.matches.find((m) => m.id === matchId)!);
+  const tbd = match.home_team === "—" || match.away_team === "—";
+
+  return (
+    <section>
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground">
+          <Sparkles className="size-3.5 text-primary" /> Meus palpites para esta partida
+        </h4>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={tbd}
+          onClick={() => addSlot(matchId)}
+          className="h-7"
+        >
+          <Plus className="size-3.5 mr-1" /> Novo palpite
+        </Button>
+      </div>
+      <div className="space-y-2">
+        {predictions.length === 0 && (
+          <p className="text-xs text-muted-foreground italic">
+            Preencha o placar acima — seu 1º palpite aparece aqui automaticamente.
+          </p>
+        )}
+        {predictions.map((p) => (
+          <div
+            key={p.id}
+            className="flex items-center gap-3 px-3 py-2 rounded-md border border-border bg-background/50"
+          >
+            <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground w-12">
+              Slot {p.slot}
+            </span>
+            <div className="flex items-center gap-1.5 flex-1 justify-center">
+              <Flag team={match.home_team} iso={match.home_flag} size={14} />
+              <Input
+                type="number"
+                min={0}
+                disabled={tbd}
+                className="w-12 h-8 text-center font-mono text-sm font-bold p-0"
+                value={p.predicted_home_score ?? ""}
+                onChange={(e) =>
+                  upsert(
+                    matchId,
+                    {
+                      predicted_home_score: e.target.value === "" ? null : Number(e.target.value),
+                    },
+                    p.slot,
+                  )
+                }
+              />
+              <span className="text-muted-foreground font-mono text-xs">×</span>
+              <Input
+                type="number"
+                min={0}
+                disabled={tbd}
+                className="w-12 h-8 text-center font-mono text-sm font-bold p-0"
+                value={p.predicted_away_score ?? ""}
+                onChange={(e) =>
+                  upsert(
+                    matchId,
+                    {
+                      predicted_away_score: e.target.value === "" ? null : Number(e.target.value),
+                    },
+                    p.slot,
+                  )
+                }
+              />
+              <Flag team={match.away_team} iso={match.away_flag} size={14} />
+            </div>
+            {p.points_earned > 0 && (
+              <span className="font-mono text-xs text-accent font-bold">+{p.points_earned}pts</span>
+            )}
+            {p.slot > 1 && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="size-7"
+                onClick={() => removePrediction(p.id)}
+                title="Remover este palpite"
+              >
+                <Trash2 className="size-3.5" />
+              </Button>
+            )}
+          </div>
+        ))}
+        <p className="text-[10px] text-muted-foreground font-mono">
+          Pontuação considera o melhor palpite cadastrado.
+        </p>
+      </div>
+    </section>
   );
 }

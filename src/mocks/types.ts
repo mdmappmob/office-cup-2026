@@ -52,6 +52,7 @@ export interface MockPrediction {
   user_id: string;
   league_id: string;
   match_id: string;
+  slot: number;
   predicted_home_score: number | null;
   predicted_away_score: number | null;
   predicted_home_lineup: string[];
