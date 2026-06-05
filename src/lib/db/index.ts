@@ -7,6 +7,8 @@ import {
   sqliteListByPhase,
   sqliteListByGroup,
   sqliteUpsertPrediction,
+  sqliteDeletePrediction,
+  sqliteUpdateMatchResult,
 } from "./sqlite-repo";
 
 /**
@@ -24,7 +26,9 @@ export interface MatchesRepo {
 export interface PredictionsRepo {
   listPredictions(): MockPrediction[];
   getPrediction(matchId: string): MockPrediction | undefined;
-  upsertPrediction(matchId: string, patch: Partial<MockPrediction>): void;
+  upsertPrediction(matchId: string, patch: Partial<MockPrediction>, slot?: number): void;
+  removePrediction(predictionId: string): void;
+  settleMatch(matchId: string, homeScore: number, awayScore: number): void;
 }
 
 export const matchesRepo: MatchesRepo = {
@@ -54,12 +58,37 @@ export const matchesRepo: MatchesRepo = {
 export const predictionsRepo: PredictionsRepo = {
   listPredictions: () => useAppStore.getState().predictions,
   getPrediction: (matchId) =>
-    useAppStore.getState().predictions.find((p) => p.match_id === matchId),
-  upsertPrediction: (matchId, patch) => {
-    useAppStore.getState().upsertPrediction(matchId, patch);
+    useAppStore
+      .getState()
+      .predictions.find(
+        (p) =>
+          p.match_id === matchId &&
+          p.user_id === useAppStore.getState().currentUserId &&
+          p.slot === 1,
+      ),
+  upsertPrediction: (matchId, patch, slot = 1) => {
+    useAppStore.getState().upsertPrediction(matchId, patch, slot);
     if (isSqliteReady()) {
-      const updated = useAppStore.getState().predictions.find((p) => p.match_id === matchId);
+      const uid = useAppStore.getState().currentUserId;
+      const updated = useAppStore
+        .getState()
+        .predictions.find((p) => p.match_id === matchId && p.user_id === uid && p.slot === slot);
       if (updated) void sqliteUpsertPrediction(updated);
+    }
+  },
+  removePrediction: (predictionId: string) => {
+    useAppStore.getState().removePrediction(predictionId);
+    if (isSqliteReady()) void sqliteDeletePrediction(predictionId);
+  },
+  settleMatch: (matchId, homeScore, awayScore) => {
+    useAppStore.getState().settleMatch(matchId, homeScore, awayScore);
+    if (isSqliteReady()) {
+      void sqliteUpdateMatchResult(matchId, homeScore, awayScore);
+      // Persistir os pontos atualizados de cada predição do match.
+      const preds = useAppStore
+        .getState()
+        .predictions.filter((p) => p.match_id === matchId);
+      for (const p of preds) void sqliteUpsertPrediction(p);
     }
   },
 };
