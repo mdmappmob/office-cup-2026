@@ -1,44 +1,107 @@
-## Plano de mudanças
+# Plano: Migração para Supabase (projeto helpdesk)
 
-### 1. Caminho da base SQLite memorizado → pula popup
-- Hoje já gravamos o nome em `localStorage` (`officecup-sqlite-name`). O popup ainda aparece quando o nome não existe.
-- Mudança: na 1ª execução, criar **automaticamente** com nome padrão `officecup-2026` (sem pedir nada). Remover o componente `SqliteBootstrap` da árvore — o boot vira um efeito no root que apenas chama `initSqliteRepo("officecup-2026")` e dispara o redirect para `/login` quando termina.
-- O arquivo persistente continua em IndexedDB (não dá pra gravar caminho real em browser); o "caminho" passa a ser uma constante salva em `src/lib/db/config.ts` que o sistema lê.
+## 1. Conexão Supabase
 
-### 2. Guard de autenticação
-- Criar `src/store/auth-store.ts` (zustand persistido) com `user | null`, `login()`, `logout()`.
-- Ajustar `src/pages/Login.tsx` para validar contra a tabela `users` no SQLite (com hash simples). Se não há usuário cadastrado, criar um seed (`admin@firma.com / demo`).
-- Converter `/_app` em **rota protegida**: `beforeLoad` verifica auth-store; sem usuário → `redirect({ to: "/login" })`.
-- `/` redireciona a `/login` quando deslogado, a `/dashboard` quando logado.
+O projeto hoje usa SQLite no navegador (sql.js + IndexedDB). Para usar o seu projeto Supabase **helpdesk** existente sem apagar nada que já está lá, é necessário **conectar a integração Supabase do Lovable** ao projeto helpdesk. Isso é feito por você no painel (botão Supabase no topo direito → Connect → escolher o projeto "helpdesk").
 
-### 3. Múltiplos palpites por partida
-- Schema SQLite: relaxar unicidade. `predictions.id` continua PK, mas remove a regra implícita de "1 por match_id+user_id". Adicionar coluna `slot` (1..N) e índice `(user_id, match_id, slot)`.
-- `upsertPrediction(matchId, patch, slot?)` aceita slot opcional; sem slot → cria novo.
-- UI em `Palpites.tsx`: botão **"+ Novo palpite"** dentro do card aberto, listando os palpites já cadastrados com botão remover. A pontuação considera o **melhor palpite** por partida.
+# Não vou utilizar o Supabase do Lovable. Utilizar o próprio Supabase.
 
-### 4. Bandeiras renderizadas via SVG (cross-OS)
-- Instalar `country-flag-icons` (SVG, funciona em qualquer SO).
-- Mudar storage: `matches.home_flag` / `away_flag` voltam a guardar **ISO-2** (ex.: `MX`, `BR`, `GB-ENG`).
-- Criar `src/components/Flag.tsx` que recebe o nome do time, mapeia para ISO via tabela `TEAM_ISO`, e renderiza `<svg>` do `country-flag-icons/react/3x2`.
-- Atualizar `seed.ts`, `Palpites.tsx`, `computeBracket` (store) e `sqlite-repo` para usar ISO.
-- **Migração**: rodar uma vez `UPDATE matches SET home_flag = <iso>, away_flag = <iso>` para bases já criadas.
-- Gerar script `/mnt/documents/rollback_flags_table.sql` que faz `DROP TABLE IF EXISTS flags;` (rollback do `update_flags.sql` enviado antes).
+Assim que conectado, eu crio todas as tabelas do OfficeCup 2026 com prefixo `oc_` para garantir que **nenhuma tabela existente do helpdesk seja afetada** (sem DROP, sem ALTER em tabelas alheias).
 
-### 5. Apuração de resultados + estatísticas
-- Nova rota `/_app/admin/resultados` (admin) com tabela editável: para cada partida o admin lança `home_score`, `away_score`, marca `status = 'finished'` → grava em `matches`.
-- Ao salvar resultado: percorrer todas predições do match, calcular pontos com `scoreMatch` (já existe em `src/lib/scoring.ts`), gravar `points_earned` em `predictions`, atualizar `members.total_points`.
-- Recalcular `unlockedPhases` e propagar vencedores reais para chaves seguintes (substituir cálculo baseado em palpites pelo resultado real quando `status='finished'`).
-- Página `Ranking` lê `members.total_points` (SQLite) e quebra por categoria (exato / vencedor+diff / vencedor / artilheiros / zebra).
-- Dashboard ganha cards: "Próximos jogos", "Acertos da rodada", "Maior pontuador da fase".
+## 2. Schema novo (todas com prefixo `oc_`)
 
-### Arquivos tocados
-**Novos:** `src/lib/db/config.ts`, `src/store/auth-store.ts`, `src/components/Flag.tsx`, `src/lib/results.ts` (apuração), `src/pages/AdminResultados.tsx`, `src/routes/_app.admin.resultados.tsx`, `/mnt/documents/rollback_flags_table.sql`.
+```text
+oc_profiles      (id uuid PK → auth.users, full_name, avatar_url, is_admin)
+oc_matches       (id, home_team, away_team, home_flag, away_flag,
+                  match_date, phase, group, home_score, away_score,
+                  status, bracket_slot)
+oc_predictions   (id, user_id, match_id, slot, predicted_home_score,
+                  predicted_away_score, is_zebra, points_earned, created_at)
+                  -- sem unique(user_id, match_id): palpites ilimitados
+oc_results       (match_id PK, home_score, away_score, settled_at, settled_by)
+oc_standings     (user_id PK, total_points, exact_hits, result_hits,
+                  zebra_hits, updated_at)
+oc_match_stats   (match_id PK, total_predictions, avg_home, avg_away,
+                  zebra_rate, updated_at)
+```
 
-**Editados:** `src/routes/__root.tsx` (remove SqliteBootstrap, adiciona boot auto), `src/routes/_app.tsx` (beforeLoad guard), `src/routes/index.tsx` (redirect condicional), `src/routes/login.tsx`, `src/pages/Login.tsx`, `src/lib/db/sqlite-repo.ts` (schema users, multi-palpite, ISO flags, apuração), `src/lib/db/index.ts`, `src/mocks/matches.ts` + `seed.ts` (ISO codes), `src/store/app-store.ts` (computeBracket usa ISO + score real), `src/pages/Palpites.tsx` (Flag component + multi-palpite UI), `src/pages/Dashboard.tsx`, `src/pages/Ranking.tsx`.
+RLS:
 
-**Removidos:** `src/lib/db/SqliteBootstrap.tsx`.
+- `oc_matches`, `oc_results`, `oc_standings`, `oc_match_stats`: SELECT público autenticado.
+- `oc_predictions`: usuário lê/escreve só os próprios (`auth.uid() = user_id`); admin lê tudo.
+- `oc_results`: apenas admin escreve (via função `has_role`).
+- Tabela separada `oc_user_roles` + função `has_role` (padrão seguro, sem flag no profile).
 
-### Pacotes
-- `bun add country-flag-icons`
+GRANTs explícitos para `authenticated` e `service_role` em cada tabela.
 
-Quer que eu prossiga assim? Posso ajustar qualquer ponto antes de implementar.
+## 3. Seed de matches
+
+Migrar o conteúdo atual de `src/mocks/matches.ts` (104 jogos da Copa 2026, com bandeiras ISO) para `oc_matches` via migration de INSERT. Os dados de matches são preservados integralmente.
+
+## 4. Autenticação
+
+Tela `/login` reformulada com 3 abas:
+
+- **Entrar** — email + senha (`supabase.auth.signInWithPassword`)
+- **Criar conta** — email + senha + nome (`supabase.auth.signUp` com `emailRedirectTo`)
+- **Esqueci a senha** — envia `resetPasswordForEmail` com redirect para `/reset-password`
+
+Nova rota pública `/reset-password` que detecta `type=recovery` no hash e chama `supabase.auth.updateUser({ password })`.
+
+Trigger no banco: `on auth.user created → insert oc_profiles`.
+
+Guard de rotas (`_app`) passa a ler sessão do Supabase em vez do `auth-store` local. `onAuthStateChange` no `__root.tsx`.
+
+## 5. Monetização — remoção
+
+Remover do menu lateral e do código:
+
+- `src/pages/Pagamento.tsx` e rota `pagamento.tsx`
+- Campos `payment_status`, `has_paid_admin` (não serão criados no schema novo)
+- Quaisquer CTAs de pagamento no Dashboard / CriarBolao
+
+## 6. Palpites ilimitados
+
+A UI já tem botão "+ Novo palpite" por slot. Vou:
+
+- Remover qualquer constraint de slot único no novo schema.
+- Garantir que `Palpites.tsx` lê/grava do Supabase (substituir `sqliteUpsertPrediction` por chamada Supabase via server function).
+- Pontuação considera o **melhor** palpite por partida.
+
+## 7. Tela de Apuração
+
+Reaproveitar layout de `AdminResultados.tsx` mas:
+
+- Listar partidas com filtro por fase, igual à tela de palpites.
+- Para cada partida: inputs de placar real → grava em `oc_results`.
+- Trigger SQL `after insert/update on oc_results`:
+  - Calcula `points_earned` de cada `oc_prediction` daquela partida (regra: 5 pts placar exato, 3 pts resultado + saldo, 2 pts vencedor, 0).
+  - Recalcula `oc_standings` (soma melhor slot por partida).
+  - Atualiza `oc_match_stats`.
+- Acesso restrito via `has_role(auth.uid(), 'admin')`.
+
+A partir do início da Copa (11/06/2026), os resultados reais são lançados aqui e tudo é apurado automaticamente.
+
+## 8. Camada de acesso a dados
+
+Substituir `src/lib/db/sqlite-repo.ts` + `src/lib/db/index.ts` por:
+
+- `src/lib/matches.functions.ts` — server fns para listar/ler matches.
+- `src/lib/predictions.functions.ts` — listar/criar/remover palpites (com `requireSupabaseAuth`).
+- `src/lib/results.functions.ts` — settle match (admin).
+- `src/lib/standings.functions.ts` — ranking.
+
+Componentes passam a usar TanStack Query + `useServerFn`. O `app-store` (zustand) deixa de ser fonte de verdade; vira só UI state (filtros, modais).
+
+## 9. Limpeza
+
+- Remover `sql.js`, `src/lib/db/sqlite-repo.ts`, `src/lib/db/config.ts`, `src/lib/db/seed.ts`, `src/components/SqliteBootstrap.tsx` (já removido), `src/store/auth-store.ts` local.
+- Manter `src/lib/teams.ts`, `src/components/Flag.tsx`, `src/lib/scoring.ts`, `src/lib/copilot.ts`.
+
+## Pré-requisito (ação sua)
+
+**Antes de eu poder começar**, conecte o projeto Supabase **helpdesk** ao Lovable:
+
+- topo direito → ícone Supabase → Connect Supabase → selecionar workspace e projeto "helpdesk".
+
+Depois disso me avise que eu sigo com tudo acima em sequência (migrations → auth → telas → apuração). Nenhuma tabela existente do helpdesk será tocada.
