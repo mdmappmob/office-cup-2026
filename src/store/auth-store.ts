@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 
 export interface AuthUser {
   id: string;
@@ -10,20 +9,19 @@ export interface AuthUser {
 
 interface AuthState {
   user: AuthUser | null;
+  ready: boolean;
   setUser: (u: AuthUser | null) => void;
+  setReady: (b: boolean) => void;
   logout: () => void;
 }
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set) => ({
-      user: null,
-      setUser: (u) => set({ user: u }),
-      logout: () => set({ user: null }),
-    }),
-    { name: "officecup-auth" },
-  ),
-);
+export const useAuthStore = create<AuthState>()((set) => ({
+  user: null,
+  ready: false,
+  setUser: (u) => set({ user: u }),
+  setReady: (b) => set({ ready: b }),
+  logout: () => set({ user: null }),
+}));
 
 export function isAuthenticated(): boolean {
   return useAuthStore.getState().user !== null;

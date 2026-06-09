@@ -1,27 +1,29 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ThemeManager } from "@/components/ThemeManager";
 import { Toaster } from "@/components/ui/sonner";
 import { useAuthStore } from "@/store/auth-store";
-import { useAppStore } from "@/store/app-store";
 import { useEffect } from "react";
 
 export const Route = createFileRoute("/_app")({
-  beforeLoad: () => {
-    if (typeof window === "undefined") return;
-    if (!useAuthStore.getState().user) {
-      throw redirect({ to: "/login" });
-    }
-  },
   component: AppLayout,
 });
 
 function AppLayout() {
   const user = useAuthStore((s) => s.user);
+  const ready = useAuthStore((s) => s.ready);
+  const navigate = useNavigate();
   useEffect(() => {
-    if (user) useAppStore.getState().setCurrentUser(user.id, user.is_admin);
-  }, [user]);
+    if (ready && !user) navigate({ to: "/login" });
+  }, [ready, user, navigate]);
+  if (!ready || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-xs font-mono text-muted-foreground">
+        Carregando…
+      </div>
+    );
+  }
   return (
     <SidebarProvider>
       <ThemeManager />
@@ -31,7 +33,7 @@ function AppLayout() {
           <header className="h-12 flex items-center border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-20">
             <SidebarTrigger className="ml-2" />
             <span className="ml-3 text-xs font-mono uppercase tracking-widest text-muted-foreground">
-              OfficeCup 2026 · Mock Environment
+              OfficeCup 2026
             </span>
           </header>
           <main className="flex-1 overflow-y-auto">

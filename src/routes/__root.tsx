@@ -10,9 +10,7 @@ import {
 
 import { useEffect } from "react";
 import appCss from "../styles.css?url";
-import { initSqliteRepo, isSqliteReady, onSqliteReady, sqliteListMatches } from "@/lib/db/sqlite-repo";
-import { SQLITE_DB_NAME } from "@/lib/db/config";
-import { useAppStore } from "@/store/app-store";
+import { initSupabaseAuthSync } from "@/integrations/supabase/sync";
 
 function NotFoundComponent() {
   return (
@@ -127,21 +125,13 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <SqliteBoot />
+      <SupabaseBoot />
       <Outlet />
     </QueryClientProvider>
   );
 }
 
-function SqliteBoot() {
-  useEffect(() => {
-    if (isSqliteReady()) return;
-    initSqliteRepo(SQLITE_DB_NAME).catch((e) => console.error("[sqlite] init falhou", e));
-    const off = onSqliteReady(() => {
-      const rows = sqliteListMatches();
-      if (rows.length > 0) useAppStore.setState({ matches: rows });
-    });
-    return off;
-  }, []);
+function SupabaseBoot() {
+  useEffect(() => initSupabaseAuthSync(), []);
   return null;
 }
