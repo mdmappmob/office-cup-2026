@@ -8,8 +8,18 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
 // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
 // @cloudflare/vite-plugin builds from this — wrangler.jsonc main alone is insufficient.
+// Expose helpdesk Supabase secrets as VITE_SUPABASE_* at build time (URL + publishable key are public).
+const SUPABASE_URL = process.env.HELPDESK_SUPABASE_URL ?? "";
+const SUPABASE_PUBLISHABLE_KEY = process.env.HELPDESK_SUPABASE_PUBLISHABLE_KEY ?? "";
+
 export default defineConfig({
   tanstackStart: {
     server: { entry: "server" },
+  },
+  vite: {
+    define: {
+      "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(SUPABASE_URL),
+      "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(SUPABASE_PUBLISHABLE_KEY),
+    },
   },
 });
