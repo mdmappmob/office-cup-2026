@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PagamentoRouteImport } from './routes/pagamento'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as CriarBolaoRouteImport } from './routes/criar-bolao'
@@ -21,6 +22,11 @@ import { Route as AppGestaoRouteImport } from './routes/_app.gestao'
 import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
 import { Route as AppAdminResultadosRouteImport } from './routes/_app.admin.resultados'
 
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PagamentoRoute = PagamentoRouteImport.update({
   id: '/pagamento',
   path: '/pagamento',
@@ -81,6 +87,7 @@ export interface FileRoutesByFullPath {
   '/criar-bolao': typeof CriarBolaoRoute
   '/login': typeof LoginRoute
   '/pagamento': typeof PagamentoRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/dashboard': typeof AppDashboardRoute
   '/gestao': typeof AppGestaoRoute
   '/palpites': typeof AppPalpitesRoute
@@ -93,6 +100,7 @@ export interface FileRoutesByTo {
   '/criar-bolao': typeof CriarBolaoRoute
   '/login': typeof LoginRoute
   '/pagamento': typeof PagamentoRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/dashboard': typeof AppDashboardRoute
   '/gestao': typeof AppGestaoRoute
   '/palpites': typeof AppPalpitesRoute
@@ -107,6 +115,7 @@ export interface FileRoutesById {
   '/criar-bolao': typeof CriarBolaoRoute
   '/login': typeof LoginRoute
   '/pagamento': typeof PagamentoRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/gestao': typeof AppGestaoRoute
   '/_app/palpites': typeof AppPalpitesRoute
@@ -121,6 +130,7 @@ export interface FileRouteTypes {
     | '/criar-bolao'
     | '/login'
     | '/pagamento'
+    | '/reset-password'
     | '/dashboard'
     | '/gestao'
     | '/palpites'
@@ -133,6 +143,7 @@ export interface FileRouteTypes {
     | '/criar-bolao'
     | '/login'
     | '/pagamento'
+    | '/reset-password'
     | '/dashboard'
     | '/gestao'
     | '/palpites'
@@ -146,6 +157,7 @@ export interface FileRouteTypes {
     | '/criar-bolao'
     | '/login'
     | '/pagamento'
+    | '/reset-password'
     | '/_app/dashboard'
     | '/_app/gestao'
     | '/_app/palpites'
@@ -160,10 +172,18 @@ export interface RootRouteChildren {
   CriarBolaoRoute: typeof CriarBolaoRoute
   LoginRoute: typeof LoginRoute
   PagamentoRoute: typeof PagamentoRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/pagamento': {
       id: '/pagamento'
       path: '/pagamento'
@@ -270,7 +290,18 @@ const rootRouteChildren: RootRouteChildren = {
   CriarBolaoRoute: CriarBolaoRoute,
   LoginRoute: LoginRoute,
   PagamentoRoute: PagamentoRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
