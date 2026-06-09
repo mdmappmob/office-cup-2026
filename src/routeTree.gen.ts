@@ -10,9 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
-import { Route as PagamentoRouteImport } from './routes/pagamento'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as CriarBolaoRouteImport } from './routes/criar-bolao'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRankingRouteImport } from './routes/_app.ranking'
@@ -27,19 +25,9 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
   path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PagamentoRoute = PagamentoRouteImport.update({
-  id: '/pagamento',
-  path: '/pagamento',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CriarBolaoRoute = CriarBolaoRouteImport.update({
-  id: '/criar-bolao',
-  path: '/criar-bolao',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppRoute = AppRouteImport.update({
@@ -84,9 +72,7 @@ const AppAdminResultadosRoute = AppAdminResultadosRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/criar-bolao': typeof CriarBolaoRoute
   '/login': typeof LoginRoute
-  '/pagamento': typeof PagamentoRoute
   '/reset-password': typeof ResetPasswordRoute
   '/dashboard': typeof AppDashboardRoute
   '/gestao': typeof AppGestaoRoute
@@ -97,9 +83,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/criar-bolao': typeof CriarBolaoRoute
   '/login': typeof LoginRoute
-  '/pagamento': typeof PagamentoRoute
   '/reset-password': typeof ResetPasswordRoute
   '/dashboard': typeof AppDashboardRoute
   '/gestao': typeof AppGestaoRoute
@@ -112,9 +96,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
-  '/criar-bolao': typeof CriarBolaoRoute
   '/login': typeof LoginRoute
-  '/pagamento': typeof PagamentoRoute
   '/reset-password': typeof ResetPasswordRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/gestao': typeof AppGestaoRoute
@@ -127,9 +109,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/criar-bolao'
     | '/login'
-    | '/pagamento'
     | '/reset-password'
     | '/dashboard'
     | '/gestao'
@@ -140,9 +120,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/criar-bolao'
     | '/login'
-    | '/pagamento'
     | '/reset-password'
     | '/dashboard'
     | '/gestao'
@@ -154,9 +132,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_app'
-    | '/criar-bolao'
     | '/login'
-    | '/pagamento'
     | '/reset-password'
     | '/_app/dashboard'
     | '/_app/gestao'
@@ -169,9 +145,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
-  CriarBolaoRoute: typeof CriarBolaoRoute
   LoginRoute: typeof LoginRoute
-  PagamentoRoute: typeof PagamentoRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
 }
 
@@ -184,25 +158,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/pagamento': {
-      id: '/pagamento'
-      path: '/pagamento'
-      fullPath: '/pagamento'
-      preLoaderRoute: typeof PagamentoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/login': {
       id: '/login'
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/criar-bolao': {
-      id: '/criar-bolao'
-      path: '/criar-bolao'
-      fullPath: '/criar-bolao'
-      preLoaderRoute: typeof CriarBolaoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app': {
@@ -287,11 +247,19 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
-  CriarBolaoRoute: CriarBolaoRoute,
   LoginRoute: LoginRoute,
-  PagamentoRoute: PagamentoRoute,
   ResetPasswordRoute: ResetPasswordRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
