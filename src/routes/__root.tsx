@@ -8,9 +8,8 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 
-import { useEffect } from "react";
 import appCss from "../styles.css?url";
-import { initSupabaseAuthSync } from "@/integrations/supabase/sync";
+import { SqliteBootstrap } from "@/components/SqliteBootstrap";
 
 function NotFoundComponent() {
   return (
@@ -125,13 +124,8 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <SupabaseBoot />
+      <SqliteBootstrap />
       <Outlet />
     </QueryClientProvider>
   );
-}
-
-function SupabaseBoot() {
-  useEffect(() => initSupabaseAuthSync(), []);
-  return null;
 }
