@@ -188,6 +188,18 @@ export async function updatePassword(email: string, newPassword: string): Promis
   scheduleSave();
 }
 
+export async function listUsersDebug(): Promise<Array<{ id: string; email: string; full_name: string; is_admin: boolean; created_at: string }>> {
+  const d = await openDb();
+  const rows = queryRows(d, `SELECT id, email, full_name, is_admin, created_at FROM oc_users ORDER BY created_at ASC`);
+  return rows.map((r) => ({
+    id: String(r.id),
+    email: String(r.email),
+    full_name: String(r.full_name),
+    is_admin: Number(r.is_admin) === 1,
+    created_at: String(r.created_at),
+  }));
+}
+
 // ---------- session (current user id) ----------
 
 export function readSession(): string | null {
