@@ -58,6 +58,11 @@ export const useAuthStore = create<AuthState>()((set) => ({
   },
   resetPassword: async (email, newPassword) => {
     await updatePassword(email, newPassword);
+    // Se a senha redefinida é do usuário logado, derruba a sessão para forçar novo login.
+    const current = useAuthStore.getState().user;
+    if (current && current.email === email.trim().toLowerCase()) {
+      commitUser(set, null);
+    }
   },
   logout: () => commitUser(set, null),
 }));
