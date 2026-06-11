@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAppStore } from "@/store/app-store";
+import { useAuthStore } from "@/store/auth-store";
 import { mockProfiles } from "@/mocks/profiles";
 import { totalUserPoints, userBreakdown } from "@/lib/scoring";
 import {
@@ -10,11 +11,20 @@ import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 
 export function DashboardPage() {
+  const authUser = useAuthStore((s) => s.user);
   const matches = useAppStore((s) => s.matches);
   const predictions = useAppStore((s) => s.predictions);
   const members = useAppStore((s) => s.members);
   const currentUserId = useAppStore((s) => s.currentUserId);
-  const user = mockProfiles.find((p) => p.id === currentUserId)!;
+  const user =
+    authUser?.id === currentUserId
+      ? { id: authUser.id, email: authUser.email, full_name: authUser.full_name, avatar_url: "" }
+      : mockProfiles.find((p) => p.id === currentUserId) ?? {
+          id: currentUserId,
+          email: "",
+          full_name: "Usuário local",
+          avatar_url: "",
+        };
 
   const live = totalUserPoints(matches, predictions, currentUserId);
   const breakdown = userBreakdown(matches, predictions, currentUserId);
@@ -102,16 +112,19 @@ export function DashboardPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           {sortedMembers.slice(0, 5).map((m, idx) => {
-            const p = mockProfiles.find((x) => x.id === m.user_id);
+            const p = authUser?.id === m.user_id
+              ? { id: authUser.id, email: authUser.email, full_name: authUser.full_name, avatar_url: "" }
+              : mockProfiles.find((x) => x.id === m.user_id);
             const isMe = m.user_id === currentUserId;
+            const name = p?.full_name ?? "Usuário local";
             return (
               <div key={m.id} className={`flex items-center justify-between p-3 rounded-md ${isMe ? "bg-primary/5 border border-primary/20" : ""}`}>
                 <div className="flex items-center gap-4">
                   <span className="text-xs font-mono text-muted-foreground w-6">{String(idx + 1).padStart(2, "0")}</span>
                   <div className="size-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold">
-                    {p?.full_name.split(" ").map((x) => x[0]).slice(0, 2).join("")}
+                    {name.split(" ").map((x) => x[0]).slice(0, 2).join("")}
                   </div>
-                  <span className={`text-sm ${isMe ? "font-bold text-primary" : "font-semibold"}`}>{p?.full_name}{isMe && " (você)"}</span>
+                  <span className={`text-sm ${isMe ? "font-bold text-primary" : "font-semibold"}`}>{name}{isMe && " (você)"}</span>
                 </div>
                 <span className={`font-mono text-sm font-bold ${idx === 0 ? "text-accent" : ""}`}>{m.total_points} pts</span>
               </div>

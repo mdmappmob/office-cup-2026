@@ -4,11 +4,13 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Link2, Users } from "lucide-react";
 import { useAppStore } from "@/store/app-store";
+import { useAuthStore } from "@/store/auth-store";
 import { mockProfiles } from "@/mocks/profiles";
 import { mockLeagues } from "@/mocks/leagues";
 import { toast } from "sonner";
 
 export function GestaoPage() {
+  const authUser = useAuthStore((s) => s.user);
   const members = useAppStore((s) => s.members);
   const toggle = useAppStore((s) => s.toggleMemberPaid);
   const league = mockLeagues[0];
@@ -48,15 +50,18 @@ export function GestaoPage() {
         </CardHeader>
         <CardContent className="divide-y divide-border">
           {members.map((m) => {
-            const p = mockProfiles.find((x) => x.id === m.user_id);
+            const p = authUser?.id === m.user_id
+              ? { id: authUser.id, email: authUser.email, full_name: authUser.full_name, avatar_url: "" }
+              : mockProfiles.find((x) => x.id === m.user_id);
+            const name = p?.full_name ?? "Usuário local";
             return (
               <div key={m.id} className="flex items-center justify-between py-3">
                 <div className="flex items-center gap-3">
                   <div className="size-9 rounded-full bg-muted flex items-center justify-center text-xs font-semibold">
-                    {p?.full_name.split(" ").map((x) => x[0]).slice(0, 2).join("")}
+                    {name.split(" ").map((x) => x[0]).slice(0, 2).join("")}
                   </div>
                   <div>
-                    <p className="text-sm font-semibold">{p?.full_name}</p>
+                    <p className="text-sm font-semibold">{name}</p>
                     <p className="text-xs text-muted-foreground font-mono">{p?.email}</p>
                   </div>
                 </div>
@@ -70,7 +75,7 @@ export function GestaoPage() {
                     checked={m.has_paid_admin}
                     onCheckedChange={() => {
                       toggle(m.id);
-                      toast.success(`${p?.full_name} marcado como ${!m.has_paid_admin ? "pago" : "pendente"}`);
+                      toast.success(`${name} marcado como ${!m.has_paid_admin ? "pago" : "pendente"}`);
                     }}
                   />
                 </div>
