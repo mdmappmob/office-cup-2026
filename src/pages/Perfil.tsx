@@ -1,9 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/store/app-store";
 import { useAuthStore } from "@/store/auth-store";
 import { mockProfiles } from "@/mocks/profiles";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Trash2, AlertTriangle } from "lucide-react";
 
 export function PerfilPage() {
   const authUser = useAuthStore((s) => s.user);
@@ -55,6 +57,33 @@ export function PerfilPage() {
             <p className="text-xs text-muted-foreground mt-2">
               Toggle apenas para demonstração: alterna a visibilidade do item "Gestão do Bolão" na sidebar.
             </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-destructive/30">
+          <CardHeader>
+            <CardTitle className="text-sm font-mono uppercase tracking-widest text-destructive flex items-center gap-2">
+              <AlertTriangle className="size-3.5" /> Reset
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Apaga todos os dados locais (palpites, membros, usuários, sessão) e recarrega a página.
+              As partidas reais da Copa são mantidas.
+            </p>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => {
+                localStorage.removeItem("officecup-2026");
+                localStorage.removeItem("current_user_id");
+                const req = indexedDB.deleteDatabase("officecup-sqlite");
+                req.onsuccess = () => location.reload();
+                req.onerror = () => location.reload();
+              }}
+            >
+              <Trash2 className="size-3.5 mr-1" /> Resetar dados da aplicação
+            </Button>
           </CardContent>
         </Card>
       </div>

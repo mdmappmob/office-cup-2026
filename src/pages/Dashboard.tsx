@@ -32,19 +32,19 @@ export function DashboardPage() {
   const myRank = sortedMembers.findIndex((m) => m.user_id === currentUserId) + 1;
 
   const lineData = [
-    { rodada: "R1", pontos: 32 },
-    { rodada: "R2", pontos: 67 },
-    { rodada: "R3", pontos: 51 },
-    { rodada: "R4", pontos: 88 },
-    { rodada: "R5", pontos: 72 },
-    { rodada: "R6", pontos: 95 },
+    { rodada: "R1", pontos: 0 },
+    { rodada: "R2", pontos: 0 },
+    { rodada: "R3", pontos: 0 },
+    { rodada: "R4", pontos: 0 },
+    { rodada: "R5", pontos: 0 },
+    { rodada: "R6", pontos: 0 },
   ];
   const barData = [
-    { tipo: "Exato", pts: breakdown.exact || 60 },
-    { tipo: "Saldo", pts: breakdown.winnerWithDiff || 84 },
-    { tipo: "Vencedor", pts: breakdown.winnerOnly || 125 },
-    { tipo: "Artilheiros", pts: breakdown.scorers || 18 },
-    { tipo: "Zebras", pts: breakdown.zebraMultiplied || 24 },
+    { tipo: "Exato", pts: breakdown.exact || 0 },
+    { tipo: "Saldo", pts: breakdown.winnerWithDiff || 0 },
+    { tipo: "Vencedor", pts: breakdown.winnerOnly || 0 },
+    { tipo: "Artilheiros", pts: breakdown.scorers || 0 },
+    { tipo: "Zebras", pts: breakdown.zebraMultiplied || 0 },
   ];
 
   return (
@@ -60,10 +60,10 @@ export function DashboardPage() {
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <KpiCard icon={<Trophy className="size-4" />} label="Pontos Totais" value={`${live || 482}`} accent="primary" sub="+12% vs rodada anterior" />
-        <KpiCard icon={<TrendingUp className="size-4" />} label="Rank na Firma" value={`#${myRank || 4}`} sub={`de ${members.length} membros`} />
-        <KpiCard icon={<Target className="size-4" />} label="Acertos em Cheio" value="8" sub="placar exato" />
-        <KpiCard icon={<Flame className="size-4" />} label="Aproveitamento" value="68%" sub="palpites com pontos" />
+        <KpiCard icon={<Trophy className="size-4" />} label="Pontos Totais" value={`${live}`} accent="primary" />
+        <KpiCard icon={<TrendingUp className="size-4" />} label="Rank na Firma" value={`#${myRank || "—"}`} sub={`de ${members.length} membros`} />
+        <KpiCard icon={<Target className="size-4" />} label="Acertos em Cheio" value="0" />
+        <KpiCard icon={<Flame className="size-4" />} label="Aproveitamento" value="—" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -1,0 +1,63 @@
+export interface SyncResult {
+  matchId?: string;
+  homeTeam: string;
+  awayTeam: string;
+  homeScore: number | null;
+  awayScore: number | null;
+  status: "scheduled" | "live" | "finished";
+  matchDate: string;
+}
+
+export const API_TEAM_MAP: Record<string, string> = {
+  Mexico: "México",
+  "South Africa": "África do Sul",
+  "South Korea": "Coreia do Sul",
+  "Czech Republic": "República Tcheca",
+  Canada: "Canadá",
+  "Bosnia and Herzegovina": "Bósnia-Herzegovina",
+  Bosnia: "Bósnia-Herzegovina",
+  Qatar: "Qatar",
+  Switzerland: "Suíça",
+  Brazil: "Brasil",
+  Morocco: "Marrocos",
+  Haiti: "Haiti",
+  Scotland: "Escócia",
+  "United States": "Estados Unidos",
+  USA: "Estados Unidos",
+  Paraguay: "Paraguai",
+  Australia: "Austrália",
+  Turkey: "Turquia",
+  Germany: "Alemanha",
+  Curaçao: "Curaçao",
+  "Ivory Coast": "Costa do Marfim",
+  Ecuador: "Equador",
+  Netherlands: "Holanda",
+  Japan: "Japão",
+  Sweden: "Suécia",
+  Tunisia: "Tunísia",
+  Belgium: "Bélgica",
+  Egypt: "Egito",
+  Iran: "Irã",
+  "New Zealand": "Nova Zelândia",
+  Spain: "Espanha",
+  "Cape Verde": "Cabo Verde",
+  "Saudi Arabia": "Arábia Saudita",
+  Uruguay: "Uruguai",
+  France: "França",
+  Senegal: "Senegal",
+  Iraq: "Iraque",
+  Norway: "Noruega",
+  Argentina: "Argentina",
+  Algeria: "Argélia",
+  Austria: "Áustria",
+  Jordan: "Jordânia",
+  Portugal: "Portugal",
+  "DR Congo": "RD do Congo",
+  Congo: "RD do Congo",
+  Uzbekistan: "Uzbequistão",
+  Colombia: "Colômbia",
+  England: "Inglaterra",
+  Croatia: "Croácia",
+  Ghana: "Gana",
+  Panama: "Panamá",
+};

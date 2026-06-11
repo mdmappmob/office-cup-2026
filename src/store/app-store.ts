@@ -1,9 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { mockMatches } from "@/mocks/matches";
-import { mockPredictions } from "@/mocks/predictions";
-import { mockLeagueMembers, CURRENT_LEAGUE_ID } from "@/mocks/leagues";
-import { CURRENT_USER_ID } from "@/mocks/profiles";
+import { CURRENT_LEAGUE_ID } from "@/mocks/leagues";
 import type {
   MockMatch,
   MockPrediction,
@@ -39,7 +37,7 @@ interface AppState {
   recomputeStandings: () => void;
 }
 
-function makeEmptyPrediction(matchId: string, slot: number = 1, userId: string = CURRENT_USER_ID): MockPrediction {
+function makeEmptyPrediction(matchId: string, slot: number = 1, userId: string = ""): MockPrediction {
   return {
     id: `p-${matchId}-${userId}-s${slot}`,
     user_id: userId,
@@ -152,12 +150,12 @@ function computeBracket(matches: MockMatch[], predictions: MockPrediction[]): Mo
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
-      currentUserId: CURRENT_USER_ID,
+      currentUserId: "",
       currentLeagueId: CURRENT_LEAGUE_ID,
-      isAdmin: true,
+      isAdmin: false,
       matches: mockMatches,
-      predictions: mockPredictions,
-      members: mockLeagueMembers,
+      predictions: [],
+      members: [],
       theme: "light",
       setTheme: (t) => set({ theme: t }),
       toggleTheme: () => set({ theme: get().theme === "light" ? "dark" : "light" }),

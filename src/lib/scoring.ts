@@ -1,4 +1,5 @@
 import type { MockMatch, MockPrediction } from "@/mocks/types";
+import { analyzeMatch } from "./copilot";
 
 export interface ScoreBreakdown {
   exact: number;
@@ -31,7 +32,7 @@ export function scoreMatch(match: MockMatch, prediction: MockPrediction): number
   // artilheiros (3pts cada — mock: não há jogadores reais, contamos os palpitados)
   pts += prediction.predicted_goalscorers.length * 3;
 
-  if (prediction.is_zebra && pts > 0) pts = Math.round(pts * 1.5);
+  if (analyzeMatch(match, prediction).isZebra && pts > 0) pts = Math.round(pts * 1.5);
 
   return pts;
 }
@@ -59,7 +60,7 @@ export function userBreakdown(matches: MockMatch[], predictions: MockPrediction[
     else if (Math.sign(hs - as) === Math.sign(phs - pas) && hs - as === phs - pas) b.winnerWithDiff += 7;
     else if (Math.sign(hs - as) === Math.sign(phs - pas)) b.winnerOnly += 5;
     b.scorers += p.predicted_goalscorers.length * 3;
-    if (p.is_zebra) b.zebraMultiplied += Math.round(scoreMatch(m, p) * 0.5);
+    if (analyzeMatch(m, p).isZebra) b.zebraMultiplied += Math.round(scoreMatch(m, p) * 0.5);
   }
   b.total = b.exact + b.winnerWithDiff + b.winnerOnly + b.scorers + b.lineup + b.zebraMultiplied;
   return b;

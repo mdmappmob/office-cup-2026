@@ -10,6 +10,8 @@ import {
 
 import appCss from "../styles.css?url";
 import { SqliteBootstrap } from "@/components/SqliteBootstrap";
+import { Toaster } from "@/components/ui/sonner";
+import { ThemeManager } from "@/components/ThemeManager";
 
 function NotFoundComponent() {
   return (
@@ -73,15 +75,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
+      { title: "Office Cup 2026" },
       { name: "description", content: "OfficeCup 2026 manages corporate World Cup 2026 pools with a responsive web/mobile interface." },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
+      { property: "og:title", content: "Office Cup 2026" },
       { property: "og:description", content: "OfficeCup 2026 manages corporate World Cup 2026 pools with a responsive web/mobile interface." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
-      { name: "twitter:title", content: "Lovable App" },
+      { name: "twitter:title", content: "Office Cup 2026" },
       { name: "twitter:description", content: "OfficeCup 2026 manages corporate World Cup 2026 pools with a responsive web/mobile interface." },
       { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/cea9c40b-6ff2-43b4-b898-34744371a039/id-preview-de13852e--ba8b42fe-8c67-4dc9-9362-addc01202c76.lovable.app-1779323812208.png" },
       { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/cea9c40b-6ff2-43b4-b898-34744371a039/id-preview-de13852e--ba8b42fe-8c67-4dc9-9362-addc01202c76.lovable.app-1779323812208.png" },
@@ -124,8 +126,10 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <ThemeManager />
       <SqliteBootstrap />
       <Outlet />
+      <Toaster richColors position="bottom-right" />
     </QueryClientProvider>
   );
 }

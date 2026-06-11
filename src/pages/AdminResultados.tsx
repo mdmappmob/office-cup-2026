@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useAppStore } from "@/store/app-store";
 import { useAuthStore } from "@/store/auth-store";
 import { predictionsRepo } from "@/lib/db";
+import { useShallow } from "zustand/react/shallow";
 import { PHASE_LABEL, PHASE_ORDER, type MatchPhase } from "@/mocks/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -9,8 +10,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Flag } from "@/components/Flag";
-import { CheckCircle2, ShieldAlert } from "lucide-react";
+import { CheckCircle2, ShieldAlert, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import { syncFootballData } from "@/lib/results-sync.server";
+import { API_TEAM_MAP } from "@/lib/results-sync";
 
 export function AdminResultadosPage() {
   const user = useAuthStore((s) => s.user);
@@ -31,6 +34,36 @@ export function AdminResultadosPage() {
 function Body() {
   const matches = useAppStore((s) => s.matches);
   const [phase, setPhase] = useState<MatchPhase>("grupos");
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const { ok, results, error } = await syncFootballData();
+      if (!ok) {
+        toast.error("Falha na sincronização", { description: error });
+        return;
+      }
+      let applied = 0;
+      for (const r of results) {
+        if (r.status !== "finished" || r.homeScore === null || r.awayScore === null) continue;
+        const homeName = API_TEAM_MAP[r.homeTeam] ?? r.homeTeam;
+        const awayName = API_TEAM_MAP[r.awayTeam] ?? r.awayTeam;
+          const match = matches.find(
+            (m) =>
+              (m.home_team === homeName && m.away_team === awayName) &&
+              m.status !== "finished",
+          );
+          if (match) {
+            predictionsRepo.settleMatch(match.id, r.homeScore, r.awayScore);
+            applied++;
+          }
+      }
+      toast.success(`${applied} resultado(s) aplicado(s)`);
+    } finally {
+      setSyncing(false);
+    }
+  };
   const phaseMatches = useMemo(
     () => matches.filter((m) => m.phase === phase),
     [matches, phase],
@@ -38,11 +71,23 @@ function Body() {
 
   return (
     <div className="max-w-6xl mx-auto px-8 py-10">
-      <header className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tighter">Apuração de Resultados</h1>
-        <p className="text-sm text-muted-foreground">
-          Lance o placar oficial de cada partida. A pontuação dos palpites é recalculada automaticamente.
-        </p>
+      <header className="mb-6 flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tighter">Apuração de Resultados</h1>
+          <p className="text-sm text-muted-foreground">
+            Lance o placar oficial de cada partida. A pontuação dos palpites é recalculada automaticamente.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={syncing}
+          onClick={handleSync}
+          className="shrink-0"
+        >
+          <RefreshCw className={`size-3.5 mr-1.5 ${syncing ? "animate-spin" : ""}`} />
+          {syncing ? "Sincronizando…" : "Sincronizar resultados"}
+        </Button>
       </header>
 
       <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
@@ -93,7 +138,7 @@ function Body() {
 
 function ResultRow({ matchId }: { matchId: string }) {
   const match = useAppStore((s) => s.matches.find((m) => m.id === matchId)!);
-  const predictions = useAppStore((s) => s.predictions.filter((p) => p.match_id === matchId));
+  const predictions = useAppStore(useShallow((s) => s.predictions.filter((p) => p.match_id === matchId)));
   const [hs, setHs] = useState<string>(match.home_score?.toString() ?? "");
   const [as, setAs] = useState<string>(match.away_score?.toString() ?? "");
   const tbd = match.home_team === "—" || match.away_team === "—";

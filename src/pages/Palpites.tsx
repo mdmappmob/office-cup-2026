@@ -17,6 +17,7 @@ import { PHASE_LABEL, PHASE_ORDER, type MatchPhase } from "@/mocks/types";
 import { Lock, Sparkles, Brain, ChevronDown, CheckCircle2, X, Plus, Trash2 } from "lucide-react";
 import { analyzeMatch } from "@/lib/copilot";
 import { matchesRepo, predictionsRepo } from "@/lib/db";
+import { useShallow } from "zustand/react/shallow";
 import { Flag } from "@/components/Flag";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -300,14 +301,6 @@ function MatchRow({
   );
   const isZebra = !!analysis?.isZebra;
 
-  // Sincroniza flag is_zebra automaticamente conforme heurística (sem loop).
-  useEffect(() => {
-    if (!prediction) return;
-    if (isZebra !== prediction.is_zebra) {
-      upsert(matchId, { is_zebra: isZebra });
-    }
-  }, [isZebra, prediction, matchId, upsert]);
-
   return (
     <TableRow
       onClick={() => !tbd && onSelect(matchId)}
@@ -320,7 +313,7 @@ function MatchRow({
           <Flag team={match.home_team} iso={match.home_flag} size={16} />
         </div>
       </TableCell>
-      <TableCell>
+      <TableCell onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-1.5 justify-center">
           <Input
             type="number"
@@ -375,7 +368,10 @@ function MatchRow({
           size="icon"
           variant={isSelected ? "secondary" : "ghost"}
           disabled={tbd}
-          onClick={() => onSelect(matchId)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelect(matchId);
+          }}
           title={isZebra ? "Zebra detectada pelo Copilot" : "Abrir Copilot"}
         >
           {isZebra ? (
@@ -417,13 +413,6 @@ function BracketRow({
   );
   const isZebra = !!analysis?.isZebra;
 
-  useEffect(() => {
-    if (!prediction) return;
-    if (isZebra !== prediction.is_zebra) {
-      upsert(matchId, { is_zebra: isZebra });
-    }
-  }, [isZebra, prediction, matchId, upsert]);
-
   return (
     <Card
       onClick={() => !tbd && onSelect(matchId)}
@@ -434,7 +423,7 @@ function BracketRow({
           <span className="font-semibold">{match.home_team}</span>
           <Flag team={match.home_team} iso={match.home_flag} size={22} />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
           <Input
             type="number"
             min={0}
@@ -469,7 +458,10 @@ function BracketRow({
           size="icon"
           variant={isSelected ? "secondary" : "ghost"}
           disabled={tbd}
-          onClick={() => onSelect(matchId)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelect(matchId);
+          }}
           title={isZebra ? "Zebra detectada pelo Copilot" : "Abrir Copilot"}
         >
           {isZebra ? (
@@ -570,10 +562,12 @@ function CopilotPanel({ matchId }: { matchId: string }) {
 
 function AlternativePalpites({ matchId }: { matchId: string }) {
   const userId = useAppStore((s) => s.currentUserId);
-  const predictions = useAppStore((s) =>
-    s.predictions
-      .filter((p) => p.match_id === matchId && p.user_id === userId)
-      .sort((a, b) => a.slot - b.slot),
+  const predictions = useAppStore(
+    useShallow((s) =>
+      s.predictions
+        .filter((p) => p.match_id === matchId && p.user_id === userId)
+        .sort((a, b) => a.slot - b.slot),
+    ),
   );
   const addSlot = useAppStore((s) => s.addPredictionSlot);
   const removePrediction = predictionsRepo.removePrediction;

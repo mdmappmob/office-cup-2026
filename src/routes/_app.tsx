@@ -1,8 +1,6 @@
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { ThemeManager } from "@/components/ThemeManager";
-import { Toaster } from "@/components/ui/sonner";
 import { useAuthStore } from "@/store/auth-store";
 import { useEffect } from "react";
 
@@ -26,7 +24,6 @@ function AppLayout() {
   }
   return (
     <SidebarProvider>
-      <ThemeManager />
       <div className="min-h-screen flex w-full bg-background">
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
@@ -40,7 +37,6 @@ function AppLayout() {
             <Outlet />
           </main>
         </div>
-        <Toaster richColors position="bottom-right" />
       </div>
     </SidebarProvider>
   );
