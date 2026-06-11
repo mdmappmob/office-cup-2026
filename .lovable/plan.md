@@ -1,107 +1,93 @@
-# Plano: Migração para Supabase (projeto helpdesk)
+# Plano: voltar para SQLite local e congelar Supabase
 
-## 1. Conexão Supabase
+Objetivo: deixar o app rodando 100% local (sql.js + IndexedDB) para você analisar telas e fluxos, sem depender do Supabase. Toda a integração Supabase fica preservada em `_parked/` para reativar quando decidirmos.
 
-O projeto hoje usa SQLite no navegador (sql.js + IndexedDB). Para usar o seu projeto Supabase **helpdesk** existente sem apagar nada que já está lá, é necessário **conectar a integração Supabase do Lovable** ao projeto helpdesk. Isso é feito por você no painel (botão Supabase no topo direito → Connect → escolher o projeto "helpdesk").
+## 1. Congelar o Supabase (sem apagar)
 
-# Não vou utilizar o Supabase do Lovable. Utilizar o próprio Supabase.
-
-Assim que conectado, eu crio todas as tabelas do OfficeCup 2026 com prefixo `oc_` para garantir que **nenhuma tabela existente do helpdesk seja afetada** (sem DROP, sem ALTER em tabelas alheias).
-
-## 2. Schema novo (todas com prefixo `oc_`)
+Mover para fora do grafo de build, mantendo arquivos intactos:
 
 ```text
-oc_profiles      (id uuid PK → auth.users, full_name, avatar_url, is_admin)
-oc_matches       (id, home_team, away_team, home_flag, away_flag,
-                  match_date, phase, group, home_score, away_score,
-                  status, bracket_slot)
-oc_predictions   (id, user_id, match_id, slot, predicted_home_score,
-                  predicted_away_score, is_zebra, points_earned, created_at)
-                  -- sem unique(user_id, match_id): palpites ilimitados
-oc_results       (match_id PK, home_score, away_score, settled_at, settled_by)
-oc_standings     (user_id PK, total_points, exact_hits, result_hits,
-                  zebra_hits, updated_at)
-oc_match_stats   (match_id PK, total_predictions, avg_home, avg_away,
-                  zebra_rate, updated_at)
+_parked/supabase/
+  client.ts
+  client.server.ts
+  sync.ts
+  officecup_migration.sql
+  README.md   ← como reativar
 ```
 
-RLS:
+- Remover `import` de `initSupabaseAuthSync` em `src/routes/__root.tsx`.
+- Tirar `@supabase/supabase-js` do `package.json` (opcional — fica em `_parked/README.md` o comando para reinstalar).
+- Secrets `HELPDESK_SUPABASE_*` ficam guardados no painel (não removo).
+- Bloco do `vite.config.ts` que injeta `VITE_SUPABASE_*` fica como está, só comentado, para reativação rápida.
 
-- `oc_matches`, `oc_results`, `oc_standings`, `oc_match_stats`: SELECT público autenticado.
-- `oc_predictions`: usuário lê/escreve só os próprios (`auth.uid() = user_id`); admin lê tudo.
-- `oc_results`: apenas admin escreve (via função `has_role`).
-- Tabela separada `oc_user_roles` + função `has_role` (padrão seguro, sem flag no profile).
+## 2. Camada SQLite (sql.js + IndexedDB)
 
-GRANTs explícitos para `authenticated` e `service_role` em cada tabela.
+Recriar a camada local que existia antes:
 
-## 3. Seed de matches
+```text
+src/lib/db/
+  config.ts        ← caminho do .wasm, nome do IDB
+  sqlite-repo.ts   ← open/persist + repos (matches, predictions, results, users)
+  seed.ts          ← popula oc_matches a partir de src/mocks/matches.ts
+  index.ts         ← reexporta matchesRepo / predictionsRepo / authRepo
+```
 
-Migrar o conteúdo atual de `src/mocks/matches.ts` (104 jogos da Copa 2026, com bandeiras ISO) para `oc_matches` via migration de INSERT. Os dados de matches são preservados integralmente.
+Schema (idêntico ao Supabase, sem RLS):
 
-## 4. Autenticação
+```sql
+oc_users(id TEXT PK, email TEXT UNIQUE, password_hash TEXT, full_name TEXT, is_admin INTEGER, created_at TEXT)
+oc_matches(...)                -- igual aos mocks
+oc_predictions(id, user_id, match_id, slot, ph, pa, is_zebra, points_earned)
+oc_results(match_id PK, home_score, away_score, settled_at)
+oc_standings(user_id PK, total_points, exact_hits, result_hits, zebra_hits)
+```
 
-Tela `/login` reformulada com 3 abas:
+Bootstrap: novo `src/components/SqliteBootstrap.tsx` carrega o wasm uma vez no `__root.tsx`, hidrata o `app-store` e seta `ready=true` no `auth-store`.
 
-- **Entrar** — email + senha (`supabase.auth.signInWithPassword`)
-- **Criar conta** — email + senha + nome (`supabase.auth.signUp` com `emailRedirectTo`)
-- **Esqueci a senha** — envia `resetPasswordForEmail` com redirect para `/reset-password`
+Persistência: snapshot do DB em IndexedDB a cada mutação (debounce 300ms), igual ao padrão anterior.
 
-Nova rota pública `/reset-password` que detecta `type=recovery` no hash e chama `supabase.auth.updateUser({ password })`.
+## 3. Cadastro/login local com senha
 
-Trigger no banco: `on auth.user created → insert oc_profiles`.
+- Usar **Web Crypto API** (`crypto.subtle`) com PBKDF2 + salt aleatório → guardado em `password_hash` no formato `pbkdf2$<iter>$<saltB64>$<hashB64>`. Sem dependência nova.
+- Reescrever `src/pages/Login.tsx` para usar `authRepo` local com 3 abas:
+  - **Entrar** — verifica hash, popula `auth-store`.
+  - **Criar conta** — cria `oc_users` (primeira conta criada vira `is_admin=1`).
+  - **Esqueci a senha** — formulário local que define nova senha direto (sem email; é só análise local).
+- Remover rota `/reset-password` e `src/pages/ResetPassword.tsx` (não faz sentido sem email). Mantém em `_parked/` junto com Supabase.
+- `src/store/auth-store.ts` ganha `login/signup/logout` chamando `authRepo`; sessão persistida no IndexedDB também (chave `current_user_id`).
 
-Guard de rotas (`_app`) passa a ler sessão do Supabase em vez do `auth-store` local. `onAuthStateChange` no `__root.tsx`.
+## 4. Repos e telas
 
-## 5. Monetização — remoção
+- `src/lib/db/index.ts` volta a ser síncrono em cima do `app-store`, sem `await supabase.*`.
+- `predictionsRepo.upsertPrediction` grava no SQLite e atualiza store (mantém palpites ilimitados por slot).
+- `predictionsRepo.settleMatch` calcula pontos localmente com `scoreMatch` e atualiza `oc_standings`.
+- `AdminResultados`, `Palpites`, `Dashboard`, `Ranking`, `Perfil`, `Gestao` continuam usando os mesmos hooks/stores — só a fonte muda.
 
-Remover do menu lateral e do código:
+## 5. Rotas e guards
 
-- `src/pages/Pagamento.tsx` e rota `pagamento.tsx`
-- Campos `payment_status`, `has_paid_admin` (não serão criados no schema novo)
-- Quaisquer CTAs de pagamento no Dashboard / CriarBolao
+- `/` permanece a landing pública da Copa 2026 (sem mudanças).
+- `_app.tsx` continua exigindo `auth-store.user`, mas agora alimentado pelo SQLite local em vez do Supabase.
+- `__root.tsx`: troca `<SupabaseBoot/>` por `<SqliteBootstrap/>`.
 
-## 6. Palpites ilimitados
+## 6. Limpeza de dependências
 
-A UI já tem botão "+ Novo palpite" por slot. Vou:
+- Adicionar: `sql.js` (e `@types/sql.js`).
+- Remover do uso runtime: `@supabase/supabase-js` (fica registrado em `_parked/README.md`; podemos deixar instalado para reativação rápida — sugiro manter instalado, é leve).
 
-- Remover qualquer constraint de slot único no novo schema.
-- Garantir que `Palpites.tsx` lê/grava do Supabase (substituir `sqliteUpsertPrediction` por chamada Supabase via server function).
-- Pontuação considera o **melhor** palpite por partida.
+## 7. Como voltar para Supabase depois
 
-## 7. Tela de Apuração
+`_parked/supabase/README.md` vai conter:
 
-Reaproveitar layout de `AdminResultados.tsx` mas:
+1. Mover `_parked/supabase/*` de volta para `src/integrations/supabase/`.
+2. Descomentar bloco `VITE_SUPABASE_*` no `vite.config.ts`.
+3. Trocar `<SqliteBootstrap/>` por `<SupabaseBoot/>` no `__root.tsx`.
+4. Rodar `officecup_migration.sql` no SQL Editor (se ainda não rodado).
+5. Reescrever `src/lib/db/index.ts` na versão Supabase (cópia também guardada em `_parked/`).
 
-- Listar partidas com filtro por fase, igual à tela de palpites.
-- Para cada partida: inputs de placar real → grava em `oc_results`.
-- Trigger SQL `after insert/update on oc_results`:
-  - Calcula `points_earned` de cada `oc_prediction` daquela partida (regra: 5 pts placar exato, 3 pts resultado + saldo, 2 pts vencedor, 0).
-  - Recalcula `oc_standings` (soma melhor slot por partida).
-  - Atualiza `oc_match_stats`.
-- Acesso restrito via `has_role(auth.uid(), 'admin')`.
+## Arquivos afetados (resumo)
 
-A partir do início da Copa (11/06/2026), os resultados reais são lançados aqui e tudo é apurado automaticamente.
+- **Move para `_parked/`**: `src/integrations/supabase/`, `src/pages/ResetPassword.tsx`, `src/routes/reset-password.tsx`, `officecup_migration.sql`, versão atual de `src/lib/db/index.ts`.
+- **Cria**: `src/lib/db/{config,sqlite-repo,seed,index}.ts`, `src/components/SqliteBootstrap.tsx`, `_parked/supabase/README.md`.
+- **Edita**: `src/routes/__root.tsx`, `src/store/auth-store.ts`, `src/pages/Login.tsx`, `vite.config.ts`, `package.json`.
 
-## 8. Camada de acesso a dados
-
-Substituir `src/lib/db/sqlite-repo.ts` + `src/lib/db/index.ts` por:
-
-- `src/lib/matches.functions.ts` — server fns para listar/ler matches.
-- `src/lib/predictions.functions.ts` — listar/criar/remover palpites (com `requireSupabaseAuth`).
-- `src/lib/results.functions.ts` — settle match (admin).
-- `src/lib/standings.functions.ts` — ranking.
-
-Componentes passam a usar TanStack Query + `useServerFn`. O `app-store` (zustand) deixa de ser fonte de verdade; vira só UI state (filtros, modais).
-
-## 9. Limpeza
-
-- Remover `sql.js`, `src/lib/db/sqlite-repo.ts`, `src/lib/db/config.ts`, `src/lib/db/seed.ts`, `src/components/SqliteBootstrap.tsx` (já removido), `src/store/auth-store.ts` local.
-- Manter `src/lib/teams.ts`, `src/components/Flag.tsx`, `src/lib/scoring.ts`, `src/lib/copilot.ts`.
-
-## Pré-requisito (ação sua)
-
-**Antes de eu poder começar**, conecte o projeto Supabase **helpdesk** ao Lovable:
-
-- topo direito → ícone Supabase → Connect Supabase → selecionar workspace e projeto "helpdesk".
-
-Depois disso me avise que eu sigo com tudo acima em sequência (migrations → auth → telas → apuração). Nenhuma tabela existente do helpdesk será tocada.
+Depois disso o app sobe sem nenhuma chamada de rede e você pode navegar tudo localmente. Aprova?

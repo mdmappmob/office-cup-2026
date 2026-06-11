@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuthStore } from "@/store/auth-store";
 import { toast } from "sonner";
 
@@ -45,17 +44,22 @@ export function LoginPage() {
 
 function SignInForm() {
   const navigate = useNavigate();
+  const login = useAuthStore((s) => s.login);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-    setLoading(false);
-    if (error) return toast.error("Credenciais inválidas", { description: error.message });
-    toast.success("Bem-vindo!");
-    navigate({ to: "/dashboard" });
+    try {
+      await login(email, password);
+      toast.success("Bem-vindo!");
+      navigate({ to: "/dashboard" });
+    } catch (err) {
+      toast.error("Credenciais inválidas", { description: (err as Error).message });
+    } finally {
+      setLoading(false);
+    }
   };
   return (
     <form className="space-y-4" onSubmit={submit}>
@@ -69,6 +73,8 @@ function SignInForm() {
 }
 
 function SignUpForm() {
+  const navigate = useNavigate();
+  const signup = useAuthStore((s) => s.signup);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -77,17 +83,15 @@ function SignUpForm() {
     e.preventDefault();
     if (password.length < 6) return toast.error("Senha precisa de pelo menos 6 caracteres");
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-      options: {
-        data: { full_name: name },
-        emailRedirectTo: `${window.location.origin}/`,
-      },
-    });
-    setLoading(false);
-    if (error) return toast.error("Erro ao criar conta", { description: error.message });
-    toast.success("Conta criada!", { description: "Confirme seu e-mail se solicitado e faça login." });
+    try {
+      const u = await signup(email, password, name);
+      toast.success("Conta criada!", { description: u.is_admin ? "Você é o primeiro usuário: admin." : "Bem-vindo!" });
+      navigate({ to: "/dashboard" });
+    } catch (err) {
+      toast.error("Erro ao criar conta", { description: (err as Error).message });
+    } finally {
+      setLoading(false);
+    }
   };
   return (
     <form className="space-y-4" onSubmit={submit}>
@@ -102,23 +106,32 @@ function SignUpForm() {
 }
 
 function ResetForm() {
+  const reset = useAuthStore((s) => s.resetPassword);
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (password.length < 6) return toast.error("Senha precisa de pelo menos 6 caracteres");
     setLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-    setLoading(false);
-    if (error) return toast.error("Erro", { description: error.message });
-    toast.success("E-mail enviado", { description: "Verifique sua caixa de entrada." });
+    try {
+      await reset(email, password);
+      toast.success("Senha atualizada", { description: "Use a nova senha para entrar." });
+    } catch (err) {
+      toast.error("Erro", { description: (err as Error).message });
+    } finally {
+      setLoading(false);
+    }
   };
   return (
     <form className="space-y-4" onSubmit={submit}>
+      <p className="text-xs text-muted-foreground">
+        Como esta é uma base local, defina uma nova senha diretamente.
+      </p>
       <Field id="re-email" label="E-mail" type="email" value={email} onChange={setEmail} />
+      <Field id="re-pw" label="Nova senha (mín. 6)" type="password" value={password} onChange={setPassword} />
       <Button type="submit" className="w-full" disabled={loading}>
-        {loading ? "Enviando…" : "Enviar link"}
+        {loading ? "Salvando…" : "Definir nova senha"}
       </Button>
     </form>
   );
