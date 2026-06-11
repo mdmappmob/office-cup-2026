@@ -162,7 +162,25 @@ export const useAppStore = create<AppState>()(
       setTheme: (t) => set({ theme: t }),
       toggleTheme: () => set({ theme: get().theme === "light" ? "dark" : "light" }),
       setAdmin: (v) => set({ isAdmin: v }),
-      setCurrentUser: (userId, isAdmin) => set({ currentUserId: userId, isAdmin }),
+      setCurrentUser: (userId, isAdmin) => set((state) => {
+        const exists = state.members.some((member) => member.user_id === userId);
+        return {
+          currentUserId: userId,
+          isAdmin,
+          members: exists
+            ? state.members
+            : [
+                ...state.members,
+                {
+                  id: `m-${userId}`,
+                  league_id: state.currentLeagueId,
+                  user_id: userId,
+                  has_paid_admin: isAdmin,
+                  total_points: 0,
+                },
+              ],
+        };
+      }),
       upsertPrediction: (matchId, patch, slot = 1) => {
         const userId = get().currentUserId;
         const existing = get().predictions.find(

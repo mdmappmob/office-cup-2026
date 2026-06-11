@@ -29,7 +29,7 @@ import { useAuthStore } from "@/store/auth-store";
 import { Button } from "@/components/ui/button";
 
 const mainItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Inserir Palpites", url: "/palpites", icon: ListChecks },
   { title: "Ranking da Firma", url: "/ranking", icon: Trophy },
 ] as const;
@@ -44,7 +44,7 @@ export function AppSidebar() {
   const logout = useAuthStore((s) => s.logout);
   const fullName = user?.full_name ?? "Convidado";
 
-  const isActive = (url: string) => (url === "/" ? pathname === "/" : pathname.startsWith(url));
+  const isActive = (url: string) => pathname === url || pathname.startsWith(`${url}/`);
 
   return (
     <Sidebar>

@@ -1,12 +1,22 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAppStore } from "@/store/app-store";
+import { useAuthStore } from "@/store/auth-store";
 import { mockProfiles } from "@/mocks/profiles";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 
 export function PerfilPage() {
+  const authUser = useAuthStore((s) => s.user);
   const currentUserId = useAppStore((s) => s.currentUserId);
-  const user = mockProfiles.find((p) => p.id === currentUserId)!;
+  const user =
+    authUser?.id === currentUserId
+      ? { id: authUser.id, email: authUser.email, full_name: authUser.full_name, avatar_url: "" }
+      : mockProfiles.find((p) => p.id === currentUserId) ?? {
+          id: currentUserId,
+          email: "",
+          full_name: "Usuário local",
+          avatar_url: "",
+        };
   const isAdmin = useAppStore((s) => s.isAdmin);
   const setAdmin = useAppStore((s) => s.setAdmin);
 

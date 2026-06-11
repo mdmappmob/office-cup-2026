@@ -2,9 +2,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useAppStore } from "@/store/app-store";
+import { useAuthStore } from "@/store/auth-store";
 import { mockProfiles } from "@/mocks/profiles";
 
 export function RankingPage() {
+  const authUser = useAuthStore((s) => s.user);
   const members = useAppStore((s) => s.members);
   const currentUserId = useAppStore((s) => s.currentUserId);
   const sorted = [...members].sort((a, b) => b.total_points - a.total_points);
@@ -32,18 +34,21 @@ export function RankingPage() {
             </TableHeader>
             <TableBody>
               {sorted.map((m, idx) => {
-                const p = mockProfiles.find((x) => x.id === m.user_id);
+                const p = authUser?.id === m.user_id
+                  ? { id: authUser.id, email: authUser.email, full_name: authUser.full_name, avatar_url: "" }
+                  : mockProfiles.find((x) => x.id === m.user_id);
                 const isMe = m.user_id === currentUserId;
+                const name = p?.full_name ?? "Usuário local";
                 return (
                   <TableRow key={m.id} className={isMe ? "bg-primary/5" : ""}>
                     <TableCell className="font-mono">{String(idx + 1).padStart(2, "0")}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <div className="size-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold">
-                          {p?.full_name.split(" ").map((x) => x[0]).slice(0, 2).join("")}
+                          {name.split(" ").map((x) => x[0]).slice(0, 2).join("")}
                         </div>
                         <span className={isMe ? "font-bold text-primary" : "font-semibold"}>
-                          {p?.full_name}{isMe && " (você)"}
+                          {name}{isMe && " (você)"}
                         </span>
                       </div>
                     </TableCell>
