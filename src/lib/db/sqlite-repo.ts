@@ -1,4 +1,4 @@
-import initSqlJs, { type Database, type SqlJsStatic } from "sql.js";
+import type { Database, SqlJsStatic } from "sql.js";
 import { SQLITE_WASM_URL, IDB_NAME, IDB_STORE, IDB_KEY, SESSION_KEY } from "./config";
 
 let SQL: SqlJsStatic | null = null;
@@ -54,8 +54,13 @@ function migrate(d: Database) {
 
 export async function openDb(): Promise<Database> {
   if (db) return db;
+  if (typeof window === "undefined") {
+    throw new Error("sqlite-repo: openDb() is browser-only");
+  }
   if (!SQL) {
-    SQL = await initSqlJs({ locateFile: () => SQLITE_WASM_URL });
+    const mod = await import("sql.js");
+    const init = (mod.default ?? mod) as (config?: { locateFile?: (f: string) => string }) => Promise<SqlJsStatic>;
+    SQL = await init({ locateFile: () => SQLITE_WASM_URL });
   }
   const snap = await loadSnapshot();
   db = snap ? new SQL.Database(snap) : new SQL.Database();
