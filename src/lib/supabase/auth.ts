@@ -1,6 +1,12 @@
 import { supabase } from "./client";
 import type { AuthUser } from "@/store/auth-store";
 
+const ADMIN_EMAIL = "mdm.appmob@gmail.com";
+
+function isAdmin(email: string): boolean {
+  return email.trim().toLowerCase() === ADMIN_EMAIL;
+}
+
 export async function signUp(
   email: string,
   password: string,
@@ -14,14 +20,11 @@ export async function signUp(
   if (error) throw error;
   if (!data.user) throw new Error("Erro ao criar conta");
 
-  const firstUser = await isFirstUser();
-  const isAdmin = firstUser;
-
   return {
     id: data.user.id,
     email: data.user.email ?? email,
     full_name: fullName,
-    is_admin: isAdmin,
+    is_admin: isAdmin(email),
   };
 }
 
@@ -37,7 +40,7 @@ export async function signIn(email: string, password: string): Promise<AuthUser>
     id: data.user!.id,
     email: data.user!.email ?? email,
     full_name: (meta?.full_name as string) ?? email.split("@")[0],
-    is_admin: !!(meta?.is_admin ?? false),
+    is_admin: isAdmin(email),
   };
 }
 
@@ -51,19 +54,11 @@ export async function getSessionUser(): Promise<AuthUser | null> {
   if (!data.session?.user) return null;
 
   const meta = data.session.user.user_metadata;
+  const email = data.session.user.email ?? "";
   return {
     id: data.session.user.id,
-    email: data.session.user.email ?? "",
-    full_name: (meta?.full_name as string) ?? data.session.user.email?.split("@")[0] ?? "",
-    is_admin: !!(meta?.is_admin ?? false),
+    email,
+    full_name: (meta?.full_name as string) ?? email.split("@")[0] ?? "",
+    is_admin: isAdmin(email),
   };
-}
-
-async function isFirstUser(): Promise<boolean> {
-  const { count, error } = await supabase
-    .from("members")
-    .select("*", { count: "exact", head: true });
-
-  if (error) return false;
-  return count === 0;
 }

@@ -186,20 +186,18 @@ export const useAppStore = create<AppState>()(
               });
             }
           }
-          const mergedMembers = [...get().members];
-          for (const rm of remoteMembers) {
-            const exists = mergedMembers.find((lm) => lm.user_id === rm.user_id);
-            if (!exists) {
-              mergedMembers.push({
-                id: rm.id,
-                league_id: rm.league_id,
-                user_id: rm.user_id,
-                has_paid_admin: rm.has_paid_admin,
-                total_points: rm.total_points,
-              });
-            }
+          const mergedMembers = remoteMembers.map((rm) => ({
+            id: rm.id,
+            league_id: rm.league_id,
+            user_id: rm.user_id,
+            has_paid_admin: rm.has_paid_admin,
+            total_points: rm.total_points,
+          }));
+          if (remoteMembers.length > 0) {
+            set({ predictions: merged, members: mergedMembers });
+          } else {
+            set({ predictions: merged });
           }
-          set({ predictions: merged, members: mergedMembers });
         } catch (err) {
           console.warn("Erro ao carregar dados do Supabase", err);
         }

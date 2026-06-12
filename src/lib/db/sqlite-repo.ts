@@ -162,14 +162,15 @@ export async function findUserById(id: string): Promise<DbUser | null> {
   return rows[0] ? rowToUser(rows[0]) : null;
 }
 
+const ADMIN_EMAIL_SQLITE = "mdm.appmob@gmail.com";
+
 export async function createUser(email: string, password: string, fullName: string): Promise<DbUser> {
   const d = await openDb();
   const e = email.trim().toLowerCase();
   if (await findUserByEmail(e)) throw new Error("E-mail já cadastrado");
   const id = (crypto.randomUUID?.() ?? `u-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
   const password_hash = await hashPassword(password);
-  const total = await countUsers();
-  const isAdmin = total === 0 ? 1 : 0;
+  const isAdmin = email.trim().toLowerCase() === ADMIN_EMAIL_SQLITE ? 1 : 0;
   d.run(
     `INSERT INTO oc_users (id, email, password_hash, full_name, is_admin, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
     [id, e, password_hash, fullName.trim() || e.split("@")[0], isAdmin, new Date().toISOString()],
