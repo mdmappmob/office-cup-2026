@@ -5,8 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import { useAppStore } from "@/store/app-store";
 import { useAuthStore } from "@/store/auth-store";
 import { mockProfiles } from "@/mocks/profiles";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { Trash2, AlertTriangle, Upload, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { migrateUserData } from "@/lib/supabase/migrate.server";
@@ -24,9 +22,6 @@ export function PerfilPage() {
           full_name: "Usuário local",
           avatar_url: "",
         };
-  const isAdmin = useAppStore((s) => s.isAdmin);
-  const setAdmin = useAppStore((s) => s.setAdmin);
-
   const raw = typeof window !== "undefined" ? localStorage.getItem("officecup-2026") : null;
   const localData = raw ? JSON.parse(raw)?.state : null;
   const localPredictions = localData?.predictions?.length ?? 0;
@@ -91,22 +86,7 @@ export function PerfilPage() {
           </CardContent>
         </Card>
 
-        {authUser?.is_admin && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-mono uppercase tracking-widest text-muted-foreground">Demo</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="admin">Simular usuário como admin</Label>
-                <Switch id="admin" checked={isAdmin} onCheckedChange={setAdmin} />
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Toggle apenas para demonstração: alterna a visibilidade do item "Gestão do Bolão" na sidebar.
-              </p>
-            </CardContent>
-          </Card>
-        )}
+
 
         <Card>
           <CardHeader>
