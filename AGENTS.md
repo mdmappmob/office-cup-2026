@@ -154,3 +154,8 @@ Migração:
 | `src/pages/AdminResultados.tsx` | Admin: lançar resultados e sincronizar |
 | `vercel.json` | Configuração de build/deploy Vercel |
 | `AGENTS.md` | Este arquivo — documentação do projeto |
+
+## Observações sobre Admin e Demo
+
+- **Admin fixo**: hardcoded via `ADMIN_EMAIL` em `src/lib/supabase/auth.ts` e `ADMIN_EMAIL_SQLITE` em `src/lib/db/sqlite-repo.ts` — somente `mdm.appmob@gmail.com` é admin.
+- **Toggle "Simular admin" removido**: existia no Perfil (`src/pages/Perfil.tsx`) para demonstração, mas foi removido porque admin já é determinado por email. Futuramente, quando houver múltiplas ligas e um modo demonstração para visitantes, reativar esse toggle com `Switch` + `setAdmin` da app-store.
