@@ -38,6 +38,7 @@ interface AppState {
   recomputeStandings: () => void;
   isPhaseExpired: (phase: MatchPhase) => boolean;
   getPhaseFirstMatchDate: (phase: MatchPhase) => string | null;
+  isDeadlinePassed: () => boolean;
 }
 
 function makeEmptyPrediction(matchId: string, slot: number = 1, userId: string = ""): MockPrediction {
@@ -96,7 +97,7 @@ export const useAppStore = create<AppState>()(
       upsertPrediction: (matchId, patch, slot = 1) => {
         const match = get().matches.find((m) => m.id === matchId);
         if (match?.status === "finished") return;
-        if (get().isPhaseExpired("r32")) return;
+        if (get().isDeadlinePassed()) return;
         const userId = get().currentUserId;
         const existing = get().predictions.find(
           (p) => p.match_id === matchId && p.user_id === userId && p.slot === slot,
@@ -194,6 +195,22 @@ export const useAppStore = create<AppState>()(
         return phaseMatches.reduce((earliest, m) =>
           m.match_date < earliest ? m.match_date : earliest,
         phaseMatches[0].match_date);
+      },
+      isDeadlinePassed: () => {
+        const groups = new Map<string, string[]>();
+        for (const m of get().matches) {
+          if (m.phase !== "grupos" || !m.group) continue;
+          if (!groups.has(m.group)) groups.set(m.group, []);
+          groups.get(m.group)!.push(m.match_date);
+        }
+        let latest = "";
+        for (const dates of groups.values()) {
+          dates.sort();
+          const second = dates[1];
+          if (second && (!latest || second > latest)) latest = second;
+        }
+        if (!latest) return false;
+        return Date.now() >= new Date(latest).getTime();
       },
       unlockedPhases: () => {
         const unlocked: MatchPhase[] = ["grupos"];

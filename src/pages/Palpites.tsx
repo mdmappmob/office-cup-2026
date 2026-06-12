@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { PHASE_LABEL, PHASE_ORDER, type MatchPhase } from "@/mocks/types";
+import { PHASE_LABEL, PHASE_ORDER, type MatchPhase, type MockMatch, type MockPrediction } from "@/mocks/types";
 import { Lock, Sparkles, Brain, ChevronDown, CheckCircle2, X, Plus, Trash2, AlertTriangle } from "lucide-react";
 import { analyzeMatch } from "@/lib/copilot";
 import { matchesRepo, predictionsRepo } from "@/lib/db";
@@ -32,39 +32,55 @@ function brDate(dateStr: string, style: "short" | "long" = "short"): string {
   return d.toLocaleDateString("pt-BR", { timeZone: BR_TZ, day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
+function getFirstRoundEndDate(matches: MockMatch[]): string {
+  const groups = new Map<string, string[]>();
+  for (const m of matches) {
+    if (m.phase !== "grupos" || !m.group) continue;
+    if (!groups.has(m.group)) groups.set(m.group, []);
+    groups.get(m.group)!.push(m.match_date);
+  }
+  let latest = "";
+  for (const dates of groups.values()) {
+    dates.sort();
+    const second = dates[1];
+    if (second && (!latest || second > latest)) latest = second;
+  }
+  return latest;
+}
+
+function isPhaseComplete(phase: MatchPhase, matches: MockMatch[], predictions: MockPrediction[]): boolean {
+  const phaseMatches = matches.filter((m) => m.phase === phase);
+  if (phaseMatches.length === 0) return false;
+  return phaseMatches.every((m) => {
+    if (m.home_team === "—" || m.away_team === "—") return false;
+    const p = predictions.find((x) => x.match_id === m.id);
+    return p && p.predicted_home_score !== null && p.predicted_away_score !== null;
+  });
+}
+
 export function PalpitesPage() {
   const matches = useAppStore((s) => s.matches);
   const predictions = useAppStore((s) => s.predictions);
   const isPhaseExpired = useAppStore((s) => s.isPhaseExpired);
-  const getPhaseFirstMatchDate = useAppStore((s) => s.getPhaseFirstMatchDate);
-  const phaseProgress = useAppStore((s) => s.phaseProgress);
+  const regenerateBracket = useAppStore((s) => s.regenerateBracket);
 
-  const r32Expired = isPhaseExpired("r32");
+  const deadline = useMemo(() => {
+    const d = getFirstRoundEndDate(matches);
+    if (!d) return null;
+    return { utc: d, br: brDate(d, "long") };
+  }, [matches]);
+
+  const deadlinePassed = deadline ? Date.now() >= new Date(deadline.utc).getTime() : false;
 
   const unlocked = useMemo(() => {
-    const isFilled = (id: string) => {
-      const p = predictions.find((x) => x.match_id === id);
-      return !!p && p.predicted_home_score !== null && p.predicted_away_score !== null;
-    };
     const result: MatchPhase[] = ["grupos"];
     for (let i = 1; i < PHASE_ORDER.length; i++) {
       const prev = PHASE_ORDER[i - 1];
-      const prevMatches = matches.filter((m) => m.phase === prev);
-      if (prevMatches.length > 0 && prevMatches.every((m) => isFilled(m.id))) {
-        result.push(PHASE_ORDER[i]);
-      } else break;
+      if (isPhaseComplete(prev, matches, predictions)) result.push(PHASE_ORDER[i]);
+      else break;
     }
     return result;
   }, [matches, predictions]);
-
-  const groupsIncomplete = useMemo(() => {
-    if (r32Expired) return null;
-    const { filled, total } = phaseProgress("grupos");
-    if (filled >= total) return null;
-    const r32Date = getPhaseFirstMatchDate("r32");
-    if (!r32Date) return null;
-    return { deadline: brDate(r32Date, "long"), filled, total };
-  }, [r32Expired, phaseProgress, getPhaseFirstMatchDate]);
 
   const [activePhase, setActivePhase] = useState<MatchPhase>("grupos");
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
@@ -73,37 +89,65 @@ export function PalpitesPage() {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
         e.preventDefault();
-        toast.success("Palpites salvos", { description: "Sincronizados localmente." });
+        const st = useAppStore.getState();
+        const currentPhase = activePhase === "grupos" ? "grupos" : activePhase;
+        if (!isPhaseComplete(currentPhase, st.matches, st.predictions)) {
+          const phaseMatches = st.matches.filter((m) => m.phase === currentPhase);
+          const filled = phaseMatches.filter((m) => {
+            const p = st.predictions.find((x) => x.match_id === m.id);
+            return !!p && p.predicted_home_score !== null && p.predicted_away_score !== null;
+          }).length;
+          toast.error(`Faltam ${phaseMatches.length - filled} jogo(s) na ${PHASE_LABEL[currentPhase]}`);
+          return;
+        }
+        st.regenerateBracket();
+        const currentIdx = PHASE_ORDER.indexOf(currentPhase);
+        const nextPhase = PHASE_ORDER[currentIdx + 1];
+        if (nextPhase && isPhaseComplete(currentPhase, st.matches, st.predictions)) {
+          setActivePhase(nextPhase);
+          toast.success(`${PHASE_LABEL[currentPhase]} concluída! Avançou para ${PHASE_LABEL[nextPhase]}`);
+        } else {
+          toast.success(`${PHASE_LABEL[currentPhase]} concluída!`);
+        }
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [activePhase, matches, predictions, unlocked]);
 
   return (
     <div className="max-w-6xl mx-auto px-8 py-10">
-      {r32Expired && (
+      {deadlinePassed && (
         <div className="mb-6 p-4 rounded-md border border-destructive/40 bg-destructive/10 flex items-start gap-3">
           <AlertTriangle className="size-5 text-destructive shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-bold text-destructive">Prazo de palpites encerrado</p>
             <p className="text-xs text-muted-foreground mt-1">
-              A 2ª fase (16-avos de final) já começou. Não é mais permitido alterar palpites em nenhuma fase.
+              O último jogo da 1ª rodada da Fase de Grupos já terminou.
+              Não é mais permitido alterar palpites em nenhuma fase.
               Os palpites já registrados serão considerados para a pontuação final.
             </p>
           </div>
         </div>
       )}
 
-      {!r32Expired && groupsIncomplete && (
+      {!deadlinePassed && deadline && (
         <div className="mb-6 p-4 rounded-md border border-amber-400/40 bg-amber-50 dark:bg-amber-950/20 flex items-start gap-3">
           <AlertTriangle className="size-5 text-amber-500 shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-bold text-amber-700 dark:text-amber-400">Atenção: palpites da 1ª fase incompletos</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Preencha todos os {groupsIncomplete.total} jogos da Fase de Grupos <strong>antes de {groupsIncomplete.deadline}</strong> (horário de Brasília).
-              Você tem {groupsIncomplete.filled} de {groupsIncomplete.total} preenchidos.
-              Caso contrário, você será desclassificado(a) e não poderá mais participar.
+            <p className="text-sm font-bold text-amber-700 dark:text-amber-400">
+              Prazo final para todos os palpites: {deadline.br}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1 space-y-1">
+              Após o último jogo da 1ª rodada da Fase de Grupos, <strong>não será mais permitido alterar NENHUM palpite</strong> em fase alguma, incluindo a Fase de Grupos.
+            </p>
+            <ul className="text-xs text-muted-foreground mt-2 space-y-1 list-disc list-inside">
+              <li>Preencha todos os jogos da Fase de Grupos até a Final</li>
+              <li>Use <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded border border-border bg-muted">Ctrl + S</kbd> para confirmar a fase atual e avançar</li>
+              <li>Se os palpites da 1ª fase não estiverem completos no prazo, você será desclassificado(a)</li>
+            </ul>
+            <p className="text-xs text-muted-foreground mt-2 italic">
+              Obs: tolerância apenas porque o sistema ainda está em ajustes.
             </p>
           </div>
         </div>
@@ -113,9 +157,12 @@ export function PalpitesPage() {
         <h1 className="text-3xl font-bold tracking-tighter">Palpites</h1>
         <p className="text-sm text-muted-foreground">
           Preencha todos os jogos de uma fase para liberar a próxima.
-          {!r32Expired && (
-            <> Use <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded border border-border bg-muted">Ctrl + S</kbd> para salvar.</>
+          {!deadlinePassed && (
+            <> Use <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded border border-border bg-muted">Ctrl + S</kbd> para confirmar a fase e avançar.</>
           )}
+        </p>
+        <p className="text-xs text-muted-foreground mt-1">
+          Clique sobre o card de um jogo para ver informações detalhadas das seleções, palpites alternativos e análise do Copilot.
         </p>
       </header>
 
@@ -123,7 +170,7 @@ export function PalpitesPage() {
         {PHASE_ORDER.map((p) => {
           const isUnlocked = unlocked.includes(p);
           const isActive = activePhase === p;
-          const disabled = !isUnlocked || r32Expired;
+          const disabled = !isUnlocked || deadlinePassed;
           return (
             <button
               key={p}
@@ -132,7 +179,7 @@ export function PalpitesPage() {
               className={`px-4 py-2 rounded-md text-xs font-mono uppercase tracking-widest border transition-colors whitespace-nowrap flex items-center gap-2 ${
                 isActive
                   ? "bg-foreground text-background border-foreground"
-                  : isUnlocked && !r32Expired
+                  : isUnlocked && !deadlinePassed
                     ? "bg-card hover:bg-muted border-border"
                     : "bg-muted/30 text-muted-foreground border-dashed cursor-not-allowed"
               }`}
@@ -336,8 +383,8 @@ function MatchRow({
   const upsert = predictionsRepo.upsertPrediction;
   const tbd = match.home_team === "—" || match.away_team === "—";
   const finished = match.status === "finished";
-  const r32Expired = useAppStore((s) => s.isPhaseExpired("r32"));
-  const locked = tbd || finished || r32Expired;
+  const deadlinePassed = useAppStore((s) => s.isDeadlinePassed());
+  const locked = tbd || finished || deadlinePassed;
   const filled =
     prediction?.predicted_home_score !== null &&
     prediction?.predicted_home_score !== undefined &&
@@ -454,8 +501,8 @@ function BracketRow({
   const upsert = predictionsRepo.upsertPrediction;
   const tbd = match.home_team === "—" || match.away_team === "—";
   const finished = match.status === "finished";
-  const r32Expired = useAppStore((s) => s.isPhaseExpired("r32"));
-  const locked = tbd || finished || r32Expired;
+  const deadlinePassed = useAppStore((s) => s.isDeadlinePassed());
+  const locked = tbd || finished || deadlinePassed;
   const filled =
     prediction?.predicted_home_score !== null &&
     prediction?.predicted_home_score !== undefined &&
@@ -629,8 +676,8 @@ function AlternativePalpites({ matchId }: { matchId: string }) {
   const match = useAppStore((s) => s.matches.find((m) => m.id === matchId)!);
   const tbd = match.home_team === "—" || match.away_team === "—";
   const finished = match.status === "finished";
-  const r32Expired = useAppStore((s) => s.isPhaseExpired("r32"));
-  const locked = tbd || finished || r32Expired;
+  const deadlinePassed = useAppStore((s) => s.isDeadlinePassed());
+  const locked = tbd || finished || deadlinePassed;
 
   return (
     <section>
