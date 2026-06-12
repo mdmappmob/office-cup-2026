@@ -91,20 +91,22 @@ export function PerfilPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-mono uppercase tracking-widest text-muted-foreground">Demo</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <Label htmlFor="admin">Simular usuário como admin</Label>
-              <Switch id="admin" checked={isAdmin} onCheckedChange={setAdmin} />
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Toggle apenas para demonstração: alterna a visibilidade do item "Gestão do Bolão" na sidebar.
-            </p>
-          </CardContent>
-        </Card>
+        {authUser?.is_admin && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-mono uppercase tracking-widest text-muted-foreground">Demo</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="admin">Simular usuário como admin</Label>
+                <Switch id="admin" checked={isAdmin} onCheckedChange={setAdmin} />
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Toggle apenas para demonstração: alterna a visibilidade do item "Gestão do Bolão" na sidebar.
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>
