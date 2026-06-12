@@ -96,7 +96,7 @@ export const useAppStore = create<AppState>()(
       upsertPrediction: (matchId, patch, slot = 1) => {
         const match = get().matches.find((m) => m.id === matchId);
         if (match?.status === "finished") return;
-        if (match && get().isPhaseExpired(match.phase)) return;
+        if (get().isPhaseExpired("r32")) return;
         const userId = get().currentUserId;
         const existing = get().predictions.find(
           (p) => p.match_id === matchId && p.user_id === userId && p.slot === slot,

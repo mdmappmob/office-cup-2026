@@ -41,16 +41,12 @@ export function PalpitesPage() {
 
   const r32Expired = isPhaseExpired("r32");
 
-  const { unlocked, phaseLockStatus } = useMemo(() => {
+  const unlocked = useMemo(() => {
     const isFilled = (id: string) => {
       const p = predictions.find((x) => x.match_id === id);
       return !!p && p.predicted_home_score !== null && p.predicted_away_score !== null;
     };
     const result: MatchPhase[] = ["grupos"];
-    const lockStatus: Record<MatchPhase, boolean> = {} as Record<MatchPhase, boolean>;
-    for (const phase of PHASE_ORDER) {
-      lockStatus[phase] = isPhaseExpired(phase);
-    }
     for (let i = 1; i < PHASE_ORDER.length; i++) {
       const prev = PHASE_ORDER[i - 1];
       const prevMatches = matches.filter((m) => m.phase === prev);
@@ -58,27 +54,17 @@ export function PalpitesPage() {
         result.push(PHASE_ORDER[i]);
       } else break;
     }
-    return { unlocked: result, phaseLockStatus: lockStatus };
-  }, [matches, predictions, isPhaseExpired]);
+    return result;
+  }, [matches, predictions]);
 
-  const incompleteAlerts = useMemo(() => {
-    const alerts: { phase: MatchPhase; deadline: string }[] = [];
-    for (let i = 0; i < PHASE_ORDER.length; i++) {
-      const phase = PHASE_ORDER[i];
-      if (phaseLockStatus[phase]) continue;
-      const nextPhase = PHASE_ORDER[i + 1];
-      if (!nextPhase) continue;
-      if (isPhaseExpired(nextPhase)) continue;
-      const { filled, total } = phaseProgress(phase);
-      if (filled < total) {
-        const deadline = getPhaseFirstMatchDate(nextPhase);
-        if (deadline) {
-          alerts.push({ phase, deadline: brDate(deadline, "long") });
-        }
-      }
-    }
-    return alerts;
-  }, [phaseLockStatus, isPhaseExpired, phaseProgress, getPhaseFirstMatchDate]);
+  const groupsIncomplete = useMemo(() => {
+    if (r32Expired) return null;
+    const { filled, total } = phaseProgress("grupos");
+    if (filled >= total) return null;
+    const r32Date = getPhaseFirstMatchDate("r32");
+    if (!r32Date) return null;
+    return { deadline: brDate(r32Date, "long"), filled, total };
+  }, [r32Expired, phaseProgress, getPhaseFirstMatchDate]);
 
   const [activePhase, setActivePhase] = useState<MatchPhase>("grupos");
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
@@ -109,19 +95,16 @@ export function PalpitesPage() {
         </div>
       )}
 
-      {!r32Expired && incompleteAlerts.length > 0 && (
+      {!r32Expired && groupsIncomplete && (
         <div className="mb-6 p-4 rounded-md border border-amber-400/40 bg-amber-50 dark:bg-amber-950/20 flex items-start gap-3">
           <AlertTriangle className="size-5 text-amber-500 shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-bold text-amber-700 dark:text-amber-400">Atenção: palpites incompletos</p>
-            <ul className="text-xs text-muted-foreground mt-1 space-y-1">
-              {incompleteAlerts.map((a) => (
-                <li key={a.phase}>
-                  {PHASE_LABEL[a.phase]}: preencha todos os jogos <strong>antes de {a.deadline}</strong> (horário de Brasília).
-                  Caso contrário, você será desclassificado(a) desta fase em diante.
-                </li>
-              ))}
-            </ul>
+            <p className="text-sm font-bold text-amber-700 dark:text-amber-400">Atenção: palpites da 1ª fase incompletos</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Preencha todos os {groupsIncomplete.total} jogos da Fase de Grupos <strong>antes de {groupsIncomplete.deadline}</strong> (horário de Brasília).
+              Você tem {groupsIncomplete.filled} de {groupsIncomplete.total} preenchidos.
+              Caso contrário, você será desclassificado(a) e não poderá mais participar.
+            </p>
           </div>
         </div>
       )}
@@ -140,8 +123,7 @@ export function PalpitesPage() {
         {PHASE_ORDER.map((p) => {
           const isUnlocked = unlocked.includes(p);
           const isActive = activePhase === p;
-          const expired = phaseLockStatus[p];
-          const disabled = !isUnlocked || expired || r32Expired;
+          const disabled = !isUnlocked || r32Expired;
           return (
             <button
               key={p}
@@ -150,7 +132,7 @@ export function PalpitesPage() {
               className={`px-4 py-2 rounded-md text-xs font-mono uppercase tracking-widest border transition-colors whitespace-nowrap flex items-center gap-2 ${
                 isActive
                   ? "bg-foreground text-background border-foreground"
-                  : isUnlocked && !expired && !r32Expired
+                  : isUnlocked && !r32Expired
                     ? "bg-card hover:bg-muted border-border"
                     : "bg-muted/30 text-muted-foreground border-dashed cursor-not-allowed"
               }`}
@@ -354,9 +336,8 @@ function MatchRow({
   const upsert = predictionsRepo.upsertPrediction;
   const tbd = match.home_team === "—" || match.away_team === "—";
   const finished = match.status === "finished";
-  const phaseLocked = useAppStore((s) => s.isPhaseExpired(match.phase));
   const r32Expired = useAppStore((s) => s.isPhaseExpired("r32"));
-  const locked = tbd || finished || phaseLocked || r32Expired;
+  const locked = tbd || finished || r32Expired;
   const filled =
     prediction?.predicted_home_score !== null &&
     prediction?.predicted_home_score !== undefined &&
@@ -473,9 +454,8 @@ function BracketRow({
   const upsert = predictionsRepo.upsertPrediction;
   const tbd = match.home_team === "—" || match.away_team === "—";
   const finished = match.status === "finished";
-  const phaseLocked = useAppStore((s) => s.isPhaseExpired(match.phase));
   const r32Expired = useAppStore((s) => s.isPhaseExpired("r32"));
-  const locked = tbd || finished || phaseLocked || r32Expired;
+  const locked = tbd || finished || r32Expired;
   const filled =
     prediction?.predicted_home_score !== null &&
     prediction?.predicted_home_score !== undefined &&
@@ -649,9 +629,8 @@ function AlternativePalpites({ matchId }: { matchId: string }) {
   const match = useAppStore((s) => s.matches.find((m) => m.id === matchId)!);
   const tbd = match.home_team === "—" || match.away_team === "—";
   const finished = match.status === "finished";
-  const phaseLocked = useAppStore((s) => s.isPhaseExpired(match.phase));
   const r32Expired = useAppStore((s) => s.isPhaseExpired("r32"));
-  const locked = tbd || finished || phaseLocked || r32Expired;
+  const locked = tbd || finished || r32Expired;
 
   return (
     <section>
