@@ -36,21 +36,32 @@ CREATE TABLE IF NOT EXISTS predictions (
   UNIQUE(user_id, match_id, slot)
 );
 
--- 3. MEMBERS (liga local, sem auth — mantido simples)
+-- 3. LEAGUES
+CREATE TABLE IF NOT EXISTS leagues (
+  id TEXT PRIMARY KEY,
+  admin_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  payment_status TEXT NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 4. MEMBERS
 CREATE TABLE IF NOT EXISTS members (
   id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-  league_id TEXT NOT NULL DEFAULT 'default',
+  league_id TEXT NOT NULL REFERENCES leagues(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   has_paid_admin BOOLEAN NOT NULL DEFAULT FALSE,
   total_points INTEGER NOT NULL DEFAULT 0,
   UNIQUE(league_id, user_id)
 );
 
--- 4. ÍNDICES
+-- 5. ÍNDICES
 CREATE INDEX IF NOT EXISTS idx_predictions_user ON predictions(user_id);
 CREATE INDEX IF NOT EXISTS idx_predictions_match ON predictions(match_id);
 CREATE INDEX IF NOT EXISTS idx_matches_phase ON matches(phase);
 CREATE INDEX IF NOT EXISTS idx_members_user ON members(user_id);
+CREATE INDEX IF NOT EXISTS idx_leagues_admin ON leagues(admin_id);
 
 -- =============================================================
 -- RLS (Row Level Security)
@@ -85,6 +96,21 @@ CREATE POLICY "predictions_update_own" ON predictions
 
 CREATE POLICY "predictions_delete_own" ON predictions
   FOR DELETE USING (auth.uid() = user_id);
+
+-- LEAGUES — leitura pública, escrita admin
+ALTER TABLE leagues ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "leagues_select_public" ON leagues
+  FOR SELECT USING (TRUE);
+
+CREATE POLICY "leagues_insert_admin" ON leagues
+  FOR INSERT WITH CHECK (auth.jwt() ->> 'role' = 'service_role');
+
+CREATE POLICY "leagues_update_admin" ON leagues
+  FOR UPDATE USING (auth.jwt() ->> 'role' = 'service_role');
+
+CREATE POLICY "leagues_delete_admin" ON leagues
+  FOR DELETE USING (auth.jwt() ->> 'role' = 'service_role');
 
 -- MEMBERS — leitura pública (ranking), escrita admin
 ALTER TABLE members ENABLE ROW LEVEL SECURITY;
