@@ -3,12 +3,11 @@ import {
   createUser,
   findUserByEmail,
   findUserById,
-  updatePassword,
-  verifyPassword,
   readSession,
   writeSession,
 } from "@/lib/db/sqlite-repo";
 import { useAppStore } from "@/store/app-store";
+import * as supabaseAuth from "@/lib/supabase/auth";
 
 export interface AuthUser {
   id: string;
@@ -44,27 +43,38 @@ export const useAuthStore = create<AuthState>()((set) => ({
   setUser: (u) => commitUser(set, u),
   setReady: (b) => set({ ready: b }),
   signup: async (email, password, fullName) => {
-    const u = await createUser(email, password, fullName);
-    commitUser(set, u);
-    return u;
-  },
-  login: async (email, password) => {
-    const found = await findUserByEmail(email);
-    if (!found) throw new Error("E-mail ou senha inválidos");
-    const ok = await verifyPassword(password, found.password_hash);
-    if (!ok) throw new Error("E-mail ou senha inválidos");
-    commitUser(set, found.user);
-    return found.user;
-  },
-  resetPassword: async (email, newPassword) => {
-    await updatePassword(email, newPassword);
-    // Se a senha redefinida é do usuário logado, derruba a sessão para forçar novo login.
-    const current = useAuthStore.getState().user;
-    if (current && current.email === email.trim().toLowerCase()) {
-      commitUser(set, null);
+    try {
+      const u = await supabaseAuth.signUp(email, password, fullName);
+      commitUser(set, u);
+      return u;
+    } catch {
+      const u = await createUser(email, password, fullName);
+      commitUser(set, u);
+      return u;
     }
   },
-  logout: () => commitUser(set, null),
+  login: async (email, password) => {
+    try {
+      const u = await supabaseAuth.signIn(email, password);
+      commitUser(set, u);
+      return u;
+    } catch {
+      const found = await findUserByEmail(email);
+      if (!found) throw new Error("E-mail ou senha inválidos");
+      const { verifyPassword } = await import("@/lib/db/sqlite-repo");
+      const ok = await verifyPassword(password, found.password_hash);
+      if (!ok) throw new Error("E-mail ou senha inválidos");
+      commitUser(set, found.user);
+      return found.user;
+    }
+  },
+  resetPassword: async (_email, _newPassword) => {
+    throw new Error("Redefinição de senha disponível no painel do Supabase");
+  },
+  logout: async () => {
+    await supabaseAuth.signOut();
+    commitUser(set, null);
+  },
 }));
 
 export function isAuthenticated(): boolean {
@@ -72,6 +82,12 @@ export function isAuthenticated(): boolean {
 }
 
 export async function restoreSession(): Promise<void> {
+  const supabaseUser = await supabaseAuth.getSessionUser();
+  if (supabaseUser) {
+    useAuthStore.setState({ user: supabaseUser });
+    useAppStore.getState().setCurrentUser(supabaseUser.id, supabaseUser.is_admin);
+    return;
+  }
   const id = readSession();
   if (!id) return;
   const u = await findUserById(id);

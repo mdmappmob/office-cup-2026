@@ -2,6 +2,9 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { mockMatches } from "@/mocks/matches";
 import { CURRENT_LEAGUE_ID } from "@/mocks/leagues";
+import { supabase } from "@/lib/supabase/client";
+import * as predictionsApi from "@/lib/supabase/predictions";
+import * as membersApi from "@/lib/supabase/members";
 import type {
   MockMatch,
   MockPrediction,
@@ -39,6 +42,9 @@ interface AppState {
   isPhaseExpired: (phase: MatchPhase) => boolean;
   getPhaseFirstMatchDate: (phase: MatchPhase) => string | null;
   isDeadlinePassed: () => boolean;
+  loadFromSupabase: () => Promise<void>;
+  syncPredictionsToSupabase: () => Promise<void>;
+  syncMembersToSupabase: () => Promise<void>;
 }
 
 function makeEmptyPrediction(matchId: string, slot: number = 1, userId: string = ""): MockPrediction {
@@ -75,25 +81,28 @@ export const useAppStore = create<AppState>()(
       setTheme: (t) => set({ theme: t }),
       toggleTheme: () => set({ theme: get().theme === "light" ? "dark" : "light" }),
       setAdmin: (v) => set({ isAdmin: v }),
-      setCurrentUser: (userId, isAdmin) => set((state) => {
-        const exists = state.members.some((member) => member.user_id === userId);
-        return {
-          currentUserId: userId,
-          isAdmin,
-          members: exists
-            ? state.members
-            : [
-                ...state.members,
-                {
-                  id: `m-${userId}`,
-                  league_id: state.currentLeagueId,
-                  user_id: userId,
-                  has_paid_admin: isAdmin,
-                  total_points: 0,
-                },
-              ],
-        };
-      }),
+      setCurrentUser: (userId, isAdmin) => {
+        set((state) => {
+          const exists = state.members.some((member) => member.user_id === userId);
+          return {
+            currentUserId: userId,
+            isAdmin,
+            members: exists
+              ? state.members
+              : [
+                  ...state.members,
+                  {
+                    id: `m-${userId}`,
+                    league_id: state.currentLeagueId,
+                    user_id: userId,
+                    has_paid_admin: isAdmin,
+                    total_points: 0,
+                  },
+                ],
+          };
+        });
+        if (userId) get().loadFromSupabase();
+      },
       upsertPrediction: (matchId, patch, slot = 1) => {
         const match = get().matches.find((m) => m.id === matchId);
         if (match?.status === "finished") return;
@@ -109,6 +118,7 @@ export const useAppStore = create<AppState>()(
         const newPredictions = [...others, merged];
         const newMatches = computeBracket(get().matches, newPredictions);
         set({ predictions: newPredictions, matches: newMatches });
+        get().syncPredictionsToSupabase();
       },
       addPredictionSlot: (matchId) => {
         const userId = get().currentUserId;
@@ -142,6 +152,85 @@ export const useAppStore = create<AppState>()(
         );
         set({ matches: newMatches, predictions: newPredictions });
         get().recomputeStandings();
+        get().syncPredictionsToSupabase();
+        get().syncMembersToSupabase();
+      },
+      loadFromSupabase: async () => {
+        const userId = get().currentUserId;
+        if (!userId) return;
+        try {
+          const [remotePredictions, remoteMembers] = await Promise.all([
+            predictionsApi.fetchPredictions(userId),
+            membersApi.fetchMembers(),
+          ]);
+          const localPredictions = get().predictions;
+          const merged = [...localPredictions];
+          for (const rp of remotePredictions) {
+            const exists = localPredictions.find(
+              (lp) => lp.match_id === rp.match_id && lp.user_id === rp.user_id && lp.slot === rp.slot,
+            );
+            if (!exists) {
+              merged.push({
+                id: rp.id,
+                user_id: rp.user_id,
+                league_id: "default",
+                match_id: rp.match_id,
+                slot: rp.slot,
+                predicted_home_score: rp.predicted_home_score,
+                predicted_away_score: rp.predicted_away_score,
+                predicted_home_lineup: [],
+                predicted_away_lineup: [],
+                predicted_goalscorers: rp.predicted_goalscorers,
+                is_zebra: rp.is_zebra,
+                points_earned: rp.points_earned,
+              });
+            }
+          }
+          const mergedMembers = [...get().members];
+          for (const rm of remoteMembers) {
+            const exists = mergedMembers.find((lm) => lm.user_id === rm.user_id);
+            if (!exists) {
+              mergedMembers.push({
+                id: rm.id,
+                league_id: rm.league_id,
+                user_id: rm.user_id,
+                has_paid_admin: rm.has_paid_admin,
+                total_points: rm.total_points,
+              });
+            }
+          }
+          set({ predictions: merged, members: mergedMembers });
+        } catch (err) {
+          console.warn("Erro ao carregar dados do Supabase", err);
+        }
+      },
+      syncPredictionsToSupabase: async () => {
+        const userId = get().currentUserId;
+        if (!userId) return;
+        const predictions = get().predictions.filter((p) => p.user_id === userId);
+        for (const p of predictions) {
+          try {
+            await predictionsApi.upsertPrediction(userId, p.match_id, p.slot, {
+              predicted_home_score: p.predicted_home_score,
+              predicted_away_score: p.predicted_away_score,
+              predicted_goalscorers: p.predicted_goalscorers,
+              points_earned: p.points_earned,
+              is_zebra: p.is_zebra,
+            });
+          } catch (err) {
+            console.warn("Erro ao sincronizar palpite", p.match_id, err);
+          }
+        }
+      },
+      syncMembersToSupabase: async () => {
+        const members = get().members;
+        for (const m of members) {
+          try {
+            await membersApi.upsertMember(m.user_id, m.league_id, m.total_points);
+          } catch (err) {
+            console.warn("Erro ao sincronizar member", m.user_id, err);
+          }
+        }
       },
       recomputeStandings: () => {
         const preds = get().predictions;
@@ -163,6 +252,7 @@ export const useAppStore = create<AppState>()(
             total_points: totals.get(m.user_id) ?? m.total_points,
           })),
         });
+        get().syncMembersToSupabase();
       },
       toggleMemberPaid: (memberId) => {
         set({
@@ -170,6 +260,7 @@ export const useAppStore = create<AppState>()(
             m.id === memberId ? { ...m, has_paid_admin: !m.has_paid_admin } : m,
           ),
         });
+        get().syncMembersToSupabase();
       },
       regenerateBracket: () => {
         set({ matches: computeBracket(get().matches, get().predictions) });
