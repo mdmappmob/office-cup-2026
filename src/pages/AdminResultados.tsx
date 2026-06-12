@@ -3,7 +3,7 @@ import { useAppStore } from "@/store/app-store";
 import { useAuthStore } from "@/store/auth-store";
 import { predictionsRepo } from "@/lib/db";
 import { useShallow } from "zustand/react/shallow";
-import { PHASE_LABEL, PHASE_ORDER, type MatchPhase } from "@/mocks/types";
+import { PHASE_LABEL, PHASE_ORDER, type MatchPhase, type MockMatch } from "@/mocks/types";
 import { fmtTime, fmtDate } from "@/lib/date";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -17,6 +17,36 @@ import { syncFootballData } from "@/lib/results-sync.server";
 import { API_TEAM_MAP } from "@/lib/results-sync";
 
 const USER_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+function normalize(s: string): string {
+  return s
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function resolveMatch(matches: MockMatch[], apiHome: string, apiAway: string) {
+  const searchPairs = [
+    [API_TEAM_MAP[apiHome] ?? apiHome, API_TEAM_MAP[apiAway] ?? apiAway],
+    [apiHome, apiAway],
+  ];
+  for (const [homeName, awayName] of searchPairs) {
+    const m = matches.find((m) => m.home_team === homeName && m.away_team === awayName);
+    if (m) return m;
+  }
+  const nHome = normalize(apiHome);
+  const nAway = normalize(apiAway);
+  for (const m of matches) {
+    if (normalize(m.home_team) === nHome && normalize(m.away_team) === nAway) return m;
+  }
+  for (const m of matches) {
+    if (
+      (normalize(m.home_team).includes(nHome) || nHome.includes(normalize(m.home_team))) &&
+      (normalize(m.away_team).includes(nAway) || nAway.includes(normalize(m.away_team)))
+    ) return m;
+  }
+  return null;
+}
 
 export function AdminResultadosPage() {
   const user = useAuthStore((s) => s.user);
@@ -51,12 +81,8 @@ function Body() {
       let skipped = 0;
       for (const r of results) {
         if (r.status !== "finished" || r.homeScore === null || r.awayScore === null) continue;
-        const homeName = API_TEAM_MAP[r.homeTeam] ?? r.homeTeam;
-        const awayName = API_TEAM_MAP[r.awayTeam] ?? r.awayTeam;
         const currentMatches = useAppStore.getState().matches;
-        const match = currentMatches.find(
-          (m) => m.home_team === homeName && m.away_team === awayName,
-        );
+        const match = resolveMatch(currentMatches, r.homeTeam, r.awayTeam);
         if (match) {
           if (match.home_score === null || match.away_score === null) {
             predictionsRepo.settleMatch(match.id, r.homeScore, r.awayScore);
@@ -65,7 +91,7 @@ function Body() {
             skipped++;
           }
         } else {
-          console.warn("Sync: partida não encontrada", { api: r.homeTeam + " x " + r.awayTeam, mapped: homeName + " x " + awayName });
+          console.warn("Sync: partida não encontrada", r.homeTeam + " x " + r.awayTeam);
         }
       }
       if (applied > 0) {
