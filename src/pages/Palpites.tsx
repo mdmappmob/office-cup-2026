@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PHASE_LABEL, PHASE_ORDER, type MatchPhase, type MockMatch, type MockPrediction } from "@/mocks/types";
+import { fmtTime, fmtDate, fmtDateTime } from "@/lib/date";
 import { Lock, Sparkles, Brain, ChevronDown, CheckCircle2, X, Plus, Trash2, AlertTriangle } from "lucide-react";
 import { analyzeMatch } from "@/lib/copilot";
 import { matchesRepo, predictionsRepo } from "@/lib/db";
@@ -22,15 +23,7 @@ import { Flag } from "@/components/Flag";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
-const BR_TZ = "America/Sao_Paulo";
-
-function brDate(dateStr: string, style: "short" | "long" = "short"): string {
-  const d = new Date(dateStr);
-  if (style === "long") {
-    return d.toLocaleString("pt-BR", { timeZone: BR_TZ, day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
-  }
-  return d.toLocaleDateString("pt-BR", { timeZone: BR_TZ, day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
-}
+const USER_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 function getFirstRoundEndDate(matches: MockMatch[]): string {
   const groups = new Map<string, string[]>();
@@ -67,7 +60,7 @@ export function PalpitesPage() {
   const deadline = useMemo(() => {
     const d = getFirstRoundEndDate(matches);
     if (!d) return null;
-    return { utc: d, br: brDate(d, "long") };
+    return { utc: d, br: fmtDateTime(d, USER_TZ) };
   }, [matches]);
 
   const deadlinePassed = deadline ? Date.now() >= new Date(deadline.utc).getTime() : false;
@@ -391,8 +384,6 @@ function MatchRow({
     prediction?.predicted_away_score !== null &&
     prediction?.predicted_away_score !== undefined;
 
-  const dateStr = brDate(match.match_date);
-
   const analysis = useMemo(
     () => (filled ? analyzeMatch(match, prediction) : null),
     [filled, match, prediction],
@@ -404,7 +395,10 @@ function MatchRow({
       onClick={() => !locked && onSelect(matchId)}
       className={`cursor-pointer ${filled ? "bg-accent/5" : ""} ${isSelected ? "bg-accent/10 border-l-2 border-l-primary" : ""}`}
     >
-      <TableCell className="font-mono text-xs text-muted-foreground">{dateStr}</TableCell>
+      <TableCell className="font-mono text-[10px] text-muted-foreground leading-tight">
+        <div>{fmtTime(match.match_date, match.venue_tz ?? "America/New_York")}<span className="text-[9px] text-muted-foreground/50 ml-1">sede</span></div>
+        <div>{fmtTime(match.match_date, USER_TZ)}<span className="text-[9px] text-muted-foreground/50 ml-1">local</span></div>
+      </TableCell>
       <TableCell className="text-right">
         <div className="flex items-center gap-2 justify-end">
           <span className="font-semibold text-sm">{match.home_team}</span>
@@ -519,7 +513,14 @@ function BracketRow({
       onClick={() => !locked && onSelect(matchId)}
       className={`transition-colors ${tbd ? "" : "cursor-pointer"} ${isSelected ? "border-primary" : filled ? "border-accent/40" : ""}`}
     >
-      <CardContent className="p-4 grid grid-cols-[1fr_auto_1fr_auto] items-center gap-4">
+      <CardContent className="p-4">
+        <div className="font-mono text-[10px] text-muted-foreground mb-3 flex items-center gap-3">
+          <span>{fmtTime(match.match_date, match.venue_tz ?? "America/New_York")} <span className="text-[9px] text-muted-foreground/50">sede</span></span>
+          <span>|</span>
+          <span>{fmtTime(match.match_date, USER_TZ)} <span className="text-[9px] text-muted-foreground/50">local</span></span>
+          <span className="text-[9px] text-muted-foreground/50 ml-auto">{fmtDate(match.match_date, USER_TZ)}</span>
+        </div>
+        <div className="grid grid-cols-[1fr_auto_1fr_auto] items-center gap-4">
         <div className="flex items-center gap-3 justify-end">
           <span className="font-semibold">{match.home_team}</span>
           <Flag team={match.home_team} iso={match.home_flag} size={22} />
@@ -575,6 +576,7 @@ function BracketRow({
             />
           )}
         </Button>
+        </div>
       </CardContent>
     </Card>
   );
@@ -602,8 +604,11 @@ function MatchDetailsInline({ matchId, onClose }: { matchId: string; onClose: ()
               {match.away_team}
               <Flag team={match.away_team} iso={match.away_flag} size={16} />
             </div>
-            <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mt-1">
-              {brDate(match.match_date, "long")}
+            <div className="font-mono text-[10px] text-muted-foreground mt-1 flex items-center gap-3">
+              <span>{fmtTime(match.match_date, match.venue_tz ?? "America/New_York")} <span className="text-[9px]">sede</span></span>
+              <span>|</span>
+              <span>{fmtTime(match.match_date, USER_TZ)} <span className="text-[9px]">local</span></span>
+              <span className="text-[9px] text-muted-foreground/50">{fmtDate(match.match_date, USER_TZ)}</span>
             </div>
           </div>
           <Button size="icon" variant="ghost" onClick={onClose} title="Fechar">

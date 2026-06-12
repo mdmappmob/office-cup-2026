@@ -39,6 +39,7 @@ export interface MockMatch {
   home_flag: string;
   away_flag: string;
   match_date: string;
+  venue_tz?: string;
   phase: MatchPhase;
   group?: string;
   home_score: number | null;

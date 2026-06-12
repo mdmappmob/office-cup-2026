@@ -4,6 +4,7 @@ import { useAuthStore } from "@/store/auth-store";
 import { predictionsRepo } from "@/lib/db";
 import { useShallow } from "zustand/react/shallow";
 import { PHASE_LABEL, PHASE_ORDER, type MatchPhase } from "@/mocks/types";
+import { fmtTime, fmtDate } from "@/lib/date";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
@@ -15,10 +16,7 @@ import { toast } from "sonner";
 import { syncFootballData } from "@/lib/results-sync.server";
 import { API_TEAM_MAP } from "@/lib/results-sync";
 
-const BR_TZ = "America/Sao_Paulo";
-function brDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleString("pt-BR", { timeZone: BR_TZ, day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
-}
+const USER_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 export function AdminResultadosPage() {
   const user = useAuthStore((s) => s.user);
@@ -165,11 +163,13 @@ function ResultRow({ matchId }: { matchId: string }) {
     toast.success(`Resultado registrado · ${predictions.length} palpites apurados.`);
   };
 
-  const dateStr = brDate(match.match_date);
-
   return (
     <TableRow className={finished ? "bg-accent/5" : ""}>
-      <TableCell className="font-mono text-xs text-muted-foreground">{dateStr}</TableCell>
+      <TableCell className="font-mono text-[10px] text-muted-foreground leading-tight">
+        <div>{fmtTime(match.match_date, match.venue_tz ?? "America/New_York")}<span className="text-[9px] text-muted-foreground/50 ml-1">sede</span></div>
+        <div>{fmtTime(match.match_date, USER_TZ)}<span className="text-[9px] text-muted-foreground/50 ml-1">local</span></div>
+        <div className="text-[9px] text-muted-foreground/40">{fmtDate(match.match_date, USER_TZ)}</div>
+      </TableCell>
       <TableCell className="text-right">
         <div className="flex items-center gap-2 justify-end">
           <span className="font-semibold text-sm">{match.home_team}</span>
