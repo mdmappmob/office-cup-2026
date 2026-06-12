@@ -28,10 +28,16 @@ export const migrateUserData = createServerFn({ method: "POST" })
     const admin = createClient(supabaseUrl, serviceKey);
 
     try {
+      // Garante que a liga padrão existe
+      await admin.from("leagues").upsert(
+        { id: "l1", admin_id: userId, name: "Bolão da Diretoria 2026", is_active: true, payment_status: "paid" },
+        { onConflict: "id" },
+      );
+
       if (predictions.length > 0) {
         const rows = predictions.map((p) => ({
           user_id: userId,
-          league_id: "default",
+          league_id: "l1",
           match_id: p.match_id,
           slot: p.slot,
           predicted_home_score: p.predicted_home_score,
@@ -49,7 +55,7 @@ export const migrateUserData = createServerFn({ method: "POST" })
       const { error: memberErr } = await admin.from("members").upsert(
         {
           user_id: userId,
-          league_id: "default",
+          league_id: "l1",
           has_paid_admin: false,
           total_points: totalPoints,
         },
