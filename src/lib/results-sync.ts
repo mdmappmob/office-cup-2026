@@ -13,6 +13,7 @@ export const API_TEAM_MAP: Record<string, string> = {
   "South Africa": "África do Sul",
   "South Korea": "Coreia do Sul",
   "Czech Republic": "República Tcheca",
+  Czechia: "República Tcheca",
   Canada: "Canadá",
   "Bosnia and Herzegovina": "Bósnia-Herzegovina",
   Bosnia: "Bósnia-Herzegovina",
