@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import {
-  createUser,
   findUserByEmail,
   findUserById,
   readSession,
@@ -43,15 +42,9 @@ export const useAuthStore = create<AuthState>()((set) => ({
   setUser: (u) => commitUser(set, u),
   setReady: (b) => set({ ready: b }),
   signup: async (email, password, fullName) => {
-    try {
-      const u = await supabaseAuth.signUp(email, password, fullName);
-      commitUser(set, u);
-      return u;
-    } catch {
-      const u = await createUser(email, password, fullName);
-      commitUser(set, u);
-      return u;
-    }
+    const u = await supabaseAuth.signUp(email, password, fullName);
+    commitUser(set, u);
+    return u;
   },
   login: async (email, password) => {
     try {

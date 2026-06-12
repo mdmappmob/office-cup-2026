@@ -112,17 +112,17 @@ CREATE POLICY "leagues_update_admin" ON leagues
 CREATE POLICY "leagues_delete_admin" ON leagues
   FOR DELETE USING (auth.jwt() ->> 'role' = 'service_role');
 
--- MEMBERS — leitura pública (ranking), escrita admin
+-- MEMBERS — leitura pública, cada um insere/atualiza o próprio registro
 ALTER TABLE members ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "members_select_public" ON members
   FOR SELECT USING (TRUE);
 
-CREATE POLICY "members_insert_admin" ON members
-  FOR INSERT WITH CHECK (auth.jwt() ->> 'role' = 'service_role');
+CREATE POLICY "members_insert_own" ON members
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "members_update_admin" ON members
-  FOR UPDATE USING (auth.jwt() ->> 'role' = 'service_role');
+CREATE POLICY "members_update_own" ON members
+  FOR UPDATE USING (auth.uid() = user_id);
 
 CREATE POLICY "members_delete_admin" ON members
   FOR DELETE USING (auth.jwt() ->> 'role' = 'service_role');

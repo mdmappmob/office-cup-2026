@@ -33,7 +33,17 @@ BEGIN
   END IF;
 END $$;
 
--- 4. RLS para leagues
+-- 4. Corrige RLS de members (inserir próprio registro, não só admin)
+DROP POLICY IF EXISTS "members_insert_admin" ON members;
+DROP POLICY IF EXISTS "members_update_admin" ON members;
+DROP POLICY IF EXISTS "members_select_public" ON members;
+
+CREATE POLICY "members_select_public" ON members FOR SELECT USING (TRUE);
+CREATE POLICY "members_insert_own" ON members FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "members_update_own" ON members FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "members_delete_admin" ON members FOR DELETE USING (auth.jwt() ->> 'role' = 'service_role');
+
+-- 6. RLS para leagues
 ALTER TABLE leagues ENABLE ROW LEVEL SECURITY;
 
 DO $$
@@ -52,5 +62,5 @@ BEGIN
   END IF;
 END $$;
 
--- 5. Índice
+-- 7. Índice
 CREATE INDEX IF NOT EXISTS idx_leagues_admin ON leagues(admin_id);

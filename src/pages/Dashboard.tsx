@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAppStore } from "@/store/app-store";
 import { useAuthStore } from "@/store/auth-store";
+import { useMigrate } from "@/lib/supabase/useMigrate";
 import { mockProfiles } from "@/mocks/profiles";
 import { totalUserPoints, userBreakdown } from "@/lib/scoring";
 import {
@@ -12,6 +13,7 @@ import { Button } from "@/components/ui/button";
 
 export function DashboardPage() {
   const authUser = useAuthStore((s) => s.user);
+  useMigrate(authUser?.id ?? null);
   const matches = useAppStore((s) => s.matches);
   const predictions = useAppStore((s) => s.predictions);
   const members = useAppStore((s) => s.members);
