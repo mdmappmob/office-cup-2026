@@ -36,6 +36,8 @@ interface AppState {
   phaseProgress: (phase: MatchPhase) => { filled: number; total: number };
   regenerateBracket: () => void;
   recomputeStandings: () => void;
+  isPhaseExpired: (phase: MatchPhase) => boolean;
+  getPhaseFirstMatchDate: (phase: MatchPhase) => string | null;
 }
 
 function makeEmptyPrediction(matchId: string, slot: number = 1, userId: string = ""): MockPrediction {
@@ -92,6 +94,9 @@ export const useAppStore = create<AppState>()(
         };
       }),
       upsertPrediction: (matchId, patch, slot = 1) => {
+        const match = get().matches.find((m) => m.id === matchId);
+        if (match?.status === "finished") return;
+        if (match && get().isPhaseExpired(match.phase)) return;
         const userId = get().currentUserId;
         const existing = get().predictions.find(
           (p) => p.match_id === matchId && p.user_id === userId && p.slot === slot,
@@ -178,6 +183,18 @@ export const useAppStore = create<AppState>()(
         }).length;
         return { filled, total: matches.length };
       },
+      isPhaseExpired: (phase) => {
+        const firstDate = get().getPhaseFirstMatchDate(phase);
+        if (!firstDate) return false;
+        return Date.now() >= new Date(firstDate).getTime();
+      },
+      getPhaseFirstMatchDate: (phase) => {
+        const phaseMatches = get().matches.filter((m) => m.phase === phase);
+        if (phaseMatches.length === 0) return null;
+        return phaseMatches.reduce((earliest, m) =>
+          m.match_date < earliest ? m.match_date : earliest,
+        phaseMatches[0].match_date);
+      },
       unlockedPhases: () => {
         const unlocked: MatchPhase[] = ["grupos"];
         for (let i = 1; i < PHASE_ORDER.length; i++) {
@@ -196,7 +213,13 @@ export const useAppStore = create<AppState>()(
         members: s.members,
         theme: s.theme,
         isAdmin: s.isAdmin,
+        matches: s.matches,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (state && state.predictions.length > 0) {
+          state.regenerateBracket();
+        }
+      },
     },
   ),
 );

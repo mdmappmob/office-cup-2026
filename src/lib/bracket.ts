@@ -831,7 +831,7 @@ export function propagateKnockout(
 
     if (toMatches.length === 0) return;
 
-    // Check if all from-phase matches have predictions with scores (filled)
+    // Só propaga se TODAS as partidas da fase anterior têm palpites preenchidos
     const allFilled = fromMatches.every((m) => {
       if (m.home_team === "—" || m.away_team === "—") return false;
       const p = predictions.find((x) => x.match_id === m.id);

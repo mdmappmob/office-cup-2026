@@ -15,6 +15,11 @@ import { toast } from "sonner";
 import { syncFootballData } from "@/lib/results-sync.server";
 import { API_TEAM_MAP } from "@/lib/results-sync";
 
+const BR_TZ = "America/Sao_Paulo";
+function brDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleString("pt-BR", { timeZone: BR_TZ, day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
 export function AdminResultadosPage() {
   const user = useAuthStore((s) => s.user);
   if (!user?.is_admin) {
@@ -49,15 +54,20 @@ function Body() {
         if (r.status !== "finished" || r.homeScore === null || r.awayScore === null) continue;
         const homeName = API_TEAM_MAP[r.homeTeam] ?? r.homeTeam;
         const awayName = API_TEAM_MAP[r.awayTeam] ?? r.awayTeam;
-          const match = matches.find(
-            (m) =>
-              (m.home_team === homeName && m.away_team === awayName) &&
-              m.status !== "finished",
-          );
-          if (match) {
-            predictionsRepo.settleMatch(match.id, r.homeScore, r.awayScore);
-            applied++;
-          }
+        const currentMatches = useAppStore.getState().matches;
+        const match = currentMatches.find(
+          (m) =>
+            m.home_team === homeName &&
+            m.away_team === awayName &&
+            (m.home_score === null || m.away_score === null),
+        );
+        if (match) {
+          predictionsRepo.settleMatch(match.id, r.homeScore, r.awayScore);
+          applied++;
+        }
+      }
+      if (applied > 0) {
+        useAppStore.getState().regenerateBracket();
       }
       toast.success(`${applied} resultado(s) aplicado(s)`);
     } finally {
@@ -155,9 +165,7 @@ function ResultRow({ matchId }: { matchId: string }) {
     toast.success(`Resultado registrado · ${predictions.length} palpites apurados.`);
   };
 
-  const dateStr = new Date(match.match_date).toLocaleString("pt-BR", {
-    day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
-  });
+  const dateStr = brDate(match.match_date);
 
   return (
     <TableRow className={finished ? "bg-accent/5" : ""}>

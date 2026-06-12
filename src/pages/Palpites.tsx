@@ -14,7 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PHASE_LABEL, PHASE_ORDER, type MatchPhase } from "@/mocks/types";
-import { Lock, Sparkles, Brain, ChevronDown, CheckCircle2, X, Plus, Trash2 } from "lucide-react";
+import { Lock, Sparkles, Brain, ChevronDown, CheckCircle2, X, Plus, Trash2, AlertTriangle } from "lucide-react";
 import { analyzeMatch } from "@/lib/copilot";
 import { matchesRepo, predictionsRepo } from "@/lib/db";
 import { useShallow } from "zustand/react/shallow";
@@ -22,15 +22,35 @@ import { Flag } from "@/components/Flag";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
+const BR_TZ = "America/Sao_Paulo";
+
+function brDate(dateStr: string, style: "short" | "long" = "short"): string {
+  const d = new Date(dateStr);
+  if (style === "long") {
+    return d.toLocaleString("pt-BR", { timeZone: BR_TZ, day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+  }
+  return d.toLocaleDateString("pt-BR", { timeZone: BR_TZ, day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
 export function PalpitesPage() {
   const matches = useAppStore((s) => s.matches);
   const predictions = useAppStore((s) => s.predictions);
-  const unlocked = useMemo(() => {
+  const isPhaseExpired = useAppStore((s) => s.isPhaseExpired);
+  const getPhaseFirstMatchDate = useAppStore((s) => s.getPhaseFirstMatchDate);
+  const phaseProgress = useAppStore((s) => s.phaseProgress);
+
+  const r32Expired = isPhaseExpired("r32");
+
+  const { unlocked, phaseLockStatus } = useMemo(() => {
     const isFilled = (id: string) => {
       const p = predictions.find((x) => x.match_id === id);
       return !!p && p.predicted_home_score !== null && p.predicted_away_score !== null;
     };
     const result: MatchPhase[] = ["grupos"];
+    const lockStatus: Record<MatchPhase, boolean> = {} as Record<MatchPhase, boolean>;
+    for (const phase of PHASE_ORDER) {
+      lockStatus[phase] = isPhaseExpired(phase);
+    }
     for (let i = 1; i < PHASE_ORDER.length; i++) {
       const prev = PHASE_ORDER[i - 1];
       const prevMatches = matches.filter((m) => m.phase === prev);
@@ -38,8 +58,28 @@ export function PalpitesPage() {
         result.push(PHASE_ORDER[i]);
       } else break;
     }
-    return result;
-  }, [matches, predictions]);
+    return { unlocked: result, phaseLockStatus: lockStatus };
+  }, [matches, predictions, isPhaseExpired]);
+
+  const incompleteAlerts = useMemo(() => {
+    const alerts: { phase: MatchPhase; deadline: string }[] = [];
+    for (let i = 0; i < PHASE_ORDER.length; i++) {
+      const phase = PHASE_ORDER[i];
+      if (phaseLockStatus[phase]) continue;
+      const nextPhase = PHASE_ORDER[i + 1];
+      if (!nextPhase) continue;
+      if (isPhaseExpired(nextPhase)) continue;
+      const { filled, total } = phaseProgress(phase);
+      if (filled < total) {
+        const deadline = getPhaseFirstMatchDate(nextPhase);
+        if (deadline) {
+          alerts.push({ phase, deadline: brDate(deadline, "long") });
+        }
+      }
+    }
+    return alerts;
+  }, [phaseLockStatus, isPhaseExpired, phaseProgress, getPhaseFirstMatchDate]);
+
   const [activePhase, setActivePhase] = useState<MatchPhase>("grupos");
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
 
@@ -56,14 +96,43 @@ export function PalpitesPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-8 py-10">
+      {r32Expired && (
+        <div className="mb-6 p-4 rounded-md border border-destructive/40 bg-destructive/10 flex items-start gap-3">
+          <AlertTriangle className="size-5 text-destructive shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-bold text-destructive">Prazo de palpites encerrado</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              A 2ª fase (16-avos de final) já começou. Não é mais permitido alterar palpites em nenhuma fase.
+              Os palpites já registrados serão considerados para a pontuação final.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {!r32Expired && incompleteAlerts.length > 0 && (
+        <div className="mb-6 p-4 rounded-md border border-amber-400/40 bg-amber-50 dark:bg-amber-950/20 flex items-start gap-3">
+          <AlertTriangle className="size-5 text-amber-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-bold text-amber-700 dark:text-amber-400">Atenção: palpites incompletos</p>
+            <ul className="text-xs text-muted-foreground mt-1 space-y-1">
+              {incompleteAlerts.map((a) => (
+                <li key={a.phase}>
+                  {PHASE_LABEL[a.phase]}: preencha todos os jogos <strong>antes de {a.deadline}</strong> (horário de Brasília).
+                  Caso contrário, você será desclassificado(a) desta fase em diante.
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
       <header className="mb-8">
         <h1 className="text-3xl font-bold tracking-tighter">Palpites</h1>
         <p className="text-sm text-muted-foreground">
-          Preencha todos os jogos de uma fase para liberar a próxima. Use{" "}
-          <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded border border-border bg-muted">
-            Ctrl + S
-          </kbd>{" "}
-          para salvar.
+          Preencha todos os jogos de uma fase para liberar a próxima.
+          {!r32Expired && (
+            <> Use <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded border border-border bg-muted">Ctrl + S</kbd> para salvar.</>
+          )}
         </p>
       </header>
 
@@ -71,20 +140,22 @@ export function PalpitesPage() {
         {PHASE_ORDER.map((p) => {
           const isUnlocked = unlocked.includes(p);
           const isActive = activePhase === p;
+          const expired = phaseLockStatus[p];
+          const disabled = !isUnlocked || expired || r32Expired;
           return (
             <button
               key={p}
-              onClick={() => isUnlocked && setActivePhase(p)}
-              disabled={!isUnlocked}
+              onClick={() => !disabled && setActivePhase(p)}
+              disabled={disabled}
               className={`px-4 py-2 rounded-md text-xs font-mono uppercase tracking-widest border transition-colors whitespace-nowrap flex items-center gap-2 ${
                 isActive
                   ? "bg-foreground text-background border-foreground"
-                  : isUnlocked
+                  : isUnlocked && !expired && !r32Expired
                     ? "bg-card hover:bg-muted border-border"
                     : "bg-muted/30 text-muted-foreground border-dashed cursor-not-allowed"
               }`}
             >
-              {!isUnlocked && <Lock className="size-3" />}
+              {(disabled) && <Lock className="size-3" />}
               {PHASE_LABEL[p]}
             </button>
           );
@@ -282,18 +353,17 @@ function MatchRow({
   const prediction = useAppStore((s) => s.predictions.find((p) => p.match_id === matchId));
   const upsert = predictionsRepo.upsertPrediction;
   const tbd = match.home_team === "—" || match.away_team === "—";
+  const finished = match.status === "finished";
+  const phaseLocked = useAppStore((s) => s.isPhaseExpired(match.phase));
+  const r32Expired = useAppStore((s) => s.isPhaseExpired("r32"));
+  const locked = tbd || finished || phaseLocked || r32Expired;
   const filled =
     prediction?.predicted_home_score !== null &&
     prediction?.predicted_home_score !== undefined &&
     prediction?.predicted_away_score !== null &&
     prediction?.predicted_away_score !== undefined;
 
-  const dateStr = new Date(match.match_date).toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const dateStr = brDate(match.match_date);
 
   const analysis = useMemo(
     () => (filled ? analyzeMatch(match, prediction) : null),
@@ -303,7 +373,7 @@ function MatchRow({
 
   return (
     <TableRow
-      onClick={() => !tbd && onSelect(matchId)}
+      onClick={() => !locked && onSelect(matchId)}
       className={`cursor-pointer ${filled ? "bg-accent/5" : ""} ${isSelected ? "bg-accent/10 border-l-2 border-l-primary" : ""}`}
     >
       <TableCell className="font-mono text-xs text-muted-foreground">{dateStr}</TableCell>
@@ -318,7 +388,7 @@ function MatchRow({
           <Input
             type="number"
             min={0}
-            disabled={tbd}
+            disabled={locked}
             className="w-12 h-9 text-center font-mono text-base font-bold p-0"
             value={prediction?.predicted_home_score ?? ""}
             onChange={(e) =>
@@ -331,7 +401,7 @@ function MatchRow({
           <Input
             type="number"
             min={0}
-            disabled={tbd}
+            disabled={locked}
             className="w-12 h-9 text-center font-mono text-base font-bold p-0"
             value={prediction?.predicted_away_score ?? ""}
             onChange={(e) =>
@@ -402,6 +472,10 @@ function BracketRow({
   const prediction = useAppStore((s) => s.predictions.find((p) => p.match_id === matchId));
   const upsert = predictionsRepo.upsertPrediction;
   const tbd = match.home_team === "—" || match.away_team === "—";
+  const finished = match.status === "finished";
+  const phaseLocked = useAppStore((s) => s.isPhaseExpired(match.phase));
+  const r32Expired = useAppStore((s) => s.isPhaseExpired("r32"));
+  const locked = tbd || finished || phaseLocked || r32Expired;
   const filled =
     prediction?.predicted_home_score !== null &&
     prediction?.predicted_home_score !== undefined &&
@@ -415,7 +489,7 @@ function BracketRow({
 
   return (
     <Card
-      onClick={() => !tbd && onSelect(matchId)}
+      onClick={() => !locked && onSelect(matchId)}
       className={`transition-colors ${tbd ? "" : "cursor-pointer"} ${isSelected ? "border-primary" : filled ? "border-accent/40" : ""}`}
     >
       <CardContent className="p-4 grid grid-cols-[1fr_auto_1fr_auto] items-center gap-4">
@@ -427,7 +501,7 @@ function BracketRow({
           <Input
             type="number"
             min={0}
-            disabled={tbd}
+            disabled={locked}
             className="w-12 h-10 text-center font-mono text-lg font-bold p-0"
             value={prediction?.predicted_home_score ?? ""}
             onChange={(e) =>
@@ -440,7 +514,7 @@ function BracketRow({
           <Input
             type="number"
             min={0}
-            disabled={tbd}
+            disabled={locked}
             className="w-12 h-10 text-center font-mono text-lg font-bold p-0"
             value={prediction?.predicted_away_score ?? ""}
             onChange={(e) =>
@@ -502,7 +576,7 @@ function MatchDetailsInline({ matchId, onClose }: { matchId: string; onClose: ()
               <Flag team={match.away_team} iso={match.away_flag} size={16} />
             </div>
             <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground mt-1">
-              {new Date(match.match_date).toLocaleString("pt-BR")}
+              {brDate(match.match_date, "long")}
             </div>
           </div>
           <Button size="icon" variant="ghost" onClick={onClose} title="Fechar">
@@ -574,6 +648,10 @@ function AlternativePalpites({ matchId }: { matchId: string }) {
   const upsert = predictionsRepo.upsertPrediction;
   const match = useAppStore((s) => s.matches.find((m) => m.id === matchId)!);
   const tbd = match.home_team === "—" || match.away_team === "—";
+  const finished = match.status === "finished";
+  const phaseLocked = useAppStore((s) => s.isPhaseExpired(match.phase));
+  const r32Expired = useAppStore((s) => s.isPhaseExpired("r32"));
+  const locked = tbd || finished || phaseLocked || r32Expired;
 
   return (
     <section>
@@ -584,7 +662,7 @@ function AlternativePalpites({ matchId }: { matchId: string }) {
         <Button
           size="sm"
           variant="outline"
-          disabled={tbd}
+          disabled={locked}
           onClick={() => addSlot(matchId)}
           className="h-7"
         >
@@ -610,7 +688,7 @@ function AlternativePalpites({ matchId }: { matchId: string }) {
               <Input
                 type="number"
                 min={0}
-                disabled={tbd}
+                disabled={locked || finished}
                 className="w-12 h-8 text-center font-mono text-sm font-bold p-0"
                 value={p.predicted_home_score ?? ""}
                 onChange={(e) =>
@@ -627,7 +705,7 @@ function AlternativePalpites({ matchId }: { matchId: string }) {
               <Input
                 type="number"
                 min={0}
-                disabled={tbd}
+                disabled={locked || finished}
                 className="w-12 h-8 text-center font-mono text-sm font-bold p-0"
                 value={p.predicted_away_score ?? ""}
                 onChange={(e) =>
@@ -645,7 +723,7 @@ function AlternativePalpites({ matchId }: { matchId: string }) {
             {p.points_earned > 0 && (
               <span className="font-mono text-xs text-accent font-bold">+{p.points_earned}pts</span>
             )}
-            {p.slot > 1 && (
+            {p.slot > 1 && !locked && (
               <Button
                 size="icon"
                 variant="ghost"
