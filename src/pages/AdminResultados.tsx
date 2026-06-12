@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAppStore } from "@/store/app-store";
 import { useAuthStore } from "@/store/auth-store";
 import { predictionsRepo } from "@/lib/db";
@@ -48,26 +48,30 @@ function Body() {
         return;
       }
       let applied = 0;
+      let skipped = 0;
       for (const r of results) {
         if (r.status !== "finished" || r.homeScore === null || r.awayScore === null) continue;
         const homeName = API_TEAM_MAP[r.homeTeam] ?? r.homeTeam;
         const awayName = API_TEAM_MAP[r.awayTeam] ?? r.awayTeam;
         const currentMatches = useAppStore.getState().matches;
         const match = currentMatches.find(
-          (m) =>
-            m.home_team === homeName &&
-            m.away_team === awayName &&
-            (m.home_score === null || m.away_score === null),
+          (m) => m.home_team === homeName && m.away_team === awayName,
         );
         if (match) {
-          predictionsRepo.settleMatch(match.id, r.homeScore, r.awayScore);
-          applied++;
+          if (match.home_score === null || match.away_score === null) {
+            predictionsRepo.settleMatch(match.id, r.homeScore, r.awayScore);
+            applied++;
+          } else {
+            skipped++;
+          }
+        } else {
+          console.warn("Sync: partida não encontrada", { api: r.homeTeam + " x " + r.awayTeam, mapped: homeName + " x " + awayName });
         }
       }
       if (applied > 0) {
         useAppStore.getState().regenerateBracket();
       }
-      toast.success(`${applied} resultado(s) aplicado(s)`);
+      toast.success([applied, "resultado(s) aplicado(s)", skipped > 0 ? `, ${skipped} já encerrado(s)` : ""].join(""));
     } finally {
       setSyncing(false);
     }
@@ -151,6 +155,11 @@ function ResultRow({ matchId }: { matchId: string }) {
   const [as, setAs] = useState<string>(match.away_score?.toString() ?? "");
   const tbd = match.home_team === "—" || match.away_team === "—";
   const finished = match.status === "finished";
+
+  useEffect(() => {
+    setHs(match.home_score?.toString() ?? "");
+    setAs(match.away_score?.toString() ?? "");
+  }, [match.home_score, match.away_score]);
 
   const handleSettle = () => {
     const h = Number(hs);
