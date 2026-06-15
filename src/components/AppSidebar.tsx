@@ -27,6 +27,7 @@ import {
 import { useAppStore } from "@/store/app-store";
 import { useAuthStore } from "@/store/auth-store";
 import { Button } from "@/components/ui/button";
+import { APP_VERSION, APP_COMMIT } from "@/lib/version";
 
 const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -140,6 +141,9 @@ export function AppSidebar() {
             <p className="text-xs font-semibold truncate">{fullName}</p>
             <p className="text-[10px] text-muted-foreground truncate font-mono">
               {isAdmin ? "ADMIN · PRO" : "MEMBER"}
+            </p>
+            <p className="text-[9px] text-muted-foreground/40 font-mono tracking-tight">
+              v{APP_VERSION}.{APP_COMMIT}
             </p>
           </div>
           <Button

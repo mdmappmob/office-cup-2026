@@ -42,3 +42,4 @@ src/lib/version.ts
 *.sw?
 .vercel
 .env*
+!.env.example
