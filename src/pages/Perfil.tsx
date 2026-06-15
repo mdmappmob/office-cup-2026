@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAppStore } from "@/store/app-store";
 import { useAuthStore } from "@/store/auth-store";
 import { mockProfiles } from "@/mocks/profiles";
+import { APP_VERSION, APP_COMMIT } from "@/lib/version";
 import { Trash2, AlertTriangle, Upload, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { migrateUserData } from "@/lib/supabase/migrate.server";
@@ -163,7 +164,7 @@ export function PerfilPage() {
         </Card>
       </div>
       <p className="text-[10px] text-muted-foreground/50 text-center mt-6 font-mono">
-        v{typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "?"}.{typeof __APP_COMMIT__ !== "undefined" ? __APP_COMMIT__ : "?"}
+        v{APP_VERSION}.{APP_COMMIT}
       </p>
     </div>
   );
