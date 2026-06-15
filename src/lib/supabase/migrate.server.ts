@@ -15,11 +15,21 @@ export const migrateUserData = createServerFn({ method: "POST" })
         points_earned: number;
         is_zebra: boolean;
       }>;
+      matches: Array<{
+        id: string;
+        home_team: string;
+        away_team: string;
+        home_flag: string;
+        away_flag: string;
+        match_date: string;
+        phase: string;
+        group?: string;
+      }>;
       totalPoints: number;
     }) => d,
   )
   .handler(async ({ data }) => {
-    const { userId, predictions, totalPoints } = data;
+    const { userId, predictions, matches, totalPoints } = data;
 
     const supabaseUrl =
       data.supabaseUrl || process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
@@ -44,6 +54,23 @@ export const migrateUserData = createServerFn({ method: "POST" })
         },
         { onConflict: "id" },
       );
+
+      if (matches.length > 0) {
+        const { error: matchErr } = await admin.from("matches").upsert(
+          matches.map((m) => ({
+            id: m.id,
+            home_team: m.home_team,
+            away_team: m.away_team,
+            home_flag: m.home_flag,
+            away_flag: m.away_flag,
+            match_date: m.match_date,
+            phase: m.phase,
+            group: m.group ?? null,
+          })),
+          { onConflict: "id" },
+        );
+        if (matchErr) return { ok: false, error: matchErr.message };
+      }
 
       if (predictions.length > 0) {
         const rows = predictions.map((p) => ({
