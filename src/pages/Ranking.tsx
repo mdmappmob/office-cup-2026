@@ -27,7 +27,7 @@ export function RankingPage() {
     const mock = Object.fromEntries(
       mockProfiles.map((p) => [p.id, p.full_name]),
     );
-    const remaining = uids.filter((id) => !mock[id] && id !== authUser?.id);
+    const remaining = uids.filter((id) => !mock[id]);
     if (remaining.length === 0) {
       setProfiles(mock);
       return;
