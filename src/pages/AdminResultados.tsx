@@ -6,7 +6,14 @@ import { useShallow } from "zustand/react/shallow";
 import { PHASE_LABEL, PHASE_ORDER, type MatchPhase, type MockMatch } from "@/mocks/types";
 import { fmtTime, fmtDate } from "@/lib/date";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +27,8 @@ const USER_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 function normalize(s: string): string {
   return s
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "");
 }
@@ -43,7 +51,8 @@ function resolveMatch(matches: MockMatch[], apiHome: string, apiAway: string) {
     if (
       (normalize(m.home_team).includes(nHome) || nHome.includes(normalize(m.home_team))) &&
       (normalize(m.away_team).includes(nAway) || nAway.includes(normalize(m.away_team)))
-    ) return m;
+    )
+      return m;
   }
   return null;
 }
@@ -97,15 +106,18 @@ function Body() {
       if (applied > 0) {
         useAppStore.getState().regenerateBracket();
       }
-      toast.success([applied, "resultado(s) aplicado(s)", skipped > 0 ? `, ${skipped} já encerrado(s)` : ""].join(""));
+      toast.success(
+        [
+          applied,
+          "resultado(s) aplicado(s)",
+          skipped > 0 ? `, ${skipped} já encerrado(s)` : "",
+        ].join(""),
+      );
     } finally {
       setSyncing(false);
     }
   };
-  const phaseMatches = useMemo(
-    () => matches.filter((m) => m.phase === phase),
-    [matches, phase],
-  );
+  const phaseMatches = useMemo(() => matches.filter((m) => m.phase === phase), [matches, phase]);
 
   return (
     <div className="max-w-6xl mx-auto px-8 py-10">
@@ -113,7 +125,8 @@ function Body() {
         <div>
           <h1 className="text-3xl font-bold tracking-tighter">Apuração de Resultados</h1>
           <p className="text-sm text-muted-foreground">
-            Lance o placar oficial de cada partida. A pontuação dos palpites é recalculada automaticamente.
+            Lance o placar oficial de cada partida. A pontuação dos palpites é recalculada
+            automaticamente.
           </p>
         </div>
         <Button
@@ -134,7 +147,9 @@ function Body() {
             key={p}
             onClick={() => setPhase(p)}
             className={`px-4 py-2 rounded-md text-xs font-mono uppercase tracking-widest border ${
-              phase === p ? "bg-foreground text-background border-foreground" : "bg-card border-border"
+              phase === p
+                ? "bg-foreground text-background border-foreground"
+                : "bg-card border-border"
             }`}
           >
             {PHASE_LABEL[p]}
@@ -152,12 +167,24 @@ function Body() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="font-mono text-[10px] uppercase tracking-widest">Data</TableHead>
-                <TableHead className="font-mono text-[10px] uppercase tracking-widest text-right">Mandante</TableHead>
-                <TableHead className="font-mono text-[10px] uppercase tracking-widest text-center">Resultado</TableHead>
-                <TableHead className="font-mono text-[10px] uppercase tracking-widest">Visitante</TableHead>
-                <TableHead className="font-mono text-[10px] uppercase tracking-widest text-center">Status</TableHead>
-                <TableHead className="font-mono text-[10px] uppercase tracking-widest text-right">Ação</TableHead>
+                <TableHead className="font-mono text-[10px] uppercase tracking-widest">
+                  Data
+                </TableHead>
+                <TableHead className="font-mono text-[10px] uppercase tracking-widest text-right">
+                  Mandante
+                </TableHead>
+                <TableHead className="font-mono text-[10px] uppercase tracking-widest text-center">
+                  Resultado
+                </TableHead>
+                <TableHead className="font-mono text-[10px] uppercase tracking-widest">
+                  Visitante
+                </TableHead>
+                <TableHead className="font-mono text-[10px] uppercase tracking-widest text-center">
+                  Status
+                </TableHead>
+                <TableHead className="font-mono text-[10px] uppercase tracking-widest text-right">
+                  Ação
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -176,7 +203,9 @@ function Body() {
 
 function ResultRow({ matchId }: { matchId: string }) {
   const match = useAppStore((s) => s.matches.find((m) => m.id === matchId)!);
-  const predictions = useAppStore(useShallow((s) => s.predictions.filter((p) => p.match_id === matchId)));
+  const predictions = useAppStore(
+    useShallow((s) => s.predictions.filter((p) => p.match_id === matchId)),
+  );
   const [hs, setHs] = useState<string>(match.home_score?.toString() ?? "");
   const [as, setAs] = useState<string>(match.away_score?.toString() ?? "");
   const tbd = match.home_team === "—" || match.away_team === "—";
@@ -201,9 +230,17 @@ function ResultRow({ matchId }: { matchId: string }) {
   return (
     <TableRow className={finished ? "bg-accent/5" : ""}>
       <TableCell className="font-mono text-[10px] text-muted-foreground leading-tight">
-        <div>{fmtTime(match.match_date, match.venue_tz ?? "America/New_York")}<span className="text-[9px] text-muted-foreground/50 ml-1">sede</span></div>
-        <div>{fmtTime(match.match_date, USER_TZ)}<span className="text-[9px] text-muted-foreground/50 ml-1">local</span></div>
-        <div className="text-[9px] text-muted-foreground/40">{fmtDate(match.match_date, USER_TZ)}</div>
+        <div>
+          {fmtTime(match.match_date, match.venue_tz ?? "America/New_York")}
+          <span className="text-[9px] text-muted-foreground/50 ml-1">sede</span>
+        </div>
+        <div>
+          {fmtTime(match.match_date, USER_TZ)}
+          <span className="text-[9px] text-muted-foreground/50 ml-1">local</span>
+        </div>
+        <div className="text-[9px] text-muted-foreground/40">
+          {fmtDate(match.match_date, USER_TZ)}
+        </div>
       </TableCell>
       <TableCell className="text-right">
         <div className="flex items-center gap-2 justify-end">
@@ -214,14 +251,18 @@ function ResultRow({ matchId }: { matchId: string }) {
       <TableCell>
         <div className="flex items-center gap-1.5 justify-center">
           <Input
-            type="number" min={0} disabled={tbd || finished}
+            type="number"
+            min={0}
+            disabled={tbd || finished}
             className="w-14 h-9 text-center font-mono text-base font-bold p-0"
             value={hs}
             onChange={(e) => setHs(e.target.value)}
           />
           <span className="text-muted-foreground font-mono">×</span>
           <Input
-            type="number" min={0} disabled={tbd || finished}
+            type="number"
+            min={0}
+            disabled={tbd || finished}
             className="w-14 h-9 text-center font-mono text-base font-bold p-0"
             value={as}
             onChange={(e) => setAs(e.target.value)}

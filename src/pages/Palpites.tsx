@@ -13,9 +13,25 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { PHASE_LABEL, PHASE_ORDER, type MatchPhase, type MockMatch, type MockPrediction } from "@/mocks/types";
+import {
+  PHASE_LABEL,
+  PHASE_ORDER,
+  type MatchPhase,
+  type MockMatch,
+  type MockPrediction,
+} from "@/mocks/types";
 import { fmtTime, fmtDate, fmtDateTime } from "@/lib/date";
-import { Lock, Sparkles, Brain, ChevronDown, CheckCircle2, X, Plus, Trash2, AlertTriangle } from "lucide-react";
+import {
+  Lock,
+  Sparkles,
+  Brain,
+  ChevronDown,
+  CheckCircle2,
+  X,
+  Plus,
+  Trash2,
+  AlertTriangle,
+} from "lucide-react";
 import { analyzeMatch } from "@/lib/copilot";
 import { matchesRepo, predictionsRepo } from "@/lib/db";
 import { useShallow } from "zustand/react/shallow";
@@ -41,7 +57,11 @@ function getFirstRoundEndDate(matches: MockMatch[]): string {
   return latest;
 }
 
-function isPhaseComplete(phase: MatchPhase, matches: MockMatch[], predictions: MockPrediction[]): boolean {
+function isPhaseComplete(
+  phase: MatchPhase,
+  matches: MockMatch[],
+  predictions: MockPrediction[],
+): boolean {
   const phaseMatches = matches.filter((m) => m.phase === phase);
   if (phaseMatches.length === 0) return false;
   return phaseMatches.every((m) => {
@@ -78,35 +98,51 @@ export function PalpitesPage() {
   const [activePhase, setActivePhase] = useState<MatchPhase>("grupos");
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
 
+  function advancePhase() {
+    const st = useAppStore.getState();
+    const cp = activePhase;
+    if (!isPhaseComplete(cp, st.matches, st.predictions)) {
+      const phaseMatches = st.matches.filter((m) => m.phase === cp);
+      const filled = phaseMatches.filter((m) => {
+        const p = st.predictions.find((x) => x.match_id === m.id);
+        return !!p && p.predicted_home_score !== null && p.predicted_away_score !== null;
+      }).length;
+      toast.error(`Faltam ${phaseMatches.length - filled} jogo(s) na ${PHASE_LABEL[cp]}`);
+      return;
+    }
+    st.regenerateBracket();
+    const currentIdx = PHASE_ORDER.indexOf(cp);
+    const nextPhase = PHASE_ORDER[currentIdx + 1];
+    if (nextPhase) {
+      setActivePhase(nextPhase);
+      toast.success(`${PHASE_LABEL[cp]} concluída! Avançou para ${PHASE_LABEL[nextPhase]}`);
+    } else {
+      toast.success(`${PHASE_LABEL[cp]} concluída!`);
+    }
+  }
+
+  const phaseComplete = useMemo(
+    () => isPhaseComplete(activePhase, matches, predictions),
+    [activePhase, matches, predictions],
+  );
+
+  const phaseMatches = matches.filter((m) => m.phase === activePhase);
+  const phaseFilled = phaseMatches.filter((m) => {
+    const p = predictions.find((x) => x.match_id === m.id);
+    return !!p && p.predicted_home_score !== null && p.predicted_away_score !== null;
+  }).length;
+  const phaseMissing = phaseMatches.length - phaseFilled;
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
         e.preventDefault();
-        const st = useAppStore.getState();
-        const currentPhase = activePhase === "grupos" ? "grupos" : activePhase;
-        if (!isPhaseComplete(currentPhase, st.matches, st.predictions)) {
-          const phaseMatches = st.matches.filter((m) => m.phase === currentPhase);
-          const filled = phaseMatches.filter((m) => {
-            const p = st.predictions.find((x) => x.match_id === m.id);
-            return !!p && p.predicted_home_score !== null && p.predicted_away_score !== null;
-          }).length;
-          toast.error(`Faltam ${phaseMatches.length - filled} jogo(s) na ${PHASE_LABEL[currentPhase]}`);
-          return;
-        }
-        st.regenerateBracket();
-        const currentIdx = PHASE_ORDER.indexOf(currentPhase);
-        const nextPhase = PHASE_ORDER[currentIdx + 1];
-        if (nextPhase && isPhaseComplete(currentPhase, st.matches, st.predictions)) {
-          setActivePhase(nextPhase);
-          toast.success(`${PHASE_LABEL[currentPhase]} concluída! Avançou para ${PHASE_LABEL[nextPhase]}`);
-        } else {
-          toast.success(`${PHASE_LABEL[currentPhase]} concluída!`);
-        }
+        advancePhase();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [activePhase, matches, predictions, unlocked]);
+  }, [activePhase]);
 
   return (
     <div className="max-w-6xl mx-auto px-8 py-10">
@@ -116,9 +152,9 @@ export function PalpitesPage() {
           <div>
             <p className="text-sm font-bold text-destructive">Prazo de palpites encerrado</p>
             <p className="text-xs text-muted-foreground mt-1">
-              O último jogo da 1ª rodada da Fase de Grupos já terminou.
-              Não é mais permitido alterar palpites em nenhuma fase.
-              Os palpites já registrados serão considerados para a pontuação final.
+              O último jogo da 1ª rodada da Fase de Grupos já terminou. Não é mais permitido alterar
+              palpites em nenhuma fase. Os palpites já registrados serão considerados para a
+              pontuação final.
             </p>
           </div>
         </div>
@@ -132,12 +168,23 @@ export function PalpitesPage() {
               Prazo final para todos os palpites: {deadline.br}
             </p>
             <p className="text-xs text-muted-foreground mt-1 space-y-1">
-              Após o último jogo da 1ª rodada da Fase de Grupos, <strong>não será mais permitido alterar NENHUM palpite</strong> em fase alguma, incluindo a Fase de Grupos.
+              Após o último jogo da 1ª rodada da Fase de Grupos,{" "}
+              <strong>não será mais permitido alterar NENHUM palpite</strong> em fase alguma,
+              incluindo a Fase de Grupos.
             </p>
             <ul className="text-xs text-muted-foreground mt-2 space-y-1 list-disc list-inside">
               <li>Preencha todos os jogos da Fase de Grupos até a Final</li>
-              <li>Use <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded border border-border bg-muted">Ctrl + S</kbd> para confirmar a fase atual e avançar</li>
-              <li>Se os palpites da 1ª fase não estiverem completos no prazo, você será desclassificado(a)</li>
+              <li>
+                Use o botão <strong>Avançar fase</strong> (ou{" "}
+                <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded border border-border bg-muted">
+                  Ctrl + S
+                </kbd>
+                ) para confirmar a fase atual e avançar
+              </li>
+              <li>
+                Se os palpites da 1ª fase não estiverem completos no prazo, você será
+                desclassificado(a)
+              </li>
             </ul>
             <p className="text-xs text-muted-foreground mt-2 italic">
               Obs: tolerância apenas porque o sistema ainda está em ajustes.
@@ -151,15 +198,40 @@ export function PalpitesPage() {
         <p className="text-sm text-muted-foreground">
           Preencha todos os jogos de uma fase para liberar a próxima.
           {!deadlinePassed && (
-            <> Use <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded border border-border bg-muted">Ctrl + S</kbd> para confirmar a fase e avançar.</>
+            <>
+              {" "}
+              Preencha todos os jogos e clique em <strong>Avançar fase</strong> (ou{" "}
+              <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded border border-border bg-muted">
+                Ctrl + S
+              </kbd>
+              ).
+            </>
           )}
         </p>
         <p className="text-xs text-muted-foreground mt-1">
-          Clique sobre o card de um jogo para ver informações detalhadas das seleções, palpites alternativos e análise do Copilot.
+          Clique sobre o card de um jogo para ver informações detalhadas das seleções, palpites
+          alternativos e análise do Copilot.
         </p>
       </header>
 
-      <div className="flex gap-2 mb-8 overflow-x-auto pb-1">
+      <Card className="mb-6">
+        <CardContent className="p-4">
+          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-3">
+            Pontuação
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-center">
+            <ScoreCell label="Exato" value="10" />
+            <ScoreCell label="Ven. + Saldo" value="7" />
+            <ScoreCell label="Só Vencedor" value="5" />
+            <ScoreCell label="Empate" value="3" />
+            <ScoreCell label="Placar de 1" value="2" />
+            <ScoreCell label="Inverso" value="1" />
+            <ScoreCell label="Zebra" value="×1.5" accent />
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
         {PHASE_ORDER.map((p) => {
           const isUnlocked = unlocked.includes(p);
           const isActive = activePhase === p;
@@ -177,11 +249,30 @@ export function PalpitesPage() {
                     : "bg-muted/30 text-muted-foreground border-dashed cursor-not-allowed"
               }`}
             >
-              {(disabled) && <Lock className="size-3" />}
+              {disabled && <Lock className="size-3" />}
               {PHASE_LABEL[p]}
             </button>
           );
         })}
+      </div>
+
+      <div className="mb-6 flex items-center gap-3 flex-wrap">
+        <Button
+          onClick={advancePhase}
+          disabled={!phaseComplete || deadlinePassed}
+          size="default"
+          className="gap-2"
+        >
+          <CheckCircle2 className="size-4" />
+          Avançar fase
+        </Button>
+        {!deadlinePassed && (
+          <span className="text-xs text-muted-foreground font-mono">
+            {phaseComplete
+              ? "Todos os jogos preenchidos"
+              : `${phaseMissing} jogo(s) restante(s) — preencha todos para avançar`}
+          </span>
+        )}
       </div>
 
       <PhaseProgress phase={activePhase} />
@@ -396,8 +487,15 @@ function MatchRow({
       className={`cursor-pointer ${filled ? "bg-accent/5" : ""} ${isSelected ? "bg-accent/10 border-l-2 border-l-primary" : ""}`}
     >
       <TableCell className="font-mono text-[10px] text-muted-foreground leading-tight">
-        <div>{fmtTime(match.match_date, match.venue_tz ?? "America/New_York")}<span className="text-[9px] text-muted-foreground/50 ml-1">sede</span></div>
-        <div>{fmtTime(match.match_date, USER_TZ)}<span className="text-[9px] text-muted-foreground/50 ml-1">local</span></div>
+        <div>{fmtDate(match.match_date, USER_TZ)}</div>
+        <div>
+          {fmtTime(match.match_date, match.venue_tz ?? "America/New_York")}
+          <span className="text-[9px] text-muted-foreground/50 ml-1">sede</span>
+        </div>
+        <div>
+          {fmtTime(match.match_date, USER_TZ)}
+          <span className="text-[9px] text-muted-foreground/50 ml-1">local</span>
+        </div>
       </TableCell>
       <TableCell className="text-right">
         <div className="flex items-center gap-2 justify-end">
@@ -514,68 +612,79 @@ function BracketRow({
       className={`transition-colors ${tbd ? "" : "cursor-pointer"} ${isSelected ? "border-primary" : filled ? "border-accent/40" : ""}`}
     >
       <CardContent className="p-4">
-        <div className="font-mono text-[10px] text-muted-foreground mb-3 flex items-center gap-3">
-          <span>{fmtTime(match.match_date, match.venue_tz ?? "America/New_York")} <span className="text-[9px] text-muted-foreground/50">sede</span></span>
-          <span>|</span>
-          <span>{fmtTime(match.match_date, USER_TZ)} <span className="text-[9px] text-muted-foreground/50">local</span></span>
-          <span className="text-[9px] text-muted-foreground/50 ml-auto">{fmtDate(match.match_date, USER_TZ)}</span>
+        <div className="font-mono text-[10px] text-muted-foreground mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span>{fmtDate(match.match_date, USER_TZ)}</span>
+          <span className="text-muted-foreground/30">|</span>
+          <span>
+            {fmtTime(match.match_date, match.venue_tz ?? "America/New_York")}{" "}
+            <span className="text-[9px] text-muted-foreground/50">sede</span>
+          </span>
+          <span className="text-muted-foreground/30">|</span>
+          <span>
+            {fmtTime(match.match_date, USER_TZ)}{" "}
+            <span className="text-[9px] text-muted-foreground/50">local</span>
+          </span>
         </div>
-        <div className="grid grid-cols-[1fr_auto_1fr_auto] items-center gap-4">
-        <div className="flex items-center gap-3 justify-end">
-          <span className="font-semibold">{match.home_team}</span>
-          <Flag team={match.home_team} iso={match.home_flag} size={22} />
-        </div>
-        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-          <Input
-            type="number"
-            min={0}
-            disabled={locked}
-            className="w-12 h-10 text-center font-mono text-lg font-bold p-0"
-            value={prediction?.predicted_home_score ?? ""}
-            onChange={(e) =>
-              upsert(matchId, {
-                predicted_home_score: e.target.value === "" ? null : Number(e.target.value),
-              })
-            }
-          />
-          <span className="text-muted-foreground font-mono">×</span>
-          <Input
-            type="number"
-            min={0}
-            disabled={locked}
-            className="w-12 h-10 text-center font-mono text-lg font-bold p-0"
-            value={prediction?.predicted_away_score ?? ""}
-            onChange={(e) =>
-              upsert(matchId, {
-                predicted_away_score: e.target.value === "" ? null : Number(e.target.value),
-              })
-            }
-          />
-        </div>
-        <div className="flex items-center gap-3">
-          <Flag team={match.away_team} iso={match.away_flag} size={22} />
-          <span className="font-semibold">{match.away_team}</span>
-        </div>
-        <Button
-          size="icon"
-          variant={isSelected ? "secondary" : "ghost"}
-          disabled={tbd}
-          onClick={(e) => {
-            e.stopPropagation();
-            onSelect(matchId);
-          }}
-          title={isZebra ? "Zebra detectada pelo Copilot" : "Abrir Copilot"}
-        >
-          {isZebra ? (
-            <span className="text-base leading-none" aria-label="zebra">
-              🦓
-            </span>
-          ) : (
-            <ChevronDown
-              className={`size-4 transition-transform ${isSelected ? "rotate-180" : ""}`}
+        <div className="grid grid-cols-[1fr_auto_1fr_auto] items-center gap-4 max-sm:grid-cols-[1fr_auto] max-sm:gap-x-2 max-sm:gap-y-3">
+          <div className="flex items-center gap-3 justify-end max-sm:order-1">
+            <span className="font-semibold text-sm max-sm:text-xs">{match.home_team}</span>
+            <Flag team={match.home_team} iso={match.home_flag} size={22} />
+          </div>
+          <div
+            className="flex items-center gap-2 max-sm:order-3 max-sm:col-span-2 max-sm:justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Input
+              type="number"
+              min={0}
+              disabled={locked}
+              className="w-12 h-10 text-center font-mono text-lg font-bold p-0 max-sm:w-10 max-sm:h-9 max-sm:text-base"
+              value={prediction?.predicted_home_score ?? ""}
+              onChange={(e) =>
+                upsert(matchId, {
+                  predicted_home_score: e.target.value === "" ? null : Number(e.target.value),
+                })
+              }
             />
-          )}
-        </Button>
+            <span className="text-muted-foreground font-mono">×</span>
+            <Input
+              type="number"
+              min={0}
+              disabled={locked}
+              className="w-12 h-10 text-center font-mono text-lg font-bold p-0 max-sm:w-10 max-sm:h-9 max-sm:text-base"
+              value={prediction?.predicted_away_score ?? ""}
+              onChange={(e) =>
+                upsert(matchId, {
+                  predicted_away_score: e.target.value === "" ? null : Number(e.target.value),
+                })
+              }
+            />
+          </div>
+          <div className="flex items-center gap-3 max-sm:order-2 max-sm:justify-end">
+            <Flag team={match.away_team} iso={match.away_flag} size={22} />
+            <span className="font-semibold text-sm max-sm:text-xs">{match.away_team}</span>
+          </div>
+          <Button
+            size="icon"
+            variant={isSelected ? "secondary" : "ghost"}
+            disabled={tbd}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect(matchId);
+            }}
+            title={isZebra ? "Zebra detectada pelo Copilot" : "Abrir Copilot"}
+            className="max-sm:order-4 max-sm:justify-self-end"
+          >
+            {isZebra ? (
+              <span className="text-base leading-none" aria-label="zebra">
+                🦓
+              </span>
+            ) : (
+              <ChevronDown
+                className={`size-4 transition-transform ${isSelected ? "rotate-180" : ""}`}
+              />
+            )}
+          </Button>
         </div>
       </CardContent>
     </Card>
@@ -605,10 +714,17 @@ function MatchDetailsInline({ matchId, onClose }: { matchId: string; onClose: ()
               <Flag team={match.away_team} iso={match.away_flag} size={16} />
             </div>
             <div className="font-mono text-[10px] text-muted-foreground mt-1 flex items-center gap-3">
-              <span>{fmtTime(match.match_date, match.venue_tz ?? "America/New_York")} <span className="text-[9px]">sede</span></span>
+              <span>
+                {fmtTime(match.match_date, match.venue_tz ?? "America/New_York")}{" "}
+                <span className="text-[9px]">sede</span>
+              </span>
               <span>|</span>
-              <span>{fmtTime(match.match_date, USER_TZ)} <span className="text-[9px]">local</span></span>
-              <span className="text-[9px] text-muted-foreground/50">{fmtDate(match.match_date, USER_TZ)}</span>
+              <span>
+                {fmtTime(match.match_date, USER_TZ)} <span className="text-[9px]">local</span>
+              </span>
+              <span className="text-[9px] text-muted-foreground/50">
+                {fmtDate(match.match_date, USER_TZ)}
+              </span>
             </div>
           </div>
           <Button size="icon" variant="ghost" onClick={onClose} title="Fechar">
@@ -772,5 +888,19 @@ function AlternativePalpites({ matchId }: { matchId: string }) {
         </p>
       </div>
     </section>
+  );
+}
+
+function ScoreCell({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div className="rounded-md border border-border bg-muted/20 px-2 py-2">
+      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+        {label}
+      </div>
+      <div className={`text-lg font-bold tracking-tight mt-0.5 ${accent ? "text-primary" : ""}`}>
+        {value}
+      </div>
+      {accent && <div className="text-[8px] text-primary/60 font-mono">multiplicador</div>}
+    </div>
   );
 }

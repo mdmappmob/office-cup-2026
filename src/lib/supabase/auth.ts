@@ -1,17 +1,12 @@
 import { supabase } from "./client";
 import type { AuthUser } from "@/store/auth-store";
-
-const ADMIN_EMAIL = "mdm.appmob@gmail.com";
+import { ADMIN_EMAIL } from "@/lib/db/config";
 
 function isAdmin(email: string): boolean {
   return email.trim().toLowerCase() === ADMIN_EMAIL;
 }
 
-export async function signUp(
-  email: string,
-  password: string,
-  fullName: string,
-): Promise<AuthUser> {
+export async function signUp(email: string, password: string, fullName: string): Promise<AuthUser> {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,

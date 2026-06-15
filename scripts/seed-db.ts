@@ -29,7 +29,13 @@ const profiles = [
 ];
 
 const leagues = [
-  { id: "l1", admin_id: "u1", name: "Bolão da Diretoria 2026", is_active: 1, payment_status: "paid" },
+  {
+    id: "l1",
+    admin_id: "u1",
+    name: "Bolão da Diretoria 2026",
+    is_active: 1,
+    payment_status: "paid",
+  },
 ];
 
 const leagueMembers = [
@@ -120,18 +126,54 @@ const GROUP_FIXTURES: Fixture[] = [
 ];
 
 const TEAM_ISO: Record<string, string> = {
-  "México": "MX", "África do Sul": "ZA", "Coreia do Sul": "KR", "República Tcheca": "CZ",
-  "Canadá": "CA", "Bósnia-Herzegovina": "BA", "Qatar": "QA", "Suíça": "CH",
-  "Brasil": "BR", "Marrocos": "MA", "Haiti": "HT", "Escócia": "GB",
-  "Estados Unidos": "US", "Paraguai": "PY", "Austrália": "AU", "Turquia": "TR",
-  "Alemanha": "DE", "Curaçao": "CW", "Costa do Marfim": "CI", "Equador": "EC",
-  "Holanda": "NL", "Japão": "JP", "Suécia": "SE", "Tunísia": "TN",
-  "Bélgica": "BE", "Egito": "EG", "Irã": "IR", "Nova Zelândia": "NZ",
-  "Espanha": "ES", "Cabo Verde": "CV", "Arábia Saudita": "SA", "Uruguai": "UY",
-  "França": "FR", "Senegal": "SN", "Iraque": "IQ", "Noruega": "NO",
-  "Argentina": "AR", "Argélia": "DZ", "Áustria": "AT", "Jordânia": "JO",
-  "Portugal": "PT", "RD do Congo": "CD", "Uzbequistão": "UZ", "Colômbia": "CO",
-  "Inglaterra": "GB", "Croácia": "HR", "Gana": "GH", "Panamá": "PA",
+  México: "MX",
+  "África do Sul": "ZA",
+  "Coreia do Sul": "KR",
+  "República Tcheca": "CZ",
+  Canadá: "CA",
+  "Bósnia-Herzegovina": "BA",
+  Qatar: "QA",
+  Suíça: "CH",
+  Brasil: "BR",
+  Marrocos: "MA",
+  Haiti: "HT",
+  Escócia: "GB",
+  "Estados Unidos": "US",
+  Paraguai: "PY",
+  Austrália: "AU",
+  Turquia: "TR",
+  Alemanha: "DE",
+  Curaçao: "CW",
+  "Costa do Marfim": "CI",
+  Equador: "EC",
+  Holanda: "NL",
+  Japão: "JP",
+  Suécia: "SE",
+  Tunísia: "TN",
+  Bélgica: "BE",
+  Egito: "EG",
+  Irã: "IR",
+  "Nova Zelândia": "NZ",
+  Espanha: "ES",
+  "Cabo Verde": "CV",
+  "Arábia Saudita": "SA",
+  Uruguai: "UY",
+  França: "FR",
+  Senegal: "SN",
+  Iraque: "IQ",
+  Noruega: "NO",
+  Argentina: "AR",
+  Argélia: "DZ",
+  Áustria: "AT",
+  Jordânia: "JO",
+  Portugal: "PT",
+  "RD do Congo": "CD",
+  Uzbequistão: "UZ",
+  Colômbia: "CO",
+  Inglaterra: "GB",
+  Croácia: "HR",
+  Gana: "GH",
+  Panamá: "PA",
 };
 
 // ── Seed ──────────────────────────────────────────────
@@ -148,7 +190,6 @@ async function seed() {
   const db = new SQL.Database();
 
   // ── Schema ──────────────────────────────────────────
-
 
   db.run(`
     CREATE TABLE oc_users (
@@ -238,50 +279,78 @@ async function seed() {
 
   // ── oc_users ────────────────────────────────────────
   for (const u of profiles) {
-    insert(
-      "INSERT INTO oc_users VALUES (?, ?, ?, ?, ?, ?)",
-      [u.id, u.email, pw, u.full_name, u.is_admin, now],
-    );
+    insert("INSERT INTO oc_users VALUES (?, ?, ?, ?, ?, ?)", [
+      u.id,
+      u.email,
+      pw,
+      u.full_name,
+      u.is_admin,
+      now,
+    ]);
   }
 
   // ── oc_profiles ─────────────────────────────────────
   for (const p of profiles) {
-    insert(
-      "INSERT INTO oc_profiles (id, email, full_name) VALUES (?, ?, ?)",
-      [p.id, p.email, p.full_name],
-    );
+    insert("INSERT INTO oc_profiles (id, email, full_name) VALUES (?, ?, ?)", [
+      p.id,
+      p.email,
+      p.full_name,
+    ]);
   }
 
   // ── oc_leagues ──────────────────────────────────────
   for (const l of leagues) {
-    insert(
-      "INSERT INTO oc_leagues VALUES (?, ?, ?, ?, ?)",
-      [l.id, l.admin_id, l.name, l.is_active, l.payment_status],
-    );
+    insert("INSERT INTO oc_leagues VALUES (?, ?, ?, ?, ?)", [
+      l.id,
+      l.admin_id,
+      l.name,
+      l.is_active,
+      l.payment_status,
+    ]);
   }
 
   // ── oc_league_members ───────────────────────────────
   for (const m of leagueMembers) {
-    insert(
-      "INSERT INTO oc_league_members VALUES (?, ?, ?, ?, ?)",
-      [m.id, m.league_id, m.user_id, m.has_paid_admin, m.total_points],
-    );
+    insert("INSERT INTO oc_league_members VALUES (?, ?, ?, ?, ?)", [
+      m.id,
+      m.league_id,
+      m.user_id,
+      m.has_paid_admin,
+      m.total_points,
+    ]);
   }
 
   // ── oc_matches ──────────────────────────────────────
   const allMatches: Array<{
-    id: string; home_team: string; away_team: string; home_flag: string;
-    away_flag: string; match_date: string; phase: string; group_name: string | null;
-    home_score: number | null; away_score: number | null; status: string; bracket_slot: string | null;
+    id: string;
+    home_team: string;
+    away_team: string;
+    home_flag: string;
+    away_flag: string;
+    match_date: string;
+    phase: string;
+    group_name: string | null;
+    home_score: number | null;
+    away_score: number | null;
+    status: string;
+    bracket_slot: string | null;
   }> = [];
 
   // grupos
   GROUP_FIXTURES.forEach(([g, date, home, away], i) => {
     allMatches.push({
-      id: `g${i}`, home_team: home, away_team: away,
-      home_flag: TEAM_ISO[home] ?? "", away_flag: TEAM_ISO[away] ?? "",
-      match_date: date, phase: "grupos", group_name: g,
-      home_score: null, away_score: null, status: "scheduled", bracket_slot: null,
+      id: `g${i}`,
+      home_team: home,
+      away_team: away,
+      home_flag: TEAM_ISO[home] ?? "",
+      away_flag: TEAM_ISO[away] ?? "",
+      match_date: date,
+      phase: "grupos",
+      group_name: g,
+      home_score: null,
+      away_score: null,
+      status: "scheduled",
+      bracket_slot: null,
     });
   });
 
@@ -297,10 +366,18 @@ async function seed() {
   for (const b of brackets) {
     for (let i = 0; i < b.count; i++) {
       allMatches.push({
-        id: `${b.prefix}${i}`, home_team: "—", away_team: "—",
-        home_flag: "", away_flag: "",
-        match_date: b.baseDate, phase: b.phase, group_name: null,
-        home_score: null, away_score: null, status: "scheduled", bracket_slot: `${b.phase}-${i}`,
+        id: `${b.prefix}${i}`,
+        home_team: "—",
+        away_team: "—",
+        home_flag: "",
+        away_flag: "",
+        match_date: b.baseDate,
+        phase: b.phase,
+        group_name: null,
+        home_score: null,
+        away_score: null,
+        status: "scheduled",
+        bracket_slot: `${b.phase}-${i}`,
       });
     }
   }
@@ -308,7 +385,20 @@ async function seed() {
   for (const m of allMatches) {
     insert(
       "INSERT INTO oc_matches (id, home_team, away_team, home_flag, away_flag, match_date, phase, group_name, home_score, away_score, status, bracket_slot) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      [m.id, m.home_team, m.away_team, m.home_flag, m.away_flag, m.match_date, m.phase, m.group_name, m.home_score, m.away_score, m.status, m.bracket_slot],
+      [
+        m.id,
+        m.home_team,
+        m.away_team,
+        m.home_flag,
+        m.away_flag,
+        m.match_date,
+        m.phase,
+        m.group_name,
+        m.home_score,
+        m.away_score,
+        m.status,
+        m.bracket_slot,
+      ],
     );
   }
 
@@ -328,4 +418,7 @@ async function seed() {
   console.log(`[seed] Admin: Ricardo Silva (ricardo@firma.com)`);
 }
 
-seed().catch((err) => { console.error("[seed] Failed:", err); process.exit(1); });
+seed().catch((err) => {
+  console.error("[seed] Failed:", err);
+  process.exit(1);
+});

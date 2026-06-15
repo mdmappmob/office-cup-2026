@@ -64,7 +64,9 @@ export function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="font-mono text-[10px] tracking-widest">PRINCIPAL</SidebarGroupLabel>
+          <SidebarGroupLabel className="font-mono text-[10px] tracking-widest">
+            PRINCIPAL
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {mainItems.map((item) => (
@@ -128,7 +130,11 @@ export function AppSidebar() {
 
         <div className="flex items-center gap-3 p-2 border-t border-sidebar-border mt-2">
           <div className="size-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold">
-            {fullName.split(" ").map((p) => p[0]).slice(0, 2).join("")}
+            {fullName
+              .split(" ")
+              .map((p) => p[0])
+              .slice(0, 2)
+              .join("")}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold truncate">{fullName}</p>
@@ -136,7 +142,13 @@ export function AppSidebar() {
               {isAdmin ? "ADMIN · PRO" : "MEMBER"}
             </p>
           </div>
-          <Button variant="ghost" size="icon" className="size-7" onClick={toggleTheme} aria-label="Alternar tema">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-7"
+            onClick={toggleTheme}
+            aria-label="Alternar tema"
+          >
             {theme === "light" ? <Moon className="size-4" /> : <Sun className="size-4" />}
           </Button>
         </div>

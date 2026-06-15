@@ -1,5 +1,5 @@
 import type { Database, SqlJsStatic } from "sql.js";
-import { SQLITE_WASM_URL, IDB_NAME, IDB_STORE, IDB_KEY, SESSION_KEY } from "./config";
+import { SQLITE_WASM_URL, IDB_NAME, IDB_STORE, IDB_RECORD_ID, SESSION_ID, ADMIN_EMAIL } from "./config";
 
 let SQL: SqlJsStatic | null = null;
 let db: Database | null = null;
@@ -17,7 +17,7 @@ function openIdb(): Promise<IDBDatabase> {
 async function loadSnapshot(): Promise<Uint8Array | null> {
   const idb = await openIdb();
   return new Promise((resolve) => {
-    const tx = idb.transaction(IDB_STORE, "readonly").objectStore(IDB_STORE).get(IDB_KEY);
+    const tx = idb.transaction(IDB_STORE, "readonly").objectStore(IDB_STORE).get(IDB_RECORD_ID);
     tx.onsuccess = () => resolve((tx.result as Uint8Array | undefined) ?? null);
     tx.onerror = () => resolve(null);
   });
@@ -28,7 +28,7 @@ async function saveSnapshotNow() {
   const data = db.export();
   const idb = await openIdb();
   await new Promise<void>((resolve) => {
-    const tx = idb.transaction(IDB_STORE, "readwrite").objectStore(IDB_STORE).put(data, IDB_KEY);
+    const tx = idb.transaction(IDB_STORE, "readwrite").objectStore(IDB_STORE).put(data, IDB_RECORD_ID);
     tx.onsuccess = () => resolve();
     tx.onerror = () => resolve();
   });
@@ -36,7 +36,9 @@ async function saveSnapshotNow() {
 
 function scheduleSave() {
   if (saveTimer) clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => { void saveSnapshotNow(); }, 300);
+  saveTimer = setTimeout(() => {
+    void saveSnapshotNow();
+  }, 300);
 }
 
 function migrate(d: Database) {
@@ -59,7 +61,9 @@ export async function openDb(): Promise<Database> {
   }
   if (!SQL) {
     const mod = await import("sql.js");
-    const init = (mod.default ?? mod) as (config?: { locateFile?: (f: string) => string }) => Promise<SqlJsStatic>;
+    const init = (mod.default ?? mod) as (config?: {
+      locateFile?: (f: string) => string;
+    }) => Promise<SqlJsStatic>;
     SQL = await init({ locateFile: () => SQLITE_WASM_URL });
   }
   const snap = await loadSnapshot();
@@ -149,9 +153,13 @@ export async function countUsers(): Promise<number> {
   return Number(rows[0]?.n ?? 0);
 }
 
-export async function findUserByEmail(email: string): Promise<{ user: DbUser; password_hash: string } | null> {
+export async function findUserByEmail(
+  email: string,
+): Promise<{ user: DbUser; password_hash: string } | null> {
   const d = await openDb();
-  const rows = queryRows(d, `SELECT * FROM oc_users WHERE email = ? LIMIT 1`, [email.trim().toLowerCase()]);
+  const rows = queryRows(d, `SELECT * FROM oc_users WHERE email = ? LIMIT 1`, [
+    email.trim().toLowerCase(),
+  ]);
   if (!rows[0]) return null;
   return { user: rowToUser(rows[0]), password_hash: String(rows[0].password_hash) };
 }
@@ -162,15 +170,17 @@ export async function findUserById(id: string): Promise<DbUser | null> {
   return rows[0] ? rowToUser(rows[0]) : null;
 }
 
-const ADMIN_EMAIL_SQLITE = "mdm.appmob@gmail.com";
-
-export async function createUser(email: string, password: string, fullName: string): Promise<DbUser> {
+export async function createUser(
+  email: string,
+  password: string,
+  fullName: string,
+): Promise<DbUser> {
   const d = await openDb();
   const e = email.trim().toLowerCase();
   if (await findUserByEmail(e)) throw new Error("E-mail já cadastrado");
-  const id = (crypto.randomUUID?.() ?? `u-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  const id = crypto.randomUUID?.() ?? `u-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const password_hash = await hashPassword(password);
-  const isAdmin = email.trim().toLowerCase() === ADMIN_EMAIL_SQLITE ? 1 : 0;
+  const isAdmin = email.trim().toLowerCase() === ADMIN_EMAIL ? 1 : 0;
   d.run(
     `INSERT INTO oc_users (id, email, password_hash, full_name, is_admin, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
     [id, e, password_hash, fullName.trim() || e.split("@")[0], isAdmin, new Date().toISOString()],
@@ -189,9 +199,14 @@ export async function updatePassword(email: string, newPassword: string): Promis
   scheduleSave();
 }
 
-export async function listUsersDebug(): Promise<Array<{ id: string; email: string; full_name: string; is_admin: boolean; created_at: string }>> {
+export async function listUsersDebug(): Promise<
+  Array<{ id: string; email: string; full_name: string; is_admin: boolean; created_at: string }>
+> {
   const d = await openDb();
-  const rows = queryRows(d, `SELECT id, email, full_name, is_admin, created_at FROM oc_users ORDER BY created_at ASC`);
+  const rows = queryRows(
+    d,
+    `SELECT id, email, full_name, is_admin, created_at FROM oc_users ORDER BY created_at ASC`,
+  );
   return rows.map((r) => ({
     id: String(r.id),
     email: String(r.email),
@@ -205,10 +220,10 @@ export async function listUsersDebug(): Promise<Array<{ id: string; email: strin
 
 export function readSession(): string | null {
   if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(SESSION_KEY);
+  return window.localStorage.getItem(SESSION_ID);
 }
 export function writeSession(userId: string | null) {
   if (typeof window === "undefined") return;
-  if (userId) window.localStorage.setItem(SESSION_KEY, userId);
-  else window.localStorage.removeItem(SESSION_KEY);
+  if (userId) window.localStorage.setItem(SESSION_ID, userId);
+  else window.localStorage.removeItem(SESSION_ID);
 }

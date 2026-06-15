@@ -1,10 +1,5 @@
 import { create } from "zustand";
-import {
-  findUserByEmail,
-  findUserById,
-  readSession,
-  writeSession,
-} from "@/lib/db/sqlite-repo";
+import { findUserByEmail, findUserById, readSession, writeSession } from "@/lib/db/sqlite-repo";
 import { useAppStore } from "@/store/app-store";
 import * as supabaseAuth from "@/lib/supabase/auth";
 

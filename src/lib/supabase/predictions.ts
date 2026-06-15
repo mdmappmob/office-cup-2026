@@ -15,10 +15,7 @@ export interface PredictionRow {
 }
 
 export async function fetchPredictions(userId: string): Promise<PredictionRow[]> {
-  const { data, error } = await supabase
-    .from("predictions")
-    .select("*")
-    .eq("user_id", userId);
+  const { data, error } = await supabase.from("predictions").select("*").eq("user_id", userId);
 
   if (error) throw error;
   return (data ?? []) as PredictionRow[];

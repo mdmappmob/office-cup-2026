@@ -20,21 +20,13 @@ export async function fetchLeagues(): Promise<LeagueRow[]> {
 }
 
 export async function fetchLeague(id: string): Promise<LeagueRow | null> {
-  const { data, error } = await supabase
-    .from("leagues")
-    .select("*")
-    .eq("id", id)
-    .single();
+  const { data, error } = await supabase.from("leagues").select("*").eq("id", id).single();
 
   if (error) return null;
   return data as LeagueRow;
 }
 
-export async function createLeague(
-  id: string,
-  adminId: string,
-  name: string,
-): Promise<LeagueRow> {
+export async function createLeague(id: string, adminId: string, name: string): Promise<LeagueRow> {
   const { data, error } = await supabase
     .from("leagues")
     .insert({

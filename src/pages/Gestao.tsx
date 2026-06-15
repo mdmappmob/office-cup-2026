@@ -30,7 +30,9 @@ export function GestaoPage() {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-sm font-mono uppercase tracking-widest text-muted-foreground">Convite</CardTitle>
+          <CardTitle className="text-sm font-mono uppercase tracking-widest text-muted-foreground">
+            Convite
+          </CardTitle>
           <Button onClick={copyInvite} size="sm" variant="outline">
             <Link2 className="size-4 mr-1" /> Copiar link
           </Button>
@@ -50,15 +52,25 @@ export function GestaoPage() {
         </CardHeader>
         <CardContent className="divide-y divide-border">
           {members.map((m) => {
-            const p = authUser?.id === m.user_id
-              ? { id: authUser.id, email: authUser.email, full_name: authUser.full_name, avatar_url: "" }
-              : mockProfiles.find((x) => x.id === m.user_id);
+            const p =
+              authUser?.id === m.user_id
+                ? {
+                    id: authUser.id,
+                    email: authUser.email,
+                    full_name: authUser.full_name,
+                    avatar_url: "",
+                  }
+                : mockProfiles.find((x) => x.id === m.user_id);
             const name = p?.full_name ?? "Usuário local";
             return (
               <div key={m.id} className="flex items-center justify-between py-3">
                 <div className="flex items-center gap-3">
                   <div className="size-9 rounded-full bg-muted flex items-center justify-center text-xs font-semibold">
-                    {name.split(" ").map((x) => x[0]).slice(0, 2).join("")}
+                    {name
+                      .split(" ")
+                      .map((x) => x[0])
+                      .slice(0, 2)
+                      .join("")}
                   </div>
                   <div>
                     <p className="text-sm font-semibold">{name}</p>
@@ -67,15 +79,21 @@ export function GestaoPage() {
                 </div>
                 <div className="flex items-center gap-3">
                   {m.has_paid_admin ? (
-                    <Badge className="bg-accent/15 text-accent border-accent/30 hover:bg-accent/15">PAGO</Badge>
+                    <Badge className="bg-accent/15 text-accent border-accent/30 hover:bg-accent/15">
+                      PAGO
+                    </Badge>
                   ) : (
-                    <Badge variant="outline" className="border-dashed text-muted-foreground">PENDENTE</Badge>
+                    <Badge variant="outline" className="border-dashed text-muted-foreground">
+                      PENDENTE
+                    </Badge>
                   )}
                   <Switch
                     checked={m.has_paid_admin}
                     onCheckedChange={() => {
                       toggle(m.id);
-                      toast.success(`${name} marcado como ${!m.has_paid_admin ? "pago" : "pendente"}`);
+                      toast.success(
+                        `${name} marcado como ${!m.has_paid_admin ? "pago" : "pendente"}`,
+                      );
                     }}
                   />
                 </div>

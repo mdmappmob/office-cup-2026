@@ -1,7 +1,13 @@
 import type { MockLeague, MockLeagueMember } from "./types";
 
 export const mockLeagues: MockLeague[] = [
-  { id: "l1", admin_id: "u1", name: "Bolão da Diretoria 2026", is_active: true, payment_status: "paid" },
+  {
+    id: "l1",
+    admin_id: "u1",
+    name: "Bolão da Diretoria 2026",
+    is_active: true,
+    payment_status: "paid",
+  },
 ];
 
 export const CURRENT_LEAGUE_ID = "l1";

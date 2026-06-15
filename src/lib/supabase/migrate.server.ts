@@ -2,19 +2,21 @@ import { createServerFn } from "@tanstack/react-start";
 import { createClient } from "@supabase/supabase-js";
 
 export const migrateUserData = createServerFn({ method: "POST" })
-  .validator((d: {
-    userId: string;
-    predictions: Array<{
-      match_id: string;
-      slot: number;
-      predicted_home_score: number | null;
-      predicted_away_score: number | null;
-      predicted_goalscorers: string[];
-      points_earned: number;
-      is_zebra: boolean;
-    }>;
-    totalPoints: number;
-  }) => d)
+  .validator(
+    (d: {
+      userId: string;
+      predictions: Array<{
+        match_id: string;
+        slot: number;
+        predicted_home_score: number | null;
+        predicted_away_score: number | null;
+        predicted_goalscorers: string[];
+        points_earned: number;
+        is_zebra: boolean;
+      }>;
+      totalPoints: number;
+    }) => d,
+  )
   .handler(async ({ data }) => {
     const { userId, predictions, totalPoints } = data;
 
@@ -30,7 +32,13 @@ export const migrateUserData = createServerFn({ method: "POST" })
     try {
       // Garante que a liga padrão existe
       await admin.from("leagues").upsert(
-        { id: "l1", admin_id: userId, name: "Bolão da Diretoria 2026", is_active: true, payment_status: "paid" },
+        {
+          id: "l1",
+          admin_id: userId,
+          name: "Bolão da Diretoria 2026",
+          is_active: true,
+          payment_status: "paid",
+        },
         { onConflict: "id" },
       );
 

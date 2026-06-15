@@ -1,7 +1,10 @@
 const fs = require("fs");
-const GROUPS = ["A","B","C","D","E","F","G","H","I","J","K","L"];
+const GROUPS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
 
-const html = fs.readFileSync("C:\\Users\\User\\.local\\share\\opencode\\tool-output\\tool_eb939465d001Hr9uHX4ZTrj0tO", "utf8");
+const html = fs.readFileSync(
+  "C:\\Users\\User\\.local\\share\\opencode\\tool-output\\tool_eb939465d001Hr9uHX4ZTrj0tO",
+  "utf8",
+);
 const rows = html.match(/<tr>[\s\S]*?<\/tr>/g) || [];
 
 const entries = [];
@@ -33,7 +36,7 @@ for (const row of rows) {
   // Collect matchups
   const matchupCells = cells.slice(off, off + 8);
   if (matchupCells.length !== 8) continue;
-  const matchups = matchupCells.map(c => c.replace(/3/g, "").trim());
+  const matchups = matchupCells.map((c) => c.replace(/3/g, "").trim());
 
   const key = qualified.join("");
   const val = matchups.join("");
@@ -41,6 +44,6 @@ for (const row of rows) {
 }
 
 console.log(`// Matrix: ${entries.length} entries`);
-for (const {key, val} of entries) {
+for (const { key, val } of entries) {
   console.log(`["${key}","${val}"],`);
 }

@@ -20,8 +20,14 @@ export function LoginPage() {
   }, [ready, user, navigate]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-6" suppressHydrationWarning>
-      <div className="w-full max-w-md bg-card border border-border rounded-xl p-8 shadow-sm" suppressHydrationWarning>
+    <div
+      className="min-h-screen flex items-center justify-center bg-background p-6"
+      suppressHydrationWarning
+    >
+      <div
+        className="w-full max-w-md bg-card border border-border rounded-xl p-8 shadow-sm"
+        suppressHydrationWarning
+      >
         <div className="flex items-center gap-3 mb-8">
           <div className="size-9 bg-foreground rounded-md flex items-center justify-center">
             <Sparkles className="size-4 text-primary" />
@@ -35,8 +41,12 @@ export function LoginPage() {
             <TabsTrigger value="signup">Criar conta</TabsTrigger>
             <TabsTrigger value="reset">Esqueci</TabsTrigger>
           </TabsList>
-          <TabsContent value="signin"><SignInForm initialEmail={prefillEmail} /></TabsContent>
-          <TabsContent value="signup"><SignUpForm /></TabsContent>
+          <TabsContent value="signin">
+            <SignInForm initialEmail={prefillEmail} />
+          </TabsContent>
+          <TabsContent value="signup">
+            <SignUpForm />
+          </TabsContent>
           <TabsContent value="reset">
             <ResetForm
               onDone={(email) => {
@@ -58,7 +68,9 @@ function SignInForm({ initialEmail }: { initialEmail: string }) {
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  useEffect(() => { if (initialEmail) setEmail(initialEmail); }, [initialEmail]);
+  useEffect(() => {
+    if (initialEmail) setEmail(initialEmail);
+  }, [initialEmail]);
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!ready) return toast.error("Base local ainda inicializando, aguarde…");
@@ -75,8 +87,22 @@ function SignInForm({ initialEmail }: { initialEmail: string }) {
   };
   return (
     <form className="space-y-4" onSubmit={submit} suppressHydrationWarning>
-      <Field id="si-email" label="E-mail" type="email" autoComplete="username" value={email} onChange={setEmail} />
-      <Field id="si-pw" label="Senha" type="password" autoComplete="current-password" value={password} onChange={setPassword} />
+      <Field
+        id="si-email"
+        label="E-mail"
+        type="email"
+        autoComplete="username"
+        value={email}
+        onChange={setEmail}
+      />
+      <Field
+        id="si-pw"
+        label="Senha"
+        type="password"
+        autoComplete="current-password"
+        value={password}
+        onChange={setPassword}
+      />
       <Button type="submit" className="w-full" disabled={loading}>
         {loading ? "Entrando…" : "Entrar"}
       </Button>
@@ -99,7 +125,9 @@ function SignUpForm() {
     setLoading(true);
     try {
       const u = await signup(email, password, name);
-      toast.success("Conta criada!", { description: u.is_admin ? "Você é o primeiro usuário: admin." : "Bem-vindo!" });
+      toast.success("Conta criada!", {
+        description: u.is_admin ? "Você é o primeiro usuário: admin." : "Bem-vindo!",
+      });
       navigate({ to: "/dashboard" });
     } catch (err) {
       toast.error("Erro ao criar conta", { description: (err as Error).message });
@@ -109,9 +137,29 @@ function SignUpForm() {
   };
   return (
     <form className="space-y-4" onSubmit={submit} suppressHydrationWarning>
-      <Field id="su-name" label="Nome completo" autoComplete="name" value={name} onChange={setName} />
-      <Field id="su-email" label="E-mail" type="email" autoComplete="email" value={email} onChange={setEmail} />
-      <Field id="su-pw" label="Senha (mín. 6)" type="password" autoComplete="new-password" value={password} onChange={setPassword} />
+      <Field
+        id="su-name"
+        label="Nome completo"
+        autoComplete="name"
+        value={name}
+        onChange={setName}
+      />
+      <Field
+        id="su-email"
+        label="E-mail"
+        type="email"
+        autoComplete="email"
+        value={email}
+        onChange={setEmail}
+      />
+      <Field
+        id="su-pw"
+        label="Senha (mín. 6)"
+        type="password"
+        autoComplete="new-password"
+        value={password}
+        onChange={setPassword}
+      />
       <Button type="submit" className="w-full" disabled={loading}>
         {loading ? "Criando…" : "Criar conta"}
       </Button>
@@ -146,8 +194,22 @@ function ResetForm({ onDone }: { onDone: (email: string) => void }) {
       <p className="text-xs text-muted-foreground">
         Como esta é uma base local, defina uma nova senha diretamente.
       </p>
-      <Field id="re-email" label="E-mail" type="email" autoComplete="username" value={email} onChange={setEmail} />
-      <Field id="re-pw" label="Nova senha (mín. 6)" type="password" autoComplete="new-password" value={password} onChange={setPassword} />
+      <Field
+        id="re-email"
+        label="E-mail"
+        type="email"
+        autoComplete="username"
+        value={email}
+        onChange={setEmail}
+      />
+      <Field
+        id="re-pw"
+        label="Nova senha (mín. 6)"
+        type="password"
+        autoComplete="new-password"
+        value={password}
+        onChange={setPassword}
+      />
       <Button type="submit" className="w-full" disabled={loading}>
         {loading ? "Salvando…" : "Definir nova senha"}
       </Button>
@@ -155,10 +217,26 @@ function ResetForm({ onDone }: { onDone: (email: string) => void }) {
   );
 }
 
-function Field({ id, label, type = "text", value, onChange, autoComplete }: { id: string; label: string; type?: string; value: string; onChange: (v: string) => void; autoComplete?: string }) {
+function Field({
+  id,
+  label,
+  type = "text",
+  value,
+  onChange,
+  autoComplete,
+}: {
+  id: string;
+  label: string;
+  type?: string;
+  value: string;
+  onChange: (v: string) => void;
+  autoComplete?: string;
+}) {
   return (
     <div className="space-y-2" suppressHydrationWarning>
-      <Label htmlFor={id} className="text-xs font-mono uppercase tracking-widest">{label}</Label>
+      <Label htmlFor={id} className="text-xs font-mono uppercase tracking-widest">
+        {label}
+      </Label>
       <Input
         id={id}
         name={id}

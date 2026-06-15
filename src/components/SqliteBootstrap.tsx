@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { openDb, listUsersDebug } from "@/lib/db/sqlite-repo";
-import { IDB_NAME, IDB_STORE, IDB_KEY, SESSION_KEY } from "@/lib/db/config";
+import { IDB_NAME, IDB_STORE, IDB_RECORD_ID, SESSION_ID } from "@/lib/db/config";
 import { restoreSession, useAuthStore } from "@/store/auth-store";
 
 export function SqliteBootstrap() {
@@ -12,9 +12,9 @@ export function SqliteBootstrap() {
         await restoreSession();
         if (import.meta.env.DEV) {
           const users = await listUsersDebug();
-          // eslint-disable-next-line no-console
+
           console.info(
-            `[sqlite] base local pronta · IndexedDB="${IDB_NAME}" store="${IDB_STORE}" key="${IDB_KEY}" · session key (localStorage)="${SESSION_KEY}" · usuários=${users.length}`,
+            `[sqlite] base local pronta · IndexedDB="${IDB_NAME}" store="${IDB_STORE}" key="${IDB_RECORD_ID}" · session id (localStorage)="${SESSION_ID}" · usuários=${users.length}`,
             users,
           );
         }
@@ -24,7 +24,9 @@ export function SqliteBootstrap() {
         if (!cancelled) useAuthStore.getState().setReady(true);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
   return null;
 }

@@ -13,14 +13,18 @@
 |---|---|---|
 | Placar exato | 10 | home_score === predicted_home_score && away_score === predicted_away_score |
 | Vencedor + diferença de gols | 7 | Mesmo vencedor e mesma diferença (ex: 3x1 palpite, 2x0 real → diferença 2) |
-| Apenas vencedor | 5 | Mesmo vencedor (ou empate), mas diferença diferente |
-| Artilheiros | 3 cada | predicted_goalscorers cadastrados |
-| Zebra (multiplicador) | ×1.5 | Se placar é contra o favorito estatístico, pontos são multiplicados por 1.5 |
+| Apenas vencedor | 5 | Mesmo vencedor, mas diferença diferente |
+| Acertou empate | 3 | Palpite foi empate e resultado foi empate (ex: palpite 2x2, real 1x1) |
+| Acertou placar de 1 seleção | 2 | Acertou o número de gols de um dos times (ex: palpite 3x0, real 3x2 → acertou os 3 gols do mandante) |
+| Placar inverso (consolação) | 1 | Acertou o placar mas inverteu os times (ex: palpite 3x1, real 1x3) |
+| Zebra (multiplicador) | ×1.5 | Se placar é contra o favorito estatístico, pontos base são multiplicados por 1.5 |
 
 ### Cálculo
 - A melhor pontuação entre múltiplos slots (palpites) de um mesmo usuário para uma partida é considerada
 - Zebra é detectada automaticamente pelo Copilot (src/lib/copilot.ts) com base em ranking de força das seleções
 - O admin pode lançar resultado de qualquer partida via página "Apuração"
+- **Artilheiros removidos**: não há mais pontuação por artilheiros (predicted_goalscorers ignorado na pontuação)
+- As categorias são mutuamente exclusivas: aplica-se sempre a maior pontuação possível
 
 ## Bracket Oficial FIFA (src/lib/bracket.ts)
 
@@ -81,6 +85,21 @@ Implementação completa do chaveamento da Copa 2026 conforme regulamento da FIF
 - Times das fases mata-mata são populados dinamicamente com base nos palpites do usuário (bracket)
 - Datas reais da Copa 2026 (11 jun - 19 jul)
 - `computeBracket` em `app-store.ts` delega para `src/lib/bracket.ts`
+
+### Palpites (src/pages/Palpites.tsx)
+- **Avançar fase**: botão "Avançar fase" visível em todos os dispositivos substitui o Ctrl+S como método principal
+- Progresso da fase atual mostrado ao lado do botão
+- Fases mata-mata usam `BracketRow` (Card responsivo) com layout adaptável (`max-sm:`)
+- Fase de grupos usa `GroupTable` com data do jogo exibida
+- Ctrl+S continua funcionando como atalho
+
+### Fuso Horário
+- Partidas armazenadas com offset -03:00 (horário de Brasília)
+- `guessTz()` em `src/mocks/matches.ts` mapeia o time mandante para timezone da sede:
+  - México/América Central → `America/Mexico_City` (UTC-6, ~3h de diferença)
+  - Canadá → `America/Toronto` (UTC-4)
+  - EUA/demais → `America/Chicago` (UTC-5, ~2h de diferença)
+- Exibição: "sede" (horário local do estádio) e "local" (horário de Brasília)
 
 ### Resultados
 - **Sincronização automática**: botão "Sincronizar resultados" na página de Apuração busca placares da football-data.org

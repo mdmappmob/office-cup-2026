@@ -95,10 +95,16 @@ const GROUP_FIXTURES: Fixture[] = [
 ];
 
 function guessTz(home: string): string {
-  if (home === "México") return "America/Mexico_City";
+  // Copa 2026: EUA, México e Canadá como sedes
+  // América Central/México → UTC-6 (sem horário de verão desde 2023) → 3h de diferença de Brasília
+  if (home === "México" || home === "Equador" || home === "Panamá" || home === "Costa Rica")
+    return "America/Mexico_City";
+  // Canadá → UTC-4 (horário de verão)
   if (home === "Canadá") return "America/Toronto";
-  if (home === "Estados Unidos") return "America/New_York";
-  return "America/New_York";
+  // EUA → fuso central (UTC-5) como padrão mais representativo
+  if (home === "Estados Unidos") return "America/Chicago";
+  // Demais jogos: fuso central americano (~2h de diferença de Brasília)
+  return "America/Chicago";
 }
 
 function makeGroupMatches(): MockMatch[] {
@@ -118,7 +124,12 @@ function makeGroupMatches(): MockMatch[] {
   }));
 }
 
-function makeBracket(phase: MatchPhase, count: number, idPrefix: string, baseDate: string): MockMatch[] {
+function makeBracket(
+  phase: MatchPhase,
+  count: number,
+  idPrefix: string,
+  baseDate: string,
+): MockMatch[] {
   return Array.from({ length: count }).map((_, i) => ({
     id: `${idPrefix}${i}`,
     home_team: "—",
@@ -126,7 +137,7 @@ function makeBracket(phase: MatchPhase, count: number, idPrefix: string, baseDat
     home_flag: "",
     away_flag: "",
     match_date: baseDate,
-    venue_tz: "America/New_York",
+    venue_tz: "America/Chicago",
     phase,
     home_score: null,
     away_score: null,

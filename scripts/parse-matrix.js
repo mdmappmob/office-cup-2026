@@ -1,8 +1,11 @@
 const fs = require("fs");
 
-const html = fs.readFileSync("C:\\Users\\User\\.local\\share\\opencode\\tool-output\\tool_eb939465d001Hr9uHX4ZTrj0tO", "utf8");
-const GROUPS = ["A","B","C","D","E","F","G","H","I","J","K","L"];
-const WINNERS = ["A","B","D","E","G","I","K","L"];
+const html = fs.readFileSync(
+  "C:\\Users\\User\\.local\\share\\opencode\\tool-output\\tool_eb939465d001Hr9uHX4ZTrj0tO",
+  "utf8",
+);
+const GROUPS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
+const WINNERS = ["A", "B", "D", "E", "G", "I", "K", "L"];
 
 // Extract all rows from the table
 // Each row: <tr><th>N</th><td>...</td>...<td>...3X...</td></tr>
@@ -51,6 +54,6 @@ for (const row of rows) {
 }
 
 console.log(`// Auto-generated: ${entries.length} entries`);
-for (const {key, val} of entries) {
+for (const { key, val } of entries) {
   console.log(`  ["${key}", "${val}"],`);
 }

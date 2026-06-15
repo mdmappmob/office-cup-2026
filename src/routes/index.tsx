@@ -78,8 +78,8 @@ function HomePage() {
             O bolão do seu escritório para a Copa do Mundo 2026.
           </h1>
           <p className="mt-6 text-lg text-muted-foreground max-w-2xl">
-            48 seleções, 104 jogos, três países-sede. Palpite em cada partida,
-            acumule pontos e veja quem é o craque de plantão entre os colegas.
+            48 seleções, 104 jogos, três países-sede. Palpite em cada partida, acumule pontos e veja
+            quem é o craque de plantão entre os colegas.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             {user ? (

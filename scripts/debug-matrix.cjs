@@ -1,7 +1,10 @@
 const fs = require("fs");
 
-const html = fs.readFileSync("C:\\Users\\User\\.local\\share\\opencode\\tool-output\\tool_eb939465d001Hr9uHX4ZTrj0tO", "utf8");
-const GROUPS = ["A","B","C","D","E","F","G","H","I","J","K","L"];
+const html = fs.readFileSync(
+  "C:\\Users\\User\\.local\\share\\opencode\\tool-output\\tool_eb939465d001Hr9uHX4ZTrj0tO",
+  "utf8",
+);
+const GROUPS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
 
 const rows = html.match(/<tr>[\s\S]*?<\/tr>/g) || [];
 console.log("Total rows:", rows.length);
@@ -24,7 +27,7 @@ for (let ri = 0; ri < Math.min(rows.length, 20); ri++) {
   while ((match = cellRegex.exec(row)) !== null) {
     cells.push(match[1].trim());
   }
-  
+
   console.log(`Row ${ri}: ${cells.length} cells`);
   for (let i = 0; i < Math.min(cells.length, 25); i++) {
     console.log(`  cells[${i}]: "${cells[i].substring(0, 80)}"`);

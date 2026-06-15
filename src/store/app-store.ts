@@ -5,12 +5,7 @@ import { CURRENT_LEAGUE_ID } from "@/mocks/leagues";
 import { supabase } from "@/lib/supabase/client";
 import * as predictionsApi from "@/lib/supabase/predictions";
 import * as membersApi from "@/lib/supabase/members";
-import type {
-  MockMatch,
-  MockPrediction,
-  MockLeagueMember,
-  MatchPhase,
-} from "@/mocks/types";
+import type { MockMatch, MockPrediction, MockLeagueMember, MatchPhase } from "@/mocks/types";
 import { PHASE_ORDER } from "@/mocks/types";
 import { scoreMatch } from "@/lib/scoring";
 import { computeBracket as computeOfficialBracket } from "@/lib/bracket";
@@ -47,7 +42,11 @@ interface AppState {
   syncMembersToSupabase: () => Promise<void>;
 }
 
-function makeEmptyPrediction(matchId: string, slot: number = 1, userId: string = ""): MockPrediction {
+function makeEmptyPrediction(
+  matchId: string,
+  slot: number = 1,
+  userId: string = "",
+): MockPrediction {
   return {
     id: `p-${matchId}-${userId}-s${slot}`,
     user_id: userId,
@@ -167,7 +166,8 @@ export const useAppStore = create<AppState>()(
           const merged = [...localPredictions];
           for (const rp of remotePredictions) {
             const exists = localPredictions.find(
-              (lp) => lp.match_id === rp.match_id && lp.user_id === rp.user_id && lp.slot === rp.slot,
+              (lp) =>
+                lp.match_id === rp.match_id && lp.user_id === rp.user_id && lp.slot === rp.slot,
             );
             if (!exists) {
               merged.push({
@@ -281,9 +281,10 @@ export const useAppStore = create<AppState>()(
       getPhaseFirstMatchDate: (phase) => {
         const phaseMatches = get().matches.filter((m) => m.phase === phase);
         if (phaseMatches.length === 0) return null;
-        return phaseMatches.reduce((earliest, m) =>
-          m.match_date < earliest ? m.match_date : earliest,
-        phaseMatches[0].match_date);
+        return phaseMatches.reduce(
+          (earliest, m) => (m.match_date < earliest ? m.match_date : earliest),
+          phaseMatches[0].match_date,
+        );
       },
       isDeadlinePassed: () => {
         const groups = new Map<string, string[]>();
@@ -300,6 +301,18 @@ export const useAppStore = create<AppState>()(
         }
         if (!latest) return false;
         return Date.now() >= new Date(latest).getTime();
+      },
+      recalculateAllScores: () => {
+        const matches = get().matches;
+        const predictions = get().predictions.map((p) => {
+          const m = matches.find((x) => x.id === p.match_id);
+          if (!m || m.home_score === null || m.away_score === null) return p;
+          return { ...p, points_earned: scoreMatch(m, p) };
+        });
+        set({ predictions });
+        get().recomputeStandings();
+        get().syncPredictionsToSupabase();
+        get().syncMembersToSupabase();
       },
       unlockedPhases: () => {
         const unlocked: MatchPhase[] = ["grupos"];
@@ -322,8 +335,11 @@ export const useAppStore = create<AppState>()(
         matches: s.matches,
       }),
       onRehydrateStorage: () => (state) => {
-        if (state && state.predictions.length > 0) {
-          state.regenerateBracket();
+        if (state) {
+          if (state.predictions.length > 0) {
+            state.regenerateBracket();
+          }
+          state.recalculateAllScores();
         }
       },
     },

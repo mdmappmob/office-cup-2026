@@ -20,7 +20,9 @@ export function Flag({
   title?: string;
 }) {
   const code = (iso ?? (team ? TEAM_ISO[team] : "") ?? "").toUpperCase();
-  const Component = (Flags as Record<string, React.ComponentType<{ title?: string; className?: string }>>)[code];
+  const Component = (
+    Flags as Record<string, React.ComponentType<{ title?: string; className?: string }>>
+  )[code];
   if (!Component) {
     return (
       <span

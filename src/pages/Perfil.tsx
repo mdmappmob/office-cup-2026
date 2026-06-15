@@ -16,25 +16,27 @@ export function PerfilPage() {
   const user =
     authUser?.id === currentUserId
       ? { id: authUser.id, email: authUser.email, full_name: authUser.full_name, avatar_url: "" }
-      : mockProfiles.find((p) => p.id === currentUserId) ?? {
+      : (mockProfiles.find((p) => p.id === currentUserId) ?? {
           id: currentUserId,
           email: "",
           full_name: "Usuário local",
           avatar_url: "",
-        };
+        });
   const raw = typeof window !== "undefined" ? localStorage.getItem("officecup-2026") : null;
   const localData = raw ? JSON.parse(raw)?.state : null;
   const localPredictions = localData?.predictions?.length ?? 0;
-  const migrated = typeof window !== "undefined" && authUser?.id
-    ? localStorage.getItem(`supabase_migrated_${authUser.id}`)
-    : null;
+  const migrated =
+    typeof window !== "undefined" && authUser?.id
+      ? localStorage.getItem(`supabase_migrated_${authUser.id}`)
+      : null;
 
   const handleMigrate = async () => {
     if (!authUser?.id) return;
     setMigrating(true);
     try {
       const members = localData?.members ?? [];
-      const totalPoints = members.find((m: { user_id: string }) => m.user_id === authUser.id)?.total_points ?? 0;
+      const totalPoints =
+        members.find((m: { user_id: string }) => m.user_id === authUser.id)?.total_points ?? 0;
       const result = await migrateUserData({
         data: {
           userId: authUser.id,
@@ -71,12 +73,18 @@ export function PerfilPage() {
       <div className="grid gap-6">
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-mono uppercase tracking-widest text-muted-foreground">Conta</CardTitle>
+            <CardTitle className="text-sm font-mono uppercase tracking-widest text-muted-foreground">
+              Conta
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center gap-4">
               <div className="size-14 rounded-full bg-muted flex items-center justify-center font-bold">
-                {user.full_name.split(" ").map((p) => p[0]).slice(0, 2).join("")}
+                {user.full_name
+                  .split(" ")
+                  .map((p) => p[0])
+                  .slice(0, 2)
+                  .join("")}
               </div>
               <div>
                 <p className="font-semibold">{user.full_name}</p>
@@ -85,8 +93,6 @@ export function PerfilPage() {
             </div>
           </CardContent>
         </Card>
-
-
 
         <Card>
           <CardHeader>
@@ -106,7 +112,15 @@ export function PerfilPage() {
                 disabled={!localPredictions || migrating || !!migrated}
                 onClick={handleMigrate}
               >
-                {migrating ? "Migrando..." : migrated ? <><CheckCircle2 className="size-3.5 mr-1" /> Migrado</> : "Migrar dados locais"}
+                {migrating ? (
+                  "Migrando..."
+                ) : migrated ? (
+                  <>
+                    <CheckCircle2 className="size-3.5 mr-1" /> Migrado
+                  </>
+                ) : (
+                  "Migrar dados locais"
+                )}
               </Button>
               {migrated && (
                 <Badge variant="outline" className="text-[10px] text-green-600">
@@ -125,8 +139,9 @@ export function PerfilPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-xs text-muted-foreground">
-              Apaga todos os dados locais (palpites, membros, usuários, sessão) e recarrega a página.
-              As partidas reais da Copa são mantidas. Se já migrou para o Supabase, os dados remotos não são afetados.
+              Apaga todos os dados locais (palpites, membros, usuários, sessão) e recarrega a
+              página. As partidas reais da Copa são mantidas. Se já migrou para o Supabase, os dados
+              remotos não são afetados.
             </p>
             <Button
               variant="destructive"
