@@ -75,6 +75,8 @@ export const settleAllPredictions = createServerFn({ method: "POST" })
         predicted_goalscorers: string[];
       }>;
 
+      const affectedUsers = new Set<string>();
+
       for (const p of allPredictions) {
         const pred: MockPrediction = {
           id: p.id,
@@ -101,6 +103,25 @@ export const settleAllPredictions = createServerFn({ method: "POST" })
               points_earned: points,
               is_zebra: analysis.isZebra,
             }),
+          },
+        );
+        affectedUsers.add(p.user_id);
+      }
+
+      // Recalcular total_points de cada usuario afetado
+      for (const uid of affectedUsers) {
+        const predsRes = await supabaseFetch(
+          supabaseUrl, serviceKey,
+          `predictions?user_id=eq.${uid}&select=points_earned`,
+        );
+        const userPreds = await predsRes.json() as Array<{ points_earned: number }>;
+        const total = userPreds.reduce((sum, p) => sum + (p.points_earned ?? 0), 0);
+        await supabaseFetch(
+          supabaseUrl, serviceKey,
+          `members?user_id=eq.${uid}&league_id=eq.l1`,
+          {
+            method: "PATCH",
+            body: JSON.stringify({ total_points: total }),
           },
         );
       }

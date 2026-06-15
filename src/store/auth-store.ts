@@ -21,6 +21,8 @@ interface AuthState {
   logout: () => void;
 }
 
+import { supabase } from "@/lib/supabase/client";
+
 function commitUser(set: (s: Partial<AuthState>) => void, user: AuthUser | null) {
   set({ user });
   if (user) {
@@ -31,6 +33,15 @@ function commitUser(set: (s: Partial<AuthState>) => void, user: AuthUser | null)
   }
 }
 
+async function ensureProfile(user: AuthUser): Promise<void> {
+  try {
+    await supabase.from("profiles").upsert(
+      { id: user.id, full_name: user.full_name, email: user.email },
+      { onConflict: "id" },
+    );
+  } catch { /* perfil na tabela profiles é opcional */ }
+}
+
 export const useAuthStore = create<AuthState>()((set) => ({
   user: null,
   ready: false,
@@ -39,12 +50,14 @@ export const useAuthStore = create<AuthState>()((set) => ({
   signup: async (email, password, fullName) => {
     const u = await supabaseAuth.signUp(email, password, fullName);
     commitUser(set, u);
+    ensureProfile(u);
     return u;
   },
   login: async (email, password) => {
     try {
       const u = await supabaseAuth.signIn(email, password);
       commitUser(set, u);
+      ensureProfile(u);
       return u;
     } catch {
       const found = await findUserByEmail(email);
@@ -74,6 +87,7 @@ export async function restoreSession(): Promise<void> {
   if (supabaseUser) {
     useAuthStore.setState({ user: supabaseUser });
     useAppStore.getState().setCurrentUser(supabaseUser.id, supabaseUser.is_admin);
+    ensureProfile(supabaseUser);
     return;
   }
   const id = readSession();
