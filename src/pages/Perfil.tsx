@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,9 +9,11 @@ import { APP_VERSION, APP_COMMIT } from "@/lib/version";
 import { Trash2, AlertTriangle, Upload, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { migrateUserData } from "@/lib/supabase/migrate.server";
+import { supabase } from "@/lib/supabase/client";
 
 export function PerfilPage() {
   const [migrating, setMigrating] = useState(false);
+  const [migrated, setMigrated] = useState(false);
   const authUser = useAuthStore((s) => s.user);
   const currentUserId = useAppStore((s) => s.currentUserId);
   const user =
@@ -26,10 +28,27 @@ export function PerfilPage() {
   const raw = typeof window !== "undefined" ? localStorage.getItem("officecup-2026") : null;
   const localData = raw ? JSON.parse(raw)?.state : null;
   const localPredictions = localData?.predictions?.length ?? 0;
-  const migrated =
-    typeof window !== "undefined" && authUser?.id
-      ? localStorage.getItem(`supabase_migrated_${authUser.id}`)
-      : null;
+
+  useEffect(() => {
+    if (!authUser?.id) return;
+    const stored = localStorage.getItem(`supabase_migrated_${authUser.id}`);
+    if (stored) {
+      setMigrated(true);
+      return;
+    }
+    supabase
+      .from("predictions")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", authUser.id)
+      .limit(1)
+      .then(({ count }) => {
+        if (count && count > 0) {
+          localStorage.setItem(`supabase_migrated_${authUser.id}`, "1");
+          setMigrated(true);
+        }
+      })
+      .catch(() => {});
+  }, [authUser?.id]);
 
   const handleMigrate = async () => {
     if (!authUser?.id) return;
