@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -11,12 +12,37 @@ import { Badge } from "@/components/ui/badge";
 import { useAppStore } from "@/store/app-store";
 import { useAuthStore } from "@/store/auth-store";
 import { mockProfiles } from "@/mocks/profiles";
+import { supabase } from "@/lib/supabase/client";
 
 export function RankingPage() {
   const authUser = useAuthStore((s) => s.user);
   const members = useAppStore((s) => s.members);
   const currentUserId = useAppStore((s) => s.currentUserId);
   const sorted = [...members].sort((a, b) => b.total_points - a.total_points);
+  const [profiles, setProfiles] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const uids = members.map((m) => m.user_id).filter(Boolean);
+    if (uids.length === 0) return;
+    const mock = Object.fromEntries(
+      mockProfiles.map((p) => [p.id, p.full_name]),
+    );
+    const remaining = uids.filter((id) => !mock[id] && id !== authUser?.id);
+    if (remaining.length === 0) {
+      setProfiles(mock);
+      return;
+    }
+    supabase
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", remaining)
+      .then(({ data }) => {
+        const map: Record<string, string> = { ...mock };
+        for (const p of data ?? []) map[p.id] = p.full_name;
+        setProfiles(map);
+      })
+      .catch(() => setProfiles(mock));
+  }, [members, authUser?.id]);
 
   return (
     <div className="max-w-5xl mx-auto px-8 py-10">
@@ -53,17 +79,11 @@ export function RankingPage() {
             </TableHeader>
             <TableBody>
               {sorted.map((m, idx) => {
-                const p =
-                  authUser?.id === m.user_id
-                    ? {
-                        id: authUser.id,
-                        email: authUser.email,
-                        full_name: authUser.full_name,
-                        avatar_url: "",
-                      }
-                    : mockProfiles.find((x) => x.id === m.user_id);
                 const isMe = m.user_id === currentUserId;
-                const name = p?.full_name ?? "Usuário local";
+                const name =
+                  isMe
+                    ? authUser?.full_name
+                    : profiles[m.user_id] ?? "Usuário local";
                 return (
                   <TableRow key={m.id} className={isMe ? "bg-primary/5" : ""}>
                     <TableCell className="font-mono">{String(idx + 1).padStart(2, "0")}</TableCell>
@@ -71,7 +91,7 @@ export function RankingPage() {
                       <div className="flex items-center gap-3">
                         <div className="size-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold">
                           {name
-                            .split(" ")
+                            ?.split(" ")
                             .map((x) => x[0])
                             .slice(0, 2)
                             .join("")}

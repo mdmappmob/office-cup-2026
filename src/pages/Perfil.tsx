@@ -86,6 +86,10 @@ export function PerfilPage() {
         { onConflict: "league_id,user_id" },
       );
       if (error) throw error;
+      await supabase.from("profiles").upsert(
+        { id: authUser.id, full_name: authUser.full_name, email: authUser.email },
+        { onConflict: "id" },
+      );
       toast.success(`Bem-vindo ao ${league.name}!`);
       setInviteCode("");
     } catch (err) {

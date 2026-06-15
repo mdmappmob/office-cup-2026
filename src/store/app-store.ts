@@ -8,6 +8,7 @@ import * as membersApi from "@/lib/supabase/members";
 import type { MockMatch, MockPrediction, MockLeagueMember, MatchPhase } from "@/mocks/types";
 import { PHASE_ORDER } from "@/mocks/types";
 import { scoreMatch } from "@/lib/scoring";
+import { settleAllPredictions } from "@/lib/supabase/settle-all.server";
 import { computeBracket as computeOfficialBracket } from "@/lib/bracket";
 
 interface AppState {
@@ -144,7 +145,6 @@ export const useAppStore = create<AppState>()(
             ? { ...m, home_score: homeScore, away_score: awayScore, status: "finished" as const }
             : m,
         );
-        // Recalcula pontos das predições (mantém a melhor pontuação por user+match na vista)
         const settled = newMatches.find((m) => m.id === matchId)!;
         const newPredictions = get().predictions.map((p) =>
           p.match_id === matchId ? { ...p, points_earned: scoreMatch(settled, p) } : p,
@@ -153,6 +153,24 @@ export const useAppStore = create<AppState>()(
         get().recomputeStandings();
         get().syncPredictionsToSupabase();
         get().syncMembersToSupabase();
+        // Recalcula pontos de TODOS os usuários no Supabase (não só do admin)
+        settleAllPredictions({
+          data: {
+            matchId,
+            homeScore,
+            awayScore,
+            homeTeam: settled.home_team,
+            awayTeam: settled.away_team,
+            homeFlag: settled.home_flag,
+            awayFlag: settled.away_flag,
+            matchDate: settled.match_date,
+            venueTz: settled.venue_tz,
+            phase: settled.phase,
+            group: settled.group ?? null,
+            status: "finished",
+            bracketSlot: settled.bracket_slot ?? null,
+          },
+        }).catch((err) => console.warn("Erro ao settle remoto", err));
       },
       loadFromSupabase: async () => {
         const userId = get().currentUserId;
