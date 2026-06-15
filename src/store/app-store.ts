@@ -158,9 +158,10 @@ export const useAppStore = create<AppState>()(
         const userId = get().currentUserId;
         if (!userId) return;
         try {
+          const leagueId = get().currentLeagueId;
           const [remotePredictions, remoteMembers] = await Promise.all([
             predictionsApi.fetchPredictions(userId),
-            membersApi.fetchMembers(),
+            membersApi.fetchMembers(leagueId),
           ]);
           let merged = [...get().predictions];
           for (const rp of remotePredictions) {
