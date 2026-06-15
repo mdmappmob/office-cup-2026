@@ -219,6 +219,24 @@ export const useAppStore = create<AppState>()(
           } else {
             set({ predictions: merged });
           }
+          // Recalcular points_earned para predictions que vieram com 0
+          // mas a partida já tem resultado no estado local
+          const localMatches = get().matches;
+          let needsRecompute = false;
+          const recalculated = merged.map((p) => {
+            if (p.points_earned !== 0) return p;
+            const match = localMatches.find(
+              (m) => m.id === p.match_id && m.status === "finished" && m.home_score != null,
+            );
+            if (!match) return p;
+            needsRecompute = true;
+            return { ...p, points_earned: scoreMatch(match, p) };
+          });
+          if (needsRecompute) {
+            set({ predictions: recalculated });
+            get().recomputeStandings();
+            get().syncPredictionsToSupabase();
+          }
         } catch (err) {
           console.warn("Erro ao carregar dados do Supabase", err);
         }
