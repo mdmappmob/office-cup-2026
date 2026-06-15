@@ -11,7 +11,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useAppStore } from "@/store/app-store";
 import { useAuthStore } from "@/store/auth-store";
-import { mockProfiles } from "@/mocks/profiles";
 import { supabase } from "@/lib/supabase/client";
 
 export function RankingPage() {
@@ -36,19 +35,16 @@ export function RankingPage() {
   useEffect(() => {
     const uids = [...new Set(members.map((m) => m.user_id).filter(Boolean))];
     if (uids.length === 0) return;
-    const mock = Object.fromEntries(
-      mockProfiles.map((p) => [p.id, p.full_name]),
-    );
-    const map: Record<string, string> = { ...mock };
     supabase
       .from("profiles")
       .select("id, full_name")
-      .in("id", uids.filter((id) => !mock[id]))
+      .in("id", uids)
       .then(({ data }) => {
+        const map: Record<string, string> = {};
         for (const p of data ?? []) map[p.id] = p.full_name;
         setProfiles(map);
       })
-      .catch(() => setProfiles(map));
+      .catch(() => {});
   }, [members, authUser?.id]);
 
   return (
@@ -87,7 +83,7 @@ export function RankingPage() {
             <TableBody>
               {sorted.map((m, idx) => {
                 const isMe = m.user_id === currentUserId || m.user_id === authUser?.id;
-                const name = profiles[m.user_id] ?? authUser?.full_name ?? "Usuário local";
+                const name = profiles[m.user_id] ?? (isMe ? authUser?.full_name : "Usuário local");
                 return (
                   <TableRow key={m.id} className={isMe ? "bg-primary/5" : ""}>
                     <TableCell className="font-mono">{String(idx + 1).padStart(2, "0")}</TableCell>

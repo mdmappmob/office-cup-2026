@@ -67,6 +67,10 @@ export function PerfilPage() {
         if (data?.[0]?.invite_code) setLeagueCode(data[0].invite_code);
       })
       .catch(() => {});
+    supabase.from("profiles").upsert(
+      { id: authUser.id, full_name: authUser.full_name, email: authUser.email },
+      { onConflict: "id" },
+    ).catch(() => {});
   }, [authUser?.id, isAdmin]);
 
   useEffect(() => {
