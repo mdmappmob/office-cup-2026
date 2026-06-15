@@ -18,6 +18,7 @@ export function RankingPage() {
   const authUser = useAuthStore((s) => s.user);
   const members = useAppStore((s) => s.members);
   const currentUserId = useAppStore((s) => s.currentUserId);
+  const loadFromSupabase = useAppStore((s) => s.loadFromSupabase);
   const sorted = [...members].sort((a, b) => b.total_points - a.total_points);
   const [profiles, setProfiles] = useState<Record<string, string>>({});
   const [leagueName, setLeagueName] = useState("");
@@ -29,6 +30,7 @@ export function RankingPage() {
       .limit(1)
       .then(({ data }) => { if (data?.[0]) setLeagueName(data[0].name); })
       .catch(() => {});
+    loadFromSupabase();
   }, []);
 
   useEffect(() => {
