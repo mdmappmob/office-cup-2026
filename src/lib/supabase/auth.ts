@@ -6,6 +6,20 @@ function isAdmin(email: string): boolean {
   return email.trim().toLowerCase() === ADMIN_EMAIL;
 }
 
+async function checkLeagueAdmin(userId: string): Promise<boolean> {
+  try {
+    const { data } = await supabase
+      .from("leagues")
+      .select("id")
+      .eq("admin_id", userId)
+      .limit(1)
+      .maybeSingle();
+    return !!data;
+  } catch {
+    return false;
+  }
+}
+
 export async function signUp(email: string, password: string, fullName: string): Promise<AuthUser> {
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -15,11 +29,14 @@ export async function signUp(email: string, password: string, fullName: string):
   if (error) throw error;
   if (!data.user) throw new Error("Erro ao criar conta");
 
+  const userId = data.user.id;
+  const leagueAdmin = await checkLeagueAdmin(userId);
+
   return {
-    id: data.user.id,
+    id: userId,
     email: data.user.email ?? email,
     full_name: fullName,
-    is_admin: isAdmin(email),
+    is_admin: isAdmin(email) || leagueAdmin,
   };
 }
 
@@ -30,12 +47,16 @@ export async function signIn(email: string, password: string): Promise<AuthUser>
   });
   if (error) throw new Error("E-mail ou senha inválidos");
 
-  const meta = data.user?.user_metadata;
+  const user = data.user!;
+  const meta = user?.user_metadata;
+  const userId = user.id;
+  const leagueAdmin = await checkLeagueAdmin(userId);
+
   return {
-    id: data.user!.id,
-    email: data.user!.email ?? email,
+    id: userId,
+    email: user.email ?? email,
     full_name: (meta?.full_name as string) ?? email.split("@")[0],
-    is_admin: isAdmin(email),
+    is_admin: isAdmin(email) || leagueAdmin,
   };
 }
 
@@ -50,10 +71,13 @@ export async function getSessionUser(): Promise<AuthUser | null> {
 
   const meta = data.session.user.user_metadata;
   const email = data.session.user.email ?? "";
+  const userId = data.session.user.id;
+  const leagueAdmin = await checkLeagueAdmin(userId);
+
   return {
-    id: data.session.user.id,
+    id: userId,
     email,
     full_name: (meta?.full_name as string) ?? email.split("@")[0] ?? "",
-    is_admin: isAdmin(email),
+    is_admin: isAdmin(email) || leagueAdmin,
   };
 }
