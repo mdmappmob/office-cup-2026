@@ -17,9 +17,9 @@ export function RankingPage() {
   const authUser = useAuthStore((s) => s.user);
   const members = useAppStore((s) => s.members);
   const currentUserId = useAppStore((s) => s.currentUserId);
+  const profiles = useAppStore((s) => s.profiles);
   const loadFromSupabase = useAppStore((s) => s.loadFromSupabase);
   const sorted = [...members].sort((a, b) => b.total_points - a.total_points);
-  const [profiles, setProfiles] = useState<Record<string, string>>({});
   const [leagueName, setLeagueName] = useState("");
 
   useEffect(() => {
@@ -31,21 +31,6 @@ export function RankingPage() {
       .catch(() => {});
     loadFromSupabase();
   }, []);
-
-  useEffect(() => {
-    const uids = [...new Set(members.map((m) => m.user_id).filter(Boolean))];
-    if (uids.length === 0) return;
-    supabase
-      .from("profiles")
-      .select("id, full_name")
-      .in("id", uids)
-      .then(({ data }) => {
-        const map: Record<string, string> = {};
-        for (const p of data ?? []) map[p.id] = p.full_name;
-        setProfiles(map);
-      })
-      .catch(() => {});
-  }, [members, authUser?.id]);
 
   return (
     <div className="max-w-5xl mx-auto px-8 py-10">

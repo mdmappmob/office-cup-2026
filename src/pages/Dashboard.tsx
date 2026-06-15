@@ -1,8 +1,6 @@
-import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAppStore } from "@/store/app-store";
 import { useAuthStore } from "@/store/auth-store";
-import { supabase } from "@/lib/supabase/client";
 import { totalUserPoints, userBreakdown, scoreMatch } from "@/lib/scoring";
 import { PHASE_LABEL, PHASE_ORDER } from "@/mocks/types";
 import {
@@ -31,22 +29,7 @@ export function DashboardPage() {
       ? { id: authUser.id, email: authUser.email, full_name: authUser.full_name, avatar_url: "" }
       : { id: currentUserId, email: "", full_name: "Usuário local", avatar_url: "" };
 
-  const [profiles, setProfiles] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    const uids = [...new Set(members.map((m) => m.user_id).filter(Boolean))];
-    if (uids.length === 0) return;
-    supabase
-      .from("profiles")
-      .select("id, full_name")
-      .in("id", uids)
-      .then(({ data }) => {
-        const map: Record<string, string> = {};
-        for (const p of data ?? []) map[p.id] = p.full_name;
-        setProfiles(map);
-      })
-      .catch(() => {});
-  }, [members]);
+  const profiles = useAppStore((s) => s.profiles);
 
   const live = totalUserPoints(matches, predictions, currentUserId);
   const breakdown = userBreakdown(matches, predictions, currentUserId);

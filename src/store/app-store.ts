@@ -18,6 +18,7 @@ interface AppState {
   matches: MockMatch[];
   predictions: MockPrediction[];
   members: MockLeagueMember[];
+  profiles: Record<string, string>;
   theme: "light" | "dark";
   setTheme: (t: "light" | "dark") => void;
   toggleTheme: () => void;
@@ -39,6 +40,7 @@ interface AppState {
   getPhaseFirstMatchDate: (phase: MatchPhase) => string | null;
   isDeadlinePassed: () => boolean;
   loadFromSupabase: () => Promise<void>;
+  loadProfiles: () => Promise<void>;
   syncPredictionsToSupabase: () => Promise<void>;
   syncMembersToSupabase: () => Promise<void>;
 }
@@ -77,6 +79,7 @@ export const useAppStore = create<AppState>()(
       matches: mockMatches,
       predictions: [],
       members: [],
+      profiles: {},
       theme: "light",
       setTheme: (t) => set({ theme: t }),
       toggleTheme: () => set({ theme: get().theme === "light" ? "dark" : "light" }),
@@ -237,9 +240,27 @@ export const useAppStore = create<AppState>()(
             get().recomputeStandings();
             get().syncPredictionsToSupabase();
           }
+          get().loadProfiles();
         } catch (err) {
           console.warn("Erro ao carregar dados do Supabase", err);
         }
+      },
+      loadProfiles: async () => {
+        try {
+          const uids = [...new Set(get().members.map((m) => m.user_id).filter(Boolean))];
+          if (uids.length === 0) return;
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+          const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+          const res = await fetch(
+            `${supabaseUrl}/rest/v1/profiles?select=id,full_name&id=in.(${uids.map((id) => `"${id}"`).join(",")})`,
+            { headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` } },
+          );
+          if (!res.ok) return;
+          const data: Array<{ id: string; full_name: string }> = await res.json();
+          const map: Record<string, string> = {};
+          for (const p of data ?? []) map[p.id] = p.full_name;
+          set({ profiles: map });
+        } catch {}
       },
       syncPredictionsToSupabase: async () => {
         const userId = get().currentUserId;
