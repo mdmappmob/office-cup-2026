@@ -285,6 +285,25 @@ export function PalpitesPage() {
           onClear={() => setSelectedMatchId(null)}
         />
       </div>
+
+      <div className="mt-6 flex items-center gap-3 flex-wrap md:hidden">
+        <Button
+          onClick={advancePhase}
+          disabled={!phaseComplete || deadlinePassed}
+          size="default"
+          className="gap-2"
+        >
+          <CheckCircle2 className="size-4" />
+          Avançar fase
+        </Button>
+        {!deadlinePassed && (
+          <span className="text-xs text-muted-foreground font-mono">
+            {phaseComplete
+              ? "Todos os jogos preenchidos"
+              : `${phaseMissing} jogo(s) restante(s)`}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
