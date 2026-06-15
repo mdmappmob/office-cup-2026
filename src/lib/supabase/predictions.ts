@@ -26,6 +26,7 @@ export async function upsertPrediction(
   matchId: string,
   slot: number,
   patch: Partial<PredictionRow>,
+  leagueId: string = "l1",
 ): Promise<PredictionRow> {
   const { data, error } = await supabase
     .from("predictions")
@@ -34,6 +35,7 @@ export async function upsertPrediction(
         user_id: userId,
         match_id: matchId,
         slot,
+        league_id: leagueId,
         predicted_home_score: patch.predicted_home_score ?? null,
         predicted_away_score: patch.predicted_away_score ?? null,
         predicted_goalscorers: patch.predicted_goalscorers ?? [],

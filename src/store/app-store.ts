@@ -171,7 +171,7 @@ export const useAppStore = create<AppState>()(
             const entry = {
               id: rp.id,
               user_id: rp.user_id,
-              league_id: rp.league_id,
+              league_id: idx >= 0 ? merged[idx].league_id : rp.league_id,
               match_id: rp.match_id,
               slot: rp.slot,
               predicted_home_score: rp.predicted_home_score,
@@ -221,7 +221,7 @@ export const useAppStore = create<AppState>()(
               predicted_goalscorers: p.predicted_goalscorers,
               points_earned: p.points_earned,
               is_zebra: p.is_zebra,
-            });
+            }, p.league_id);
           } catch (err) {
             console.warn("Erro ao sincronizar palpite", p.match_id, err);
           }
