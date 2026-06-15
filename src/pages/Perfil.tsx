@@ -42,6 +42,7 @@ export function PerfilPage() {
         data: {
           supabaseUrl,
           userId: authUser.id,
+          email: authUser.email,
           predictions: (localData?.predictions ?? []).map((p: Record<string, unknown>) => ({
             match_id: p.match_id as string,
             slot: (p.slot as number) ?? 1,
