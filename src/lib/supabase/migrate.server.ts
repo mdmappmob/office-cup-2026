@@ -1,5 +1,28 @@
 import { createServerFn } from "@tanstack/react-start";
-import { createClient } from "@supabase/supabase-js";
+
+async function supabaseFetch(
+  supabaseUrl: string,
+  serviceKey: string,
+  path: string,
+  body: unknown,
+  params?: string,
+) {
+  const url = `${supabaseUrl}/rest/v1/${path}${params ? `?${params}` : ""}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+      Prefer: "resolution=merge-duplicates",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`${path}: ${res.status} ${text}`);
+  }
+}
 
 export const migrateUserData = createServerFn({ method: "POST" })
   .validator(
@@ -30,11 +53,9 @@ export const migrateUserData = createServerFn({ method: "POST" })
       return { ok: false, error: "Credenciais Supabase não configuradas no servidor" };
     }
 
-    const admin = createClient(supabaseUrl, serviceKey);
-
     try {
-      // Garante que a liga padrão existe
-      await admin.from("leagues").upsert(
+      // Liga
+      await supabaseFetch(supabaseUrl, serviceKey, "leagues", [
         {
           id: "l1",
           admin_id: userId,
@@ -42,64 +63,56 @@ export const migrateUserData = createServerFn({ method: "POST" })
           is_active: true,
           payment_status: "paid",
         },
-        { onConflict: "id" },
-      );
+      ], "on_conflict=id");
 
-      // Garante que os match_ids dos palpites existem na tabela matches
+      // Matches
       if (predictions.length > 0) {
         const ids = [...new Set(predictions.map((p) => p.match_id))].filter(Boolean);
-        const res = await fetch(`${supabaseUrl}/rest/v1/matches?on_conflict=id`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            apikey: serviceKey,
-            Authorization: `Bearer ${serviceKey}`,
-            Prefer: "resolution=merge-duplicates",
-          },
-          body: JSON.stringify(
-            ids.map((id) => ({
-              id,
-              home_team: "_",
-              away_team: "_",
-              match_date: "2026-06-11T00:00:00.000Z",
-              phase: "_",
-            })),
-          ),
-        });
-        if (!res.ok) {
-          const text = await res.text();
-          return { ok: false, error: `matches insert: ${res.status} ${text}` };
-        }
+        await supabaseFetch(
+          supabaseUrl,
+          serviceKey,
+          "matches",
+          ids.map((id) => ({
+            id,
+            home_team: "_",
+            away_team: "_",
+            match_date: "2026-06-11T00:00:00.000Z",
+            phase: "_",
+          })),
+          "on_conflict=id",
+        );
       }
 
+      // Predictions
       if (predictions.length > 0) {
-        const rows = predictions.map((p) => ({
-          user_id: userId,
-          league_id: "l1",
-          match_id: p.match_id,
-          slot: p.slot,
-          predicted_home_score: p.predicted_home_score,
-          predicted_away_score: p.predicted_away_score,
-          predicted_goalscorers: p.predicted_goalscorers,
-          points_earned: p.points_earned,
-          is_zebra: p.is_zebra,
-        }));
-        const { error: predErr } = await admin.from("predictions").upsert(rows, {
-          onConflict: "user_id,match_id,slot",
-        });
-        if (predErr) return { ok: false, error: predErr.message };
+        await supabaseFetch(
+          supabaseUrl,
+          serviceKey,
+          "predictions",
+          predictions.map((p) => ({
+            user_id: userId,
+            league_id: "l1",
+            match_id: p.match_id,
+            slot: p.slot,
+            predicted_home_score: p.predicted_home_score,
+            predicted_away_score: p.predicted_away_score,
+            predicted_goalscorers: p.predicted_goalscorers,
+            points_earned: p.points_earned,
+            is_zebra: p.is_zebra,
+          })),
+          "on_conflict=user_id,match_id,slot",
+        );
       }
 
-      const { error: memberErr } = await admin.from("members").upsert(
+      // Members
+      await supabaseFetch(supabaseUrl, serviceKey, "members", [
         {
           user_id: userId,
           league_id: "l1",
           has_paid_admin: false,
           total_points: totalPoints,
         },
-        { onConflict: "league_id,user_id" },
-      );
-      if (memberErr) return { ok: false, error: memberErr.message };
+      ], "on_conflict=league_id,user_id");
 
       return { ok: true, predCount: predictions.length };
     } catch (err) {
