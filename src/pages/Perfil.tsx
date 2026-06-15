@@ -5,7 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import { useAppStore } from "@/store/app-store";
 import { useAuthStore } from "@/store/auth-store";
 import { mockProfiles } from "@/mocks/profiles";
-import { mockMatches } from "@/mocks/matches";
 import { Trash2, AlertTriangle, Upload, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { migrateUserData } from "@/lib/supabase/migrate.server";
@@ -39,21 +38,10 @@ export function PerfilPage() {
       const totalPoints =
         members.find((m: { user_id: string }) => m.user_id === authUser.id)?.total_points ?? 0;
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const matches = mockMatches.map((m) => ({
-        id: m.id,
-        home_team: m.home_team,
-        away_team: m.away_team,
-        home_flag: m.home_flag,
-        away_flag: m.away_flag,
-        match_date: m.match_date,
-        phase: m.phase,
-        group: m.group,
-      }));
       const result = await migrateUserData({
         data: {
           supabaseUrl,
           userId: authUser.id,
-          matches,
           predictions: (localData?.predictions ?? []).map((p: Record<string, unknown>) => ({
             match_id: p.match_id as string,
             slot: (p.slot as number) ?? 1,
