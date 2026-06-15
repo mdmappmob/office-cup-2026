@@ -56,9 +56,9 @@ export function PerfilPage() {
       });
       if (result.ok) {
         localStorage.setItem(`supabase_migrated_${authUser.id}`, "1");
-        toast.success(`${localPredictions} palpite(s) migrados com sucesso!`);
+        toast.success(`${localPredictions} palpite(s) migrados com sucesso! (predCount=${result.predCount ?? "?"})`);
       } else {
-        toast.error("Erro na migração", { description: result.error });
+        toast.error("Erro na migração", { description: `${result.error} (preds=${localPredictions})` });
       }
     } catch (err) {
       toast.error("Erro na migração", { description: (err as Error).message });

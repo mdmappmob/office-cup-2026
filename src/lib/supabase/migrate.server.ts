@@ -48,17 +48,28 @@ export const migrateUserData = createServerFn({ method: "POST" })
       // Garante que os match_ids dos palpites existem na tabela matches
       if (predictions.length > 0) {
         const ids = [...new Set(predictions.map((p) => p.match_id))].filter(Boolean);
-        const { error: matchErr } = await admin.from("matches").upsert(
-          ids.map((id) => ({
-            id,
-            home_team: "_",
-            away_team: "_",
-            match_date: "2026-06-11T00:00:00.000Z",
-            phase: "_",
-          })),
-          { onConflict: "id" },
-        );
-        if (matchErr) return { ok: false, error: `matches upsert: ${matchErr.message}` };
+        const res = await fetch(`${supabaseUrl}/rest/v1/matches?on_conflict=id`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: serviceKey,
+            Authorization: `Bearer ${serviceKey}`,
+            Prefer: "resolution=merge-duplicates",
+          },
+          body: JSON.stringify(
+            ids.map((id) => ({
+              id,
+              home_team: "_",
+              away_team: "_",
+              match_date: "2026-06-11T00:00:00.000Z",
+              phase: "_",
+            })),
+          ),
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          return { ok: false, error: `matches insert: ${res.status} ${text}` };
+        }
       }
 
       if (predictions.length > 0) {
