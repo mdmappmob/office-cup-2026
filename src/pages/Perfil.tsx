@@ -161,6 +161,9 @@ export function PerfilPage() {
           </CardContent>
         </Card>
       </div>
+      <p className="text-[10px] text-muted-foreground/50 text-center mt-6 font-mono">
+        v{typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "?"}.{typeof __APP_COMMIT__ !== "undefined" ? __APP_COMMIT__ : "?"}
+      </p>
     </div>
   );
 }
