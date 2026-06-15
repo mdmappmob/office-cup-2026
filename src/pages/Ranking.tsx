@@ -20,28 +20,33 @@ export function RankingPage() {
   const currentUserId = useAppStore((s) => s.currentUserId);
   const sorted = [...members].sort((a, b) => b.total_points - a.total_points);
   const [profiles, setProfiles] = useState<Record<string, string>>({});
+  const [leagueName, setLeagueName] = useState("");
 
   useEffect(() => {
-    const uids = members.map((m) => m.user_id).filter(Boolean);
+    supabase
+      .from("leagues")
+      .select("name")
+      .limit(1)
+      .then(({ data }) => { if (data?.[0]) setLeagueName(data[0].name); })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const uids = [...new Set(members.map((m) => m.user_id).filter(Boolean))];
     if (uids.length === 0) return;
     const mock = Object.fromEntries(
       mockProfiles.map((p) => [p.id, p.full_name]),
     );
-    const remaining = uids.filter((id) => !mock[id]);
-    if (remaining.length === 0) {
-      setProfiles(mock);
-      return;
-    }
+    const map: Record<string, string> = { ...mock };
     supabase
       .from("profiles")
       .select("id, full_name")
-      .in("id", remaining)
+      .in("id", uids.filter((id) => !mock[id]))
       .then(({ data }) => {
-        const map: Record<string, string> = { ...mock };
         for (const p of data ?? []) map[p.id] = p.full_name;
         setProfiles(map);
       })
-      .catch(() => setProfiles(mock));
+      .catch(() => setProfiles(map));
   }, [members, authUser?.id]);
 
   return (
@@ -55,9 +60,9 @@ export function RankingPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-mono uppercase tracking-widest text-muted-foreground">
-            Bolão da Diretoria 2026
-          </CardTitle>
+            <CardTitle className="text-sm font-mono uppercase tracking-widest text-muted-foreground">
+              {leagueName || "Bolão da Diretoria 2026"}
+            </CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
@@ -79,11 +84,8 @@ export function RankingPage() {
             </TableHeader>
             <TableBody>
               {sorted.map((m, idx) => {
-                const isMe = m.user_id === currentUserId;
-                const name =
-                  isMe
-                    ? authUser?.full_name
-                    : profiles[m.user_id] ?? "Usuário local";
+                const isMe = m.user_id === currentUserId || m.user_id === authUser?.id;
+                const name = profiles[m.user_id] ?? authUser?.full_name ?? "Usuário local";
                 return (
                   <TableRow key={m.id} className={isMe ? "bg-primary/5" : ""}>
                     <TableCell className="font-mono">{String(idx + 1).padStart(2, "0")}</TableCell>

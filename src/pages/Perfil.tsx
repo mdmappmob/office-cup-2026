@@ -87,6 +87,10 @@ export function PerfilPage() {
               if (league?.[0]) setJoinedLeague(league[0].name);
             })
             .catch(() => {});
+          supabase.from("profiles").upsert(
+            { id: authUser.id, full_name: authUser.full_name, email: authUser.email },
+            { onConflict: "id" },
+          ).catch(() => {});
         }
       })
       .catch(() => {});
