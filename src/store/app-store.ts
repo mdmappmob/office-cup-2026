@@ -247,13 +247,14 @@ export const useAppStore = create<AppState>()(
         }
       },
       syncMembersToSupabase: async () => {
-        const members = get().members;
-        for (const m of members) {
-          try {
-            await membersApi.upsertMember(m.user_id, m.league_id, m.total_points);
-          } catch (err) {
-            console.warn("Erro ao sincronizar member", m.user_id, err);
-          }
+        const userId = get().currentUserId;
+        if (!userId) return;
+        const mine = get().members.find((m) => m.user_id === userId);
+        if (!mine) return;
+        try {
+          await membersApi.upsertMember(mine.user_id, mine.league_id, mine.total_points);
+        } catch (err) {
+          console.warn("Erro ao sincronizar member", mine.user_id, err);
         }
       },
       recomputeStandings: () => {
