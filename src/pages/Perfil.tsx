@@ -2,11 +2,12 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { useAppStore } from "@/store/app-store";
 import { useAuthStore } from "@/store/auth-store";
 import { mockProfiles } from "@/mocks/profiles";
 import { APP_VERSION, APP_COMMIT } from "@/lib/version";
-import { Trash2, AlertTriangle, Upload, CheckCircle2 } from "lucide-react";
+import { Trash2, AlertTriangle, Upload, CheckCircle2, Copy, Users, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { migrateUserData } from "@/lib/supabase/migrate.server";
 import { supabase } from "@/lib/supabase/client";
@@ -14,7 +15,11 @@ import { supabase } from "@/lib/supabase/client";
 export function PerfilPage() {
   const [migrating, setMigrating] = useState(false);
   const [migrated, setMigrated] = useState(false);
+  const [inviteCode, setInviteCode] = useState("");
+  const [joining, setJoining] = useState(false);
+  const [leagueCode, setLeagueCode] = useState("");
   const authUser = useAuthStore((s) => s.user);
+  const isAdmin = useAppStore((s) => s.isAdmin);
   const currentUserId = useAppStore((s) => s.currentUserId);
   const user =
     authUser?.id === currentUserId
@@ -49,6 +54,46 @@ export function PerfilPage() {
       })
       .catch(() => {});
   }, [authUser?.id]);
+
+  useEffect(() => {
+    if (!authUser?.id || !isAdmin) return;
+    supabase
+      .from("leagues")
+      .select("invite_code")
+      .eq("admin_id", authUser.id)
+      .limit(1)
+      .then(({ data }) => {
+        if (data?.[0]?.invite_code) setLeagueCode(data[0].invite_code);
+      })
+      .catch(() => {});
+  }, [authUser?.id, isAdmin]);
+
+  const handleJoinLeague = async () => {
+    if (!authUser?.id || !inviteCode.trim()) return;
+    setJoining(true);
+    try {
+      const { data: league } = await supabase
+        .from("leagues")
+        .select("id, name")
+        .eq("invite_code", inviteCode.trim().toUpperCase())
+        .maybeSingle();
+      if (!league) {
+        toast.error("Código inválido", { description: "Nenhum bolão encontrado com esse código." });
+        return;
+      }
+      const { error } = await supabase.from("members").upsert(
+        { user_id: authUser.id, league_id: league.id, has_paid_admin: false, total_points: 0 },
+        { onConflict: "league_id,user_id" },
+      );
+      if (error) throw error;
+      toast.success(`Bem-vindo ao ${league.name}!`);
+      setInviteCode("");
+    } catch (err) {
+      toast.error("Erro ao entrar no bolão", { description: (err as Error).message });
+    } finally {
+      setJoining(false);
+    }
+  };
 
   const handleMigrate = async () => {
     if (!authUser?.id) return;
@@ -116,6 +161,62 @@ export function PerfilPage() {
             </div>
           </CardContent>
         </Card>
+
+        {isAdmin && leagueCode && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-mono uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                <Users className="size-3.5" /> Meu Bolão
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Compartilhe o código abaixo com seus amigos para eles entrarem no bolão:
+              </p>
+              <div className="flex items-center gap-3">
+                <code className="px-4 py-2 rounded-md bg-muted font-mono text-sm font-bold tracking-wider">
+                  {leagueCode}
+                </code>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    navigator.clipboard.writeText(leagueCode);
+                    toast.success("Código copiado!");
+                  }}
+                >
+                  <Copy className="size-3.5 mr-1" /> Copiar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {!isAdmin && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-mono uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                <KeyRound className="size-3.5" /> Entrar em Bolão
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Insira o código que o administrador do bolão enviou:
+              </p>
+              <div className="flex items-center gap-3">
+                <Input
+                  placeholder="Ex: BOLAO-A7F2"
+                  className="font-mono uppercase w-40"
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                />
+                <Button size="sm" disabled={!inviteCode.trim() || joining} onClick={handleJoinLeague}>
+                  {joining ? "Entrando..." : "Entrar"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>
