@@ -22,6 +22,7 @@ import { CheckCircle2, ShieldAlert, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { syncFootballData } from "@/lib/results-sync.server";
 import { API_TEAM_MAP } from "@/lib/results-sync";
+import { userBreakdown } from "@/lib/scoring";
 
 const USER_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -182,6 +183,9 @@ function Body() {
                 <TableHead className="font-mono text-[10px] uppercase tracking-widest text-center">
                   Status
                 </TableHead>
+                <TableHead className="font-mono text-[10px] uppercase tracking-widest text-center w-[80px]">
+                  Pontos
+                </TableHead>
                 <TableHead className="font-mono text-[10px] uppercase tracking-widest text-right">
                   Ação
                 </TableHead>
@@ -286,6 +290,23 @@ function ResultRow({ matchId }: { matchId: string }) {
           </span>
         )}
       </TableCell>
+      <TableCell className="text-center font-mono text-xs">
+        {finished && predictions.length > 0
+          ? (() => {
+              const scored = predictions.filter((p) => p.points_earned > 0).length;
+              const pts = predictions.reduce((s, p) => s + p.points_earned, 0);
+              return (
+                <span className={scored > 0 ? "text-accent font-bold" : "text-muted-foreground"}>
+                  {pts}
+                  <span className="text-[9px] ml-0.5">pts</span>
+                  <span className="text-[9px] text-muted-foreground/50 ml-1">
+                    ({scored}/{predictions.length})
+                  </span>
+                </span>
+              );
+            })()
+          : "—"}
+      </TableCell>
       <TableCell className="text-right">
         <Button
           size="sm"
@@ -309,13 +330,22 @@ function StatsSummary() {
   const scoredPreds = predictions.filter((p) => p.points_earned > 0).length;
   const totalPts = members.reduce((s, m) => s + m.total_points, 0);
   const top = [...members].sort((a, b) => b.total_points - a.total_points)[0];
+  const topUser = top
+    ? useAppStore
+        .getState()
+        .members.find((m) => m.user_id === top.user_id)
+    : null;
+
+  const allPts = predictions
+    .filter((p) => p.points_earned > 0)
+    .reduce((s, p) => s + p.points_earned, 0);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
       <StatCard label="Partidas apuradas" value={String(finishedCount)} />
       <StatCard label="Palpites pontuados" value={String(scoredPreds)} />
       <StatCard label="Pontos distribuídos" value={String(totalPts)} />
-      <StatCard label="Líder atual" value={top?.user_id ?? "—"} />
+      <StatCard label="Líder atual" value={topUser?.user_id?.slice(0, 8) ?? "—"} />
     </div>
   );
 }

@@ -162,28 +162,30 @@ export const useAppStore = create<AppState>()(
             predictionsApi.fetchPredictions(userId),
             membersApi.fetchMembers(),
           ]);
-          const localPredictions = get().predictions;
-          const merged = [...localPredictions];
+          let merged = [...get().predictions];
           for (const rp of remotePredictions) {
-            const exists = localPredictions.find(
+            const idx = merged.findIndex(
               (lp) =>
                 lp.match_id === rp.match_id && lp.user_id === rp.user_id && lp.slot === rp.slot,
             );
-            if (!exists) {
-              merged.push({
-                id: rp.id,
-                user_id: rp.user_id,
-                league_id: "default",
-                match_id: rp.match_id,
-                slot: rp.slot,
-                predicted_home_score: rp.predicted_home_score,
-                predicted_away_score: rp.predicted_away_score,
-                predicted_home_lineup: [],
-                predicted_away_lineup: [],
-                predicted_goalscorers: rp.predicted_goalscorers,
-                is_zebra: rp.is_zebra,
-                points_earned: rp.points_earned,
-              });
+            const entry = {
+              id: rp.id,
+              user_id: rp.user_id,
+              league_id: rp.league_id,
+              match_id: rp.match_id,
+              slot: rp.slot,
+              predicted_home_score: rp.predicted_home_score,
+              predicted_away_score: rp.predicted_away_score,
+              predicted_home_lineup: [],
+              predicted_away_lineup: [],
+              predicted_goalscorers: rp.predicted_goalscorers,
+              is_zebra: rp.is_zebra,
+              points_earned: rp.points_earned,
+            };
+            if (idx >= 0) {
+              merged[idx] = entry;
+            } else {
+              merged.push(entry);
             }
           }
           const mergedMembers = remoteMembers.map((rm) => ({
@@ -205,8 +207,13 @@ export const useAppStore = create<AppState>()(
       syncPredictionsToSupabase: async () => {
         const userId = get().currentUserId;
         if (!userId) return;
-        const predictions = get().predictions.filter((p) => p.user_id === userId);
-        for (const p of predictions) {
+        const filled = get().predictions.filter(
+          (p) =>
+            p.user_id === userId &&
+            (p.predicted_home_score !== null || p.predicted_away_score !== null),
+        );
+        if (filled.length === 0) return;
+        for (const p of filled) {
           try {
             await predictionsApi.upsertPrediction(userId, p.match_id, p.slot, {
               predicted_home_score: p.predicted_home_score,

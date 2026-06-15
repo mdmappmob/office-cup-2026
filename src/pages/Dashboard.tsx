@@ -2,7 +2,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAppStore } from "@/store/app-store";
 import { useAuthStore } from "@/store/auth-store";
 import { mockProfiles } from "@/mocks/profiles";
-import { totalUserPoints, userBreakdown } from "@/lib/scoring";
+import { totalUserPoints, userBreakdown, scoreMatch } from "@/lib/scoring";
+import { PHASE_LABEL, PHASE_ORDER } from "@/mocks/types";
 import {
   LineChart,
   Line,
@@ -39,14 +40,34 @@ export function DashboardPage() {
   const sortedMembers = [...members].sort((a, b) => b.total_points - a.total_points);
   const myRank = sortedMembers.findIndex((m) => m.user_id === currentUserId) + 1;
 
-  const lineData = [
-    { rodada: "R1", pontos: 0 },
-    { rodada: "R2", pontos: 0 },
-    { rodada: "R3", pontos: 0 },
-    { rodada: "R4", pontos: 0 },
-    { rodada: "R5", pontos: 0 },
-    { rodada: "R6", pontos: 0 },
-  ];
+  const userPreds = predictions.filter((p) => p.user_id === currentUserId);
+  const finishedMatches = matches.filter((m) => m.status === "finished");
+  const totalPredictable = finishedMatches.length;
+  const scoredPredictions = userPreds.filter((p) => {
+    const m = matches.find((x) => x.id === p.match_id);
+    return m && m.home_score !== null && m.away_score !== null;
+  }).length;
+  const aproveitamento =
+    totalPredictable > 0
+      ? `${Math.round((scoredPredictions / totalPredictable) * 100)}%`
+      : "—";
+  const exactCount = userPreds.filter((p) => {
+    const m = matches.find((x) => x.id === p.match_id);
+    if (!m || m.home_score === null || m.away_score === null) return false;
+    return m.home_score === p.predicted_home_score && m.away_score === p.predicted_away_score;
+  }).length;
+
+  const lineData = PHASE_ORDER.map((phase) => {
+    const phasePreds = userPreds.filter((p) => {
+      const m = matches.find((x) => x.id === p.match_id);
+      return m && m.phase === phase;
+    });
+    const pts = phasePreds.reduce((sum, p) => {
+      const m = matches.find((x) => x.id === p.match_id);
+      return sum + (m ? scoreMatch(m, p) : 0);
+    }, 0);
+    return { rodada: PHASE_LABEL[phase].replace("Fase de ", "").replace(" de Final", ""), pontos: pts };
+  });
   const barData = [
     { tipo: "Exato", pts: breakdown.exact || 0 },
     { tipo: "Ven. + Saldo", pts: breakdown.winnerWithDiff || 0 },
@@ -86,8 +107,8 @@ export function DashboardPage() {
           value={`#${myRank || "—"}`}
           sub={`de ${members.length} membros`}
         />
-        <KpiCard icon={<Target className="size-4" />} label="Acertos em Cheio" value="0" />
-        <KpiCard icon={<Flame className="size-4" />} label="Aproveitamento" value="—" />
+        <KpiCard icon={<Target className="size-4" />} label="Acertos em Cheio" value={String(exactCount)} />
+        <KpiCard icon={<Flame className="size-4" />} label="Aproveitamento" value={aproveitamento} sub={`${scoredPredictions} de ${totalPredictable} palpites`} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
