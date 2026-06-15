@@ -67,14 +67,14 @@ export function PerfilPage() {
         if (data?.[0]?.invite_code) setLeagueCode(data[0].invite_code);
       })
       .catch(() => {});
-    supabase
-      .from("profiles")
-      .upsert(
-        { id: authUser.id, full_name: authUser.full_name, email: authUser.email },
-        { onConflict: "id" },
-      )
-      .then(() => {})
-      .catch(() => {});
+    (async () => {
+      try {
+        await supabase.from("profiles").upsert(
+          { id: authUser.id, full_name: authUser.full_name, email: authUser.email },
+          { onConflict: "id" },
+        );
+      } catch { /* profile upsert opcional */ }
+    })();
   }, [authUser?.id, isAdmin]);
 
   useEffect(() => {
@@ -95,14 +95,14 @@ export function PerfilPage() {
               if (league?.[0]) setJoinedLeague(league[0].name);
             })
             .catch(() => {});
-          supabase
-            .from("profiles")
-            .upsert(
-              { id: authUser.id, full_name: authUser.full_name, email: authUser.email },
-              { onConflict: "id" },
-            )
-            .then(() => {})
-            .catch(() => {});
+          (async () => {
+            try {
+              await supabase.from("profiles").upsert(
+                { id: authUser.id, full_name: authUser.full_name, email: authUser.email },
+                { onConflict: "id" },
+              );
+            } catch { /* profile upsert opcional */ }
+          })();
         }
       })
       .catch(() => {});
