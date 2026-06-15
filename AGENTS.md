@@ -3,7 +3,8 @@
 ## Stack
 - TanStack Start + React 19 + TypeScript + Vite + Tailwind 4 + shadcn/ui
 - Zustand com persist (localStorage) para dados da aplicação
-- SQLite via sql.js (WASM) no navegador, persistido em IndexedDB (autenticação)
+- SQLite via sql.js (WASM) no navegador, persistido em IndexedDB (autenticação legado)
+- **Supabase** (PostgreSQL + Auth) para dados compartilhados: predictions, members, profiles, leagues, matches
 - Vercel (deploy via `vite build` — preset nitro `vercel`)
 
 ## Regras de Pontuação (src/lib/scoring.ts)
@@ -36,7 +37,6 @@ Implementação completa do chaveamento da Copa 2026 conforme regulamento da FIF
 - **31 jogos mata-mata**: r32 (16), oitavas (8), quartas (4), semi (2), final (1)
 
 ### Funções exportadas
-
 | Função | Descrição |
 |---|---|
 | `computeGroupStandings()` | Tabela de cada grupo a partir dos palpites |
@@ -71,76 +71,125 @@ Implementação completa do chaveamento da Copa 2026 conforme regulamento da FIF
 ## Fluxo de Dados
 
 ### Inicialização
-1. SqliteBootstrap abre SQLite WASM, restaura sessão do localStorage
-2. AppStore carrega partidas (mockMatches — fixtures reais da Copa 2026)
-3. Se usuário logado, redireciona para /dashboard
+1. `restoreSession()` (auth-store.ts) tenta sessão Supabase; se falha, fallback SQLite
+2. Se Supabase, chama `setCurrentUser(supabaseUserId)` → `loadFromSupabase()` → `loadProfiles()` e `ensureProfile()`
+3. AppStore carrega partidas (mockMatches — fixtures reais da Copa 2026)
+4. Se usuário logado, redireciona para /dashboard
 
 ### Cadastro / Login
-1. Primeiro usuário cadastrado vira admin automaticamente
-2. Senha hasheada com PBKDF2 (120k iterações, SHA-256)
-3. Sessão salva em `localStorage.current_user_id`
+1. `signUp`/`signIn` via Supabase Auth (`src/lib/supabase/auth.ts`)
+2. Admin detectado por `leagues.admin_id` + fallback `VITE_ADMIN_EMAIL`
+3. Sessão salva pelo Supabase (localStorage `sb-*-auth-token`)
+4. `ensureProfile()` upserta `{ id, full_name, email }` na tabela `profiles` automaticamente no login/restoreSession
 
 ### Partidas
 - 103 partidas reais: 72 grupos (12 grupos × 6 jogos) + 31 mata-mata (r32/16/8/4/2/1)
 - Times das fases mata-mata são populados dinamicamente com base nos palpites do usuário (bracket)
 - Datas reais da Copa 2026 (11 jun - 19 jul)
-- `computeBracket` em `app-store.ts` delega para `src/lib/bracket.ts`
+- Fuso horário por partida explicitado nos fixtures: `[group, dateISO, home, away, venueTz]` com constantes EDT/CDT/MT/ET
 
 ### Palpites (src/pages/Palpites.tsx)
-- **Avançar fase**: botão "Avançar fase" visível em todos os dispositivos substitui o Ctrl+S como método principal
+- **Avançar fase**: botão "Avançar fase" visível em todos os dispositivos
 - Progresso da fase atual mostrado ao lado do botão
-- Fases mata-mata usam `BracketRow` (Card responsivo) com layout adaptável (`max-sm:`)
+- Fases mata-mata usam `BracketRow` (Card responsivo) com layout adaptável
 - Fase de grupos usa `GroupTable` com data do jogo exibida
 - Ctrl+S continua funcionando como atalho
 
-### Fuso Horário
-- Partidas armazenadas com offset -03:00 (horário de Brasília)
-- `guessTz()` em `src/mocks/matches.ts` mapeia o time mandante para timezone da sede:
-  - México/América Central → `America/Mexico_City` (UTC-6, ~3h de diferença)
-  - Canadá → `America/Toronto` (UTC-4)
-  - EUA/demais → `America/Chicago` (UTC-5, ~2h de diferença)
-- Exibição: "sede" (horário local do estádio) e "local" (horário de Brasília)
-
-### Resultados
-- **Sincronização automática**: botão "Sincronizar resultados" na página de Apuração busca placares da football-data.org
-- **Manual**: admin pode lançar resultado de qualquer partida diretamente
+### Resultados / Apuração (src/pages/AdminResultados.tsx)
+- Admin lança resultado de qualquer partida
+- **Sincronização automática**: botão "Sincronizar resultados" busca placares da football-data.org
+- Ao encerrar partida, `settleMatch()` (app-store.ts) recalcula pontos localmente + dispara `settleAllPredictions` (server fn) que:
+  1. Busca TODAS as predictions da partida no Supabase
+  2. Recalcula `points_earned` e `is_zebra` para cada uma
+  3. Atualiza `total_points` na tabela `members` para todos os usuários afetados
 - Partidas com data passada são destacadas para lançamento
-- Pontuação recalculada automaticamente ao encerrar partida
-- API configurada via env vars: `FOOTBALL_API_KEY`, `FOOTBALL_COMPETITION_ID`
 
-### Ranking
-- Baseado nos pontos acumulados dos palpites vs resultados reais
-- Melhor slot (múltiplos palpites por partida) é considerado
+### Ranking / Dashboard
+- **Ranking** (`src/pages/Ranking.tsx`): tabela completa, busca `profiles` do Zustand (populado por `loadProfiles`)
+- **Dashboard** (`src/pages/Dashboard.tsx`): "Top da Firma" com top 5, gráfico de evolução, breakdown por fase
+- Ambos leem `useAppStore((s) => s.profiles)` — mesma fonte, sem duplicação
+- `loadProfiles()` busca da tabela `profiles` do Supabase via fetch direto (não supabase-js)
 - Status de pagamento (PAGO/PENDENTE) gerenciado pelo admin
+- Nomes dos membros vindos da tabela `profiles`; upsert automático no login
+
+### Convite
+- Admin vê código do bolão no Perfil (botão Copiar)
+- Convidado insere código no Perfil → `handleJoinLeague()`:
+  1. Busca liga por `invite_code`
+  2. Upsert em `members` + `profiles`
+  3. Mostra "Você está participando do [nome da liga]"
+- Código real: `UYLJBBTYW9` (liga "Palpites - Copa 2026")
 
 ## Tabelas
 
-### SQLite (IndexedDB) — `officecup-sqlite`
-- `oc_users`: id, email, password_hash, full_name, is_admin, created_at
+### Supabase (PostgreSQL) — schema `public`
+
+#### `matches`
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| id | TEXT PK | ex: `g0`, `r32_1` |
+| home_team, away_team | TEXT | Placeholder `_` (dados reais só no Zustand local) |
+| home_score, away_score | INTEGER NULL | Preenchido ao apurar |
+| status | TEXT | `scheduled` / `finished` |
+| phase, group, bracket_slot | TEXT | Metadados da partida |
+
+#### `predictions`
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| id | TEXT PK (UUID) | |
+| user_id | UUID FK → auth.users | |
+| league_id | TEXT | `l1` |
+| match_id | TEXT FK → matches | |
+| slot | INTEGER | Múltiplos palpites por partida |
+| predicted_home_score, predicted_away_score | INTEGER | Palpite |
+| points_earned | INTEGER | Recalculado por `settleAllPredictions` |
+| is_zebra | BOOLEAN | Flag de zebra |
+| UNIQUE(user_id, match_id, slot) | | |
+
+#### `members`
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| id | TEXT PK (UUID) | |
+| league_id | TEXT FK → leagues | |
+| user_id | UUID FK → auth.users | |
+| has_paid_admin | BOOLEAN | |
+| total_points | INTEGER | Recalculado por `settleAllPredictions` |
+| UNIQUE(league_id, user_id) | | |
+
+#### `leagues`
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| id | TEXT PK | `l1` |
+| admin_id | UUID FK → auth.users | Quem cria é admin |
+| name | TEXT | "Palpites - Copa 2026" |
+| invite_code | TEXT UNIQUE | Código de convite (`UYLJBBTYW9`) |
+| is_active, payment_status | BOOLEAN/TEXT | |
+
+#### `profiles`
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| id | TEXT PK | UUID do auth.users |
+| full_name | TEXT | Nome de exibição |
+| email | TEXT | |
+| created_at | TIMESTAMPTZ | |
 
 ### Zustand (localStorage) — chave `officecup-2026`
 Persist via `partialize`:
 - `predictions`: palpites dos usuários
 - `members`: membros da liga com pontuação
+- `profiles`: mapa `{ [id]: full_name }` (NÃO persiste, recarregado via `loadProfiles`)
 - `theme`: light/dark
 - `isAdmin`: flag admin
 - `matches`: NÃO persiste (sempre recarregado do mockMatches)
 
-### Supabase (planejado — PRÓXIMO PASSO)
-Migrar dados do localStorage para Supabase para ranking global.
+### SQLite (IndexedDB) — `officecup-sqlite` (apenas fallback)
+- `oc_users`: id, email, password_hash, full_name, is_admin, created_at
 
-Tabelas planejadas:
-- `predictions`: id, user_id, league_id, match_id, slot, predicted_home_score, predicted_away_score, predicted_goalscorers, points_earned, is_zebra, created_at
-- `members`: id, league_id, user_id, has_paid_admin, total_points
-- `matches`: id, home_team, away_team, home_flag, away_flag, match_date, phase, group, home_score, away_score, status
-- `users`: id, email, full_name, is_admin (via Supabase Auth)
-
-Migração:
-1. Criar migrations SQL com RLS
-2. `src/lib/supabase/client.ts` — cliente Supabase
-3. `src/lib/supabase/predictions.ts` + `members.ts` — CRUD
-4. Hook de migração no login: ler `localStorage['officecup-2026']`, upload pro Supabase, marcar `migrated`
-5. Zustand vira cache: lê do Supabase no startup, escreve local + Supabase
+## Migração (local → Supabase)
+- Botão "Migrar dados locais" no Perfil
+- `migrateUserData` (server fn) upserta predictions + members via service role
+- Estado `migrated` consulta Supabase predictions count
+- Após migrar, `loadFromSupabase` recalcula `points_earned` localmente se o match tem resultado e a prediction veio com 0
 
 ## Scripts
 
@@ -153,7 +202,7 @@ Migração:
 
 ## Deploy (Vercel)
 
-- `vercel.json`: `buildCommand: "vite build"`, `framework: null`
+- `vercel.json`: `buildCommand: "node scripts/version.mjs && vite build"`, `framework: null`
 - Build gera `.vercel/output/` com preset nitro `vercel`
 - Basta conectar o repositório GitHub no painel da Vercel
 
@@ -161,20 +210,64 @@ Migração:
 
 | Arquivo | Função |
 |---|---|
-| `src/lib/bracket.ts` | Lógica oficial FIFA do chaveamento (novo — 904 linhas) |
-| `src/store/app-store.ts` | Zustand store com persist localStorage + delegação para bracket.ts |
+| `src/lib/bracket.ts` | Lógica oficial FIFA do chaveamento (904 linhas) |
+| `src/store/app-store.ts` | Zustand store: persist + Supabase sync + profiles + bracket |
+| `src/store/auth-store.ts` | Auth: login/signup/restoreSession + ensureProfile |
 | `src/lib/scoring.ts` | Pontuação dos palpites vs resultados reais |
 | `src/lib/copilot.ts` | Detecção de zebra com base em força das seleções |
-| `src/lib/db/index.ts` | Camada de repositório local (Zustand) |
+| `src/lib/db/index.ts` | Camada de repositório (Zustand) |
+| `src/lib/supabase/client.ts` | Cliente Supabase (anon key) |
+| `src/lib/supabase/auth.ts` | signIn/signUp/getSessionUser + admin detection via leagues table |
+| `src/lib/supabase/predictions.ts` | CRUD predictions + upsertPrediction com leagueId |
+| `src/lib/supabase/members.ts` | CRUD members |
+| `src/lib/supabase/settle-all.server.ts` | Server fn: recalcula points_earned + total_points de TODOS os usuários |
+| `src/lib/supabase/migrate.server.ts` | Server fn: migra dados locais para Supabase |
 | `src/mocks/types.ts` | Tipos compartilhados (MockMatch, MockPrediction, etc.) |
-| `src/mocks/matches.ts` | Fixtures das 103 partidas reais |
-| `src/pages/Palpites.tsx` | Página de palpites com BracketRow para fase mata-mata |
-| `src/pages/Dashboard.tsx` | Dashboard do usuário com pontuação |
-| `src/pages/AdminResultados.tsx` | Admin: lançar resultados e sincronizar |
+| `src/mocks/matches.ts` | Fixtures das 103 partidas reais com timezone por partida |
+| `src/pages/Palpites.tsx` | Página de palpites |
+| `src/pages/Dashboard.tsx` | Dashboard: Top da Firma, evolução, breakdown |
+| `src/pages/Ranking.tsx` | Ranking completo da liga |
+| `src/pages/Perfil.tsx` | Perfil: migração, código convite, joinedLeague |
+| `src/pages/AdminResultados.tsx` | Admin: lançar resultados + sincronizar |
+| `supabase/migration.sql` | Schema base: matches, predictions, leagues, members + RLS |
+| `supabase/invite_code.sql` | invite_code column, profiles table, correção league_id |
 | `vercel.json` | Configuração de build/deploy Vercel |
 | `AGENTS.md` | Este arquivo — documentação do projeto |
 
-## Observações sobre Admin e Demo
+## Estado Atual (Jun 2026)
 
-- **Admin fixo**: hardcoded via `ADMIN_EMAIL` em `src/lib/supabase/auth.ts` e `ADMIN_EMAIL_SQLITE` em `src/lib/db/sqlite-repo.ts` — somente `mdm.appmob@gmail.com` é admin.
-- **Toggle "Simular admin" removido**: existia no Perfil (`src/pages/Perfil.tsx`) para demonstração, mas foi removido porque admin já é determinado por email. Futuramente, quando houver múltiplas ligas e um modo demonstração para visitantes, reativar esse toggle com `Switch` + `setAdmin` da app-store.
+### Dados da Liga
+- **Liga**: "Palpites - Copa 2026"
+- **Código convite**: `UYLJBBTYW9`
+- **Membros**:
+  1. Márcio Donizeti Marcondes — 75 pts (admin)
+  2. MDM — 75 pts
+  3. THIAGO HENRIQUE BARREIRO OLIVEIRA MARCONDES — 72 pts
+
+### Fluxo de Apuração
+1. Admin clica "Encerrar partida" → `settleMatch()` no app-store
+2. Atualiza `points_earned` localmente + sync predictions do admin
+3. Chama `settleAllPredictions` (server fn com service role):
+   - Busca TODAS predictions da partida no Supabase
+   - Recalcula `points_earned` + `is_zebra` para cada prediction
+   - Recalcula `total_points` na tabela `members` para todos afetados
+4. `loadFromSupabase()` no mount do Ranking recarrega dados + recalcula localmente se prediction veio com 0
+
+### Funcionalidades Verificadas
+- ✅ Login/Logout com Supabase Auth
+- ✅ Admin detectado por `leagues.admin_id`
+- ✅ Profile upsert automático no login (`ensureProfile`)
+- ✅ Convite por código (entrar/sair do bolão)
+- ✅ Palpites locais + sync Supabase
+- ✅ Migração dados locais → Supabase
+- ✅ Apuração recalcula pontos de todos os membros
+- ✅ Ranking mostra nomes corretos dos membros
+- ✅ Dashboard "Top da Firma" com nomes corretos
+- ✅ Título da liga dinâmico no Ranking
+- ✅ Multi-browser (admin + MDM + Thiago)
+- ✅ 12 partidas apuradas com pontuação de todos os membros
+
+### Próximos Passos
+1. Sincronizar `matches` table no Supabase com dados reais (não placeholders)
+2. Implementar recuperação de senha
+3. Múltiplas ligas com seleção dinâmica (remover `CURRENT_LEAGUE_ID` hardcoded)
