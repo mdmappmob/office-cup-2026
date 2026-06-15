@@ -1,7 +1,8 @@
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAppStore } from "@/store/app-store";
 import { useAuthStore } from "@/store/auth-store";
-import { mockProfiles } from "@/mocks/profiles";
+import { supabase } from "@/lib/supabase/client";
 import { totalUserPoints, userBreakdown, scoreMatch } from "@/lib/scoring";
 import { PHASE_LABEL, PHASE_ORDER } from "@/mocks/types";
 import {
@@ -28,12 +29,24 @@ export function DashboardPage() {
   const user =
     authUser?.id === currentUserId
       ? { id: authUser.id, email: authUser.email, full_name: authUser.full_name, avatar_url: "" }
-      : (mockProfiles.find((p) => p.id === currentUserId) ?? {
-          id: currentUserId,
-          email: "",
-          full_name: "Usuário local",
-          avatar_url: "",
-        });
+      : { id: currentUserId, email: "", full_name: "Usuário local", avatar_url: "" };
+
+  const [profiles, setProfiles] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const uids = [...new Set(members.map((m) => m.user_id).filter(Boolean))];
+    if (uids.length === 0) return;
+    supabase
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", uids)
+      .then(({ data }) => {
+        const map: Record<string, string> = {};
+        for (const p of data ?? []) map[p.id] = p.full_name;
+        setProfiles(map);
+      })
+      .catch(() => {});
+  }, [members]);
 
   const live = totalUserPoints(matches, predictions, currentUserId);
   const breakdown = userBreakdown(matches, predictions, currentUserId);
@@ -181,17 +194,8 @@ export function DashboardPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           {sortedMembers.slice(0, 5).map((m, idx) => {
-            const p =
-              authUser?.id === m.user_id
-                ? {
-                    id: authUser.id,
-                    email: authUser.email,
-                    full_name: authUser.full_name,
-                    avatar_url: "",
-                  }
-                : mockProfiles.find((x) => x.id === m.user_id);
-            const isMe = m.user_id === currentUserId;
-            const name = p?.full_name ?? "Usuário local";
+            const isMe = m.user_id === currentUserId || m.user_id === authUser?.id;
+            const name = profiles[m.user_id] ?? (isMe ? authUser?.full_name : "Usuário local");
             return (
               <div
                 key={m.id}
