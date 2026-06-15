@@ -37,8 +37,10 @@ export function PerfilPage() {
       const members = localData?.members ?? [];
       const totalPoints =
         members.find((m: { user_id: string }) => m.user_id === authUser.id)?.total_points ?? 0;
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const result = await migrateUserData({
         data: {
+          supabaseUrl,
           userId: authUser.id,
           predictions: (localData?.predictions ?? []).map((p: Record<string, unknown>) => ({
             match_id: p.match_id as string,
