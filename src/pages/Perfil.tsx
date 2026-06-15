@@ -18,6 +18,7 @@ export function PerfilPage() {
   const [inviteCode, setInviteCode] = useState("");
   const [joining, setJoining] = useState(false);
   const [leagueCode, setLeagueCode] = useState("");
+  const [joinedLeague, setJoinedLeague] = useState<string | null>(null);
   const authUser = useAuthStore((s) => s.user);
   const isAdmin = useAppStore((s) => s.isAdmin);
   const currentUserId = useAppStore((s) => s.currentUserId);
@@ -68,6 +69,29 @@ export function PerfilPage() {
       .catch(() => {});
   }, [authUser?.id, isAdmin]);
 
+  useEffect(() => {
+    if (!authUser?.id || isAdmin) return;
+    supabase
+      .from("members")
+      .select("league_id")
+      .eq("user_id", authUser.id)
+      .limit(1)
+      .then(({ data }) => {
+        if (data?.[0]) {
+          supabase
+            .from("leagues")
+            .select("name")
+            .eq("id", data[0].league_id)
+            .limit(1)
+            .then(({ data: league }) => {
+              if (league?.[0]) setJoinedLeague(league[0].name);
+            })
+            .catch(() => {});
+        }
+      })
+      .catch(() => {});
+  }, [authUser?.id, isAdmin]);
+
   const handleJoinLeague = async () => {
     if (!authUser?.id || !inviteCode.trim()) return;
     setJoining(true);
@@ -90,6 +114,7 @@ export function PerfilPage() {
         { id: authUser.id, full_name: authUser.full_name, email: authUser.email },
         { onConflict: "id" },
       );
+      setJoinedLeague(league.name);
       toast.success(`Bem-vindo ao ${league.name}!`);
       setInviteCode("");
     } catch (err) {
@@ -196,7 +221,7 @@ export function PerfilPage() {
           </Card>
         )}
 
-        {!isAdmin && (
+        {!isAdmin && !joinedLeague && (
           <Card>
             <CardHeader>
               <CardTitle className="text-sm font-mono uppercase tracking-widest text-muted-foreground flex items-center gap-2">
@@ -218,6 +243,21 @@ export function PerfilPage() {
                   {joining ? "Entrando..." : "Entrar"}
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {!isAdmin && joinedLeague && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-mono uppercase tracking-widest text-muted-foreground flex items-center gap-2 text-green-600">
+                <CheckCircle2 className="size-3.5" /> Meu Bolão
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">
+                Você está participando do <strong>{joinedLeague}</strong>.
+              </p>
             </CardContent>
           </Card>
         )}
