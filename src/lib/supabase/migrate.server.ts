@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 
-async function supabaseFetch(
+async function supabasePost(
   supabaseUrl: string,
   serviceKey: string,
   path: string,
@@ -24,11 +24,32 @@ async function supabaseFetch(
   }
 }
 
+async function supabaseDelete(
+  supabaseUrl: string,
+  serviceKey: string,
+  path: string,
+) {
+  const url = `${supabaseUrl}/rest/v1/${path}`;
+  const res = await fetch(url, {
+    method: "DELETE",
+    headers: {
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+      Prefer: "resolution=merge-duplicates",
+    },
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`DELETE ${path}: ${res.status} ${text}`);
+  }
+}
+
 export const migrateUserData = createServerFn({ method: "POST" })
   .validator(
     (d: {
       supabaseUrl?: string;
       userId: string;
+      email?: string;
       predictions: Array<{
         match_id: string;
         slot: number;
@@ -55,37 +76,29 @@ export const migrateUserData = createServerFn({ method: "POST" })
 
     try {
       // Liga
-      await supabaseFetch(supabaseUrl, serviceKey, "leagues", [
-        {
-          id: "l1",
-          admin_id: userId,
-          name: "Bolão da Diretoria 2026",
-          is_active: true,
-          payment_status: "paid",
-        },
+      await supabasePost(supabaseUrl, serviceKey, "leagues", [
+        { id: "l1", admin_id: userId, name: "Bolão da Diretoria 2026", is_active: true, payment_status: "paid" },
       ], "on_conflict=id");
+
+      // Deleta dados antigos do usuário para evitar conflitos de userId
+      await supabaseDelete(supabaseUrl, serviceKey, `predictions?user_id=eq.${userId}`);
+      await supabaseDelete(supabaseUrl, serviceKey, `members?user_id=eq.${userId}&league_id=eq.l1`);
 
       // Matches
       if (predictions.length > 0) {
         const ids = [...new Set(predictions.map((p) => p.match_id))].filter(Boolean);
-        await supabaseFetch(
+        await supabasePost(
           supabaseUrl,
           serviceKey,
           "matches",
-          ids.map((id) => ({
-            id,
-            home_team: "_",
-            away_team: "_",
-            match_date: "2026-06-11T00:00:00.000Z",
-            phase: "_",
-          })),
+          ids.map((id) => ({ id, home_team: "_", away_team: "_", match_date: "2026-06-11T00:00:00.000Z", phase: "_" })),
           "on_conflict=id",
         );
       }
 
       // Predictions
       if (predictions.length > 0) {
-        await supabaseFetch(
+        await supabasePost(
           supabaseUrl,
           serviceKey,
           "predictions",
@@ -105,13 +118,8 @@ export const migrateUserData = createServerFn({ method: "POST" })
       }
 
       // Members
-      await supabaseFetch(supabaseUrl, serviceKey, "members", [
-        {
-          user_id: userId,
-          league_id: "l1",
-          has_paid_admin: false,
-          total_points: totalPoints,
-        },
+      await supabasePost(supabaseUrl, serviceKey, "members", [
+        { user_id: userId, league_id: "l1", has_paid_admin: false, total_points: totalPoints },
       ], "on_conflict=league_id,user_id");
 
       return { ok: true, predCount: predictions.length };
