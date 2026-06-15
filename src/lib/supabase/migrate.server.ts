@@ -65,7 +65,7 @@ export const migrateUserData = createServerFn({ method: "POST" })
             away_flag: m.away_flag,
             match_date: m.match_date,
             phase: m.phase,
-            group: m.group ?? null,
+            ["group"]: m.group ?? null,
           })),
           { onConflict: "id" },
         );

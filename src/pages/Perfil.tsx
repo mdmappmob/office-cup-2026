@@ -39,21 +39,16 @@ export function PerfilPage() {
       const totalPoints =
         members.find((m: { user_id: string }) => m.user_id === authUser.id)?.total_points ?? 0;
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const matchIds = new Set(
-        (localData?.predictions ?? []).map((p: Record<string, unknown>) => p.match_id as string),
-      );
-      const matches = mockMatches
-        .filter((m) => matchIds.has(m.id))
-        .map((m) => ({
-          id: m.id,
-          home_team: m.home_team,
-          away_team: m.away_team,
-          home_flag: m.home_flag,
-          away_flag: m.away_flag,
-          match_date: m.match_date,
-          phase: m.phase,
-          group: m.group,
-        }));
+      const matches = mockMatches.map((m) => ({
+        id: m.id,
+        home_team: m.home_team,
+        away_team: m.away_team,
+        home_flag: m.home_flag,
+        away_flag: m.away_flag,
+        match_date: m.match_date,
+        phase: m.phase,
+        group: m.group,
+      }));
       const result = await migrateUserData({
         data: {
           supabaseUrl,
