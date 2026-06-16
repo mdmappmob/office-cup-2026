@@ -94,6 +94,7 @@ Implementação completa do chaveamento da Copa 2026 conforme regulamento da FIF
 - Fases mata-mata usam `BracketRow` (Card responsivo) com layout adaptável
 - Fase de grupos usa `GroupTable` com data do jogo exibida
 - Ctrl+S continua funcionando como atalho
+- **Trava por tempo**: palpites são bloqueados no horário de início da partida (`match_date`). Inputs desabilitados + toast "Prazo de alteração expirado. Você pode alterar o palpite até o início da partida." Guard também no `upsertPrediction` da store e no `addPredictionSlot`.
 
 ### Resultados / Apuração (src/pages/AdminResultados.tsx)
 - Admin lança resultado de qualquer partida
@@ -191,6 +192,24 @@ Persist via `partialize`:
 - Estado `migrated` consulta Supabase predictions count
 - Após migrar, `loadFromSupabase` recalcula `points_earned` localmente se o match tem resultado e a prediction veio com 0
 
+## Trava por Tempo (Match Time Lock)
+
+### Regra
+- O palpite de uma partida **trava automaticamente no horário de início da partida** (`match_date`)
+- Após o início, os inputs de placar são desabilitados e um toast é exibido ao tentar editar
+- A trava se aplica tanto aos inputs visuais quanto aos guards no `upsertPrediction` e `addPredictionSlot` da store
+
+### Implementação
+
+| Local | O que faz |
+|---|---|
+| `app-store.ts:isMatchTimeLocked(match)` | Retorna `true` se `Date.now() >= matchStart` ou se status é `finished` |
+| `app-store.ts:upsertPrediction()` | Guard: se `isMatchTimeLocked` → retorna sem salvar |
+| `app-store.ts:addPredictionSlot()` | Guard: se `isMatchTimeLocked` → retorna `null` |
+| `Palpites.tsx:MatchRow` | `locked` inclui `timeLocked` (desabilita inputs) + toast no onClick |
+| `Palpites.tsx:BracketRow` | Idem |
+| `Palpites.tsx:AlternativePalpites` | Idem |
+
 ## Scripts
 
 | Script | Descrição |
@@ -266,6 +285,7 @@ Persist via `partialize`:
 - ✅ Título da liga dinâmico no Ranking
 - ✅ Multi-browser (admin + MDM + Thiago)
 - ✅ 12 partidas apuradas com pontuação de todos os membros
+- ✅ Trava por tempo: palpite bloqueado no horário da partida
 
 ### Próximos Passos
 1. Sincronizar `matches` table no Supabase com dados reais (não placeholders)
