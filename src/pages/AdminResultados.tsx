@@ -330,11 +330,8 @@ function StatsSummary() {
   const scoredPreds = predictions.filter((p) => p.points_earned > 0).length;
   const totalPts = members.reduce((s, m) => s + m.total_points, 0);
   const top = [...members].sort((a, b) => b.total_points - a.total_points)[0];
-  const topUser = top
-    ? useAppStore
-        .getState()
-        .members.find((m) => m.user_id === top.user_id)
-    : null;
+  const profiles = useAppStore((s) => s.profiles);
+  const topName = top ? profiles[top.user_id] ?? top.user_id.slice(0, 8) : null;
 
   const allPts = predictions
     .filter((p) => p.points_earned > 0)
@@ -345,7 +342,7 @@ function StatsSummary() {
       <StatCard label="Partidas apuradas" value={String(finishedCount)} />
       <StatCard label="Palpites pontuados" value={String(scoredPreds)} />
       <StatCard label="Pontos distribuídos" value={String(totalPts)} />
-      <StatCard label="Líder atual" value={topUser?.user_id?.slice(0, 8) ?? "—"} />
+      <StatCard label="Líder atual" value={topName ?? "—"} />
     </div>
   );
 }
