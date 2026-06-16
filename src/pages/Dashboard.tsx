@@ -34,7 +34,8 @@ export function DashboardPage() {
   const live = totalUserPoints(matches, predictions, currentUserId);
   const breakdown = userBreakdown(matches, predictions, currentUserId);
   const sortedMembers = [...members].sort((a, b) => b.total_points - a.total_points);
-  const myRank = sortedMembers.findIndex((m) => m.user_id === currentUserId) + 1;
+  const topLeader = sortedMembers[0];
+  const topName = topLeader ? profiles[topLeader.user_id] ?? topLeader.user_id.slice(0, 8) : null;
 
   const userPreds = predictions.filter((p) => p.user_id === currentUserId);
   const finishedMatches = matches.filter((m) => m.status === "finished");
@@ -99,9 +100,9 @@ export function DashboardPage() {
         />
         <KpiCard
           icon={<TrendingUp className="size-4" />}
-          label="Rank na Firma"
-          value={`#${myRank || "—"}`}
-          sub={`de ${members.length} membros`}
+          label="Classificação"
+          value={topName ?? "—"}
+          sub={topLeader ? `${topLeader.total_points} pts` : ""}
         />
         <KpiCard icon={<Target className="size-4" />} label="Acertos em Cheio" value={String(exactCount)} />
         <KpiCard icon={<Flame className="size-4" />} label="Aproveitamento" value={aproveitamento} sub={`${scoredPredictions} de ${totalPredictable} palpites`} />
