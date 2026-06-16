@@ -173,7 +173,7 @@ export function DashboardPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-sm font-mono uppercase tracking-widest text-muted-foreground">
-            Top da Firma
+            Top do Bolão
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
