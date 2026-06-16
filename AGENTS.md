@@ -94,7 +94,8 @@ Implementação completa do chaveamento da Copa 2026 conforme regulamento da FIF
 - Fases mata-mata usam `BracketRow` (Card responsivo) com layout adaptável
 - Fase de grupos usa `GroupTable` com data do jogo exibida
 - Ctrl+S continua funcionando como atalho
-- **Trava por tempo**: palpites são bloqueados no horário de início da partida (`match_date`). Inputs desabilitados + toast "Prazo de alteração expirado. Você pode alterar o palpite até o início da partida." Guard também no `upsertPrediction` da store e no `addPredictionSlot`.
+- **Trava por tempo**: palpites são bloqueados conforme regras detalhadas na seção "Trava por Tempo". Guard também no `upsertPrediction` da store e no `addPredictionSlot`.
+- **Prazo global**: após o 1º jogo da 2ª rodada da fase de grupos, todo o bolão é congelado — não é mais permitido alterar palpites nem entrar no bolão.
 
 ### Resultados / Apuração (src/pages/AdminResultados.tsx)
 - Admin lança resultado de qualquer partida
@@ -195,9 +196,15 @@ Persist via `partialize`:
 ## Trava por Tempo (Match Time Lock)
 
 ### Regra
-- O palpite de uma partida **trava automaticamente no horário de início da partida** (`match_date`)
-- Após o início, os inputs de placar são desabilitados e um toast é exibido ao tentar editar
+- **Primeira rodada** da fase de grupos (2 primeiros jogos de cada grupo): palpite **trava 10 minutos após o início da partida**, mas apenas para usuários que já completaram **todos os 103 palpites** (grupos + mata-mata). Usuários que **ainda não completaram** todos os palpites podem continuar inserindo/editando sem trava por tempo (respeitam apenas o prazo global `isDeadlinePassed`)
+- **2ª/3ª rodada da fase de grupos e fases mata-mata**: trava **no horário de início da partida** (regra original, sem janela de tolerância)
 - A trava se aplica tanto aos inputs visuais quanto aos guards no `upsertPrediction` e `addPredictionSlot` da store
+
+### Prazo Global (isDeadlinePassed)
+- A partir do **1º jogo da 2ª rodada** da fase de grupos, **todo o bolão é congelado**:
+  - Não é mais permitido alterar palpites em nenhuma fase
+  - Não é mais permitido entrar no bolão (convite bloqueado)
+- Data de corte: data do 1º jogo da 2ª rodada do grupo que iniciar primeiro
 
 ### Implementação
 

@@ -359,23 +359,53 @@ export const useAppStore = create<AppState>()(
       isMatchTimeLocked: (match) => {
         if (match.status === "finished") return true;
         const matchStart = new Date(match.match_date).getTime();
-        return Date.now() >= matchStart;
+        // Regra geral (fase de grupos 2ª/3ª rodada, mata-mata): trava no início
+        const isFirstRound = match.phase === "grupos" && match.group &&
+          (() => {
+            const groupMatches = get().matches
+              .filter((m) => m.group === match.group && m.phase === "grupos")
+              .sort((a, b) => a.match_date.localeCompare(b.match_date));
+            const idx = groupMatches.findIndex((m) => m.id === match.id);
+            return idx >= 0 && idx < 2;
+          })();
+        if (!isFirstRound) {
+          return Date.now() >= matchStart;
+        }
+        // Primeira rodada: janela de 10min só para quem completou todos os palpites
+        const userId = get().currentUserId;
+        if (!userId) return false;
+        const allMatches = get().matches;
+        const userPredictions = get().predictions.filter((p) => p.user_id === userId);
+        const hasAllPredictions = allMatches.every((m) => {
+          if (m.home_team === "—" || m.away_team === "—") return true;
+          const pred = userPredictions.find((p) => p.match_id === m.id);
+          return pred && pred.predicted_home_score !== null && pred.predicted_away_score !== null;
+        });
+        if (hasAllPredictions) {
+          const graceEnd = matchStart + 10 * 60 * 1000;
+          return Date.now() >= graceEnd;
+        }
+        // Quem ainda não completou todos os palpites pode continuar inserindo
+        return false;
       },
       isDeadlinePassed: () => {
-        const groups = new Map<string, string[]>();
+        // A partir do 1º jogo da 2ª rodada, tudo é bloqueado
+        let firstRound2Date = "";
+        const groups = new Map<string, MockMatch[]>();
         for (const m of get().matches) {
           if (m.phase !== "grupos" || !m.group) continue;
           if (!groups.has(m.group)) groups.set(m.group, []);
-          groups.get(m.group)!.push(m.match_date);
+          groups.get(m.group)!.push(m);
         }
-        let latest = "";
-        for (const dates of groups.values()) {
-          dates.sort();
-          const second = dates[1];
-          if (second && (!latest || second > latest)) latest = second;
+        for (const ms of groups.values()) {
+          ms.sort((a, b) => a.match_date.localeCompare(b.match_date));
+          const r2 = ms[2]; // índice 2 = 1ª partida da 2ª rodada
+          if (r2 && (!firstRound2Date || r2.match_date < firstRound2Date)) {
+            firstRound2Date = r2.match_date;
+          }
         }
-        if (!latest) return false;
-        return Date.now() >= new Date(latest).getTime();
+        if (!firstRound2Date) return false;
+        return Date.now() >= new Date(firstRound2Date).getTime();
       },
       recalculateAllScores: () => {
         const matches = get().matches;

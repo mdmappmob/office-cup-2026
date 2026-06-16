@@ -41,20 +41,30 @@ import { toast } from "sonner";
 
 const USER_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-function getFirstRoundEndDate(matches: MockMatch[]): string {
+function isFirstRoundMatch(match: MockMatch): boolean {
+  if (match.phase !== "grupos" || !match.group) return false;
+  const allMatches = useAppStore.getState().matches;
+  const groupMatches = allMatches
+    .filter((m) => m.group === match.group && m.phase === "grupos")
+    .sort((a, b) => a.match_date.localeCompare(b.match_date));
+  const idx = groupMatches.findIndex((m) => m.id === match.id);
+  return idx >= 0 && idx < 2;
+}
+
+function getSecondRoundStartDate(matches: MockMatch[]): string {
   const groups = new Map<string, string[]>();
   for (const m of matches) {
     if (m.phase !== "grupos" || !m.group) continue;
     if (!groups.has(m.group)) groups.set(m.group, []);
     groups.get(m.group)!.push(m.match_date);
   }
-  let latest = "";
+  let earliest = "";
   for (const dates of groups.values()) {
     dates.sort();
-    const second = dates[1];
-    if (second && (!latest || second > latest)) latest = second;
+    const r2 = dates[2]; // índice 2 = 1ª partida da 2ª rodada
+    if (r2 && (!earliest || r2 < earliest)) earliest = r2;
   }
-  return latest;
+  return earliest;
 }
 
 function isPhaseComplete(
@@ -78,7 +88,7 @@ export function PalpitesPage() {
   const regenerateBracket = useAppStore((s) => s.regenerateBracket);
 
   const deadline = useMemo(() => {
-    const d = getFirstRoundEndDate(matches);
+    const d = getSecondRoundStartDate(matches);
     if (!d) return null;
     return { utc: d, br: fmtDateTime(d, USER_TZ) };
   }, [matches]);
@@ -152,9 +162,8 @@ export function PalpitesPage() {
           <div>
             <p className="text-sm font-bold text-destructive">Prazo de palpites encerrado</p>
             <p className="text-xs text-muted-foreground mt-1">
-              O último jogo da 1ª rodada da Fase de Grupos já terminou. Não é mais permitido alterar
-              palpites em nenhuma fase. Os palpites já registrados serão considerados para a
-              pontuação final.
+              A 2ª rodada da Fase de Grupos já começou. Não é mais permitido alterar palpites em
+              nenhuma fase. Os palpites já registrados serão considerados para a pontuação final.
             </p>
           </div>
         </div>
@@ -168,7 +177,7 @@ export function PalpitesPage() {
               Prazo final para todos os palpites: {deadline.br}
             </p>
             <p className="text-xs text-muted-foreground mt-1 space-y-1">
-              Após o último jogo da 1ª rodada da Fase de Grupos,{" "}
+              Após o início da 2ª rodada da Fase de Grupos,{" "}
               <strong>não será mais permitido alterar NENHUM palpite</strong> em fase alguma,
               incluindo a Fase de Grupos.
             </p>
@@ -182,13 +191,10 @@ export function PalpitesPage() {
                 ) para confirmar a fase atual e avançar
               </li>
               <li>
-                Se os palpites da 1ª fase não estiverem completos no prazo, você será
+                Se os palpites não estiverem completos até o início da 2ª rodada, você será
                 desclassificado(a)
               </li>
             </ul>
-            <p className="text-xs text-muted-foreground mt-2 italic">
-              Obs: tolerância apenas porque o sistema ainda está em ajustes.
-            </p>
           </div>
         </div>
       )}
@@ -529,7 +535,9 @@ function MatchRow({
           onClick={() => {
             if (timeLocked && !finished)
               toast.error("Prazo de alteração expirado", {
-                description: "Você pode alterar o palpite até o início da partida.",
+                description: isFirstRoundMatch(match)
+                  ? "Você pode alterar o palpite até 10 minutos após o início da partida."
+                  : "Você pode alterar o palpite até o início da partida.",
               });
           }}
         >
@@ -665,7 +673,9 @@ function BracketRow({
               e.stopPropagation();
               if (timeLocked && !finished)
                 toast.error("Prazo de alteração expirado", {
-                  description: "Você pode alterar o palpite até o início da partida.",
+                  description: isFirstRoundMatch(match)
+                    ? "Você pode alterar o palpite até 10 minutos após o início da partida."
+                    : "Você pode alterar o palpite até o início da partida.",
                 });
             }}
           >
@@ -871,7 +881,9 @@ function AlternativePalpites({ matchId }: { matchId: string }) {
               onClick={() => {
                 if (timeLocked && !finished)
                   toast.error("Prazo de alteração expirado", {
-                    description: "Você pode alterar o palpite até o início da partida.",
+                    description: isFirstRoundMatch(match)
+                      ? "Você pode alterar o palpite até 10 minutos após o início da partida."
+                      : "Você pode alterar o palpite até o início da partida.",
                   });
               }}
             >
