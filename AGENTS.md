@@ -96,6 +96,11 @@ Implementação completa do chaveamento da Copa 2026 conforme regulamento da FIF
 - Ctrl+S continua funcionando como atalho
 - **Trava por tempo**: palpites são bloqueados conforme regras detalhadas na seção "Trava por Tempo". Guard também no `upsertPrediction` da store e no `addPredictionSlot`.
 - **Prazo global**: após o 1º jogo da 2ª rodada da fase de grupos, todo o bolão é congelado — não é mais permitido alterar palpites nem entrar no bolão.
+- **Avançar fase**: botão "Avançar fase" visível em todos os dispositivos
+- Progresso da fase atual mostrado ao lado do botão
+- Fases mata-mata usam `BracketRow` (Card responsivo) com layout adaptável
+- Fase de grupos usa `GroupTable` com data do jogo exibida
+- Ctrl+S continua funcionando como atalho
 
 ### Resultados / Apuração (src/pages/AdminResultados.tsx)
 - Admin lança resultado de qualquer partida
@@ -108,7 +113,7 @@ Implementação completa do chaveamento da Copa 2026 conforme regulamento da FIF
 
 ### Ranking / Dashboard
 - **Ranking** (`src/pages/Ranking.tsx`): tabela completa, busca `profiles` do Zustand (populado por `loadProfiles`)
-- **Dashboard** (`src/pages/Dashboard.tsx`): "Top da Firma" com top 5, gráfico de evolução, breakdown por fase
+- **Dashboard** (`src/pages/Dashboard.tsx`): "Top do Bolão" com top 5, gráfico de evolução, breakdown por fase
 - Ambos leem `useAppStore((s) => s.profiles)` — mesma fonte, sem duplicação
 - `loadProfiles()` busca da tabela `profiles` do Supabase via fetch direto (não supabase-js)
 - Status de pagamento (PAGO/PENDENTE) gerenciado pelo admin
@@ -251,7 +256,7 @@ Persist via `partialize`:
 | `src/mocks/types.ts` | Tipos compartilhados (MockMatch, MockPrediction, etc.) |
 | `src/mocks/matches.ts` | Fixtures das 103 partidas reais com timezone por partida |
 | `src/pages/Palpites.tsx` | Página de palpites |
-| `src/pages/Dashboard.tsx` | Dashboard: Top da Firma, evolução, breakdown |
+| `src/pages/Dashboard.tsx` | Dashboard: Top do Bolão, evolução, breakdown |
 | `src/pages/Ranking.tsx` | Ranking completo da liga |
 | `src/pages/Perfil.tsx` | Perfil: migração, código convite, joinedLeague |
 | `src/pages/AdminResultados.tsx` | Admin: lançar resultados + sincronizar |
@@ -288,11 +293,14 @@ Persist via `partialize`:
 - ✅ Migração dados locais → Supabase
 - ✅ Apuração recalcula pontos de todos os membros
 - ✅ Ranking mostra nomes corretos dos membros
-- ✅ Dashboard "Top da Firma" com nomes corretos
+- ✅ Dashboard com "Top do Bolão" e nomes corretos
 - ✅ Título da liga dinâmico no Ranking
 - ✅ Multi-browser (admin + MDM + Thiago)
-- ✅ 12 partidas apuradas com pontuação de todos os membros
-- ✅ Trava por tempo: palpite bloqueado no horário da partida
+- ✅ 12+ partidas apuradas com pontuação de todos os membros
+- ✅ Trava por tempo: 10min na 1ª rodada (só para quem completou todos os palpites), trava no início nas demais fases
+- ✅ Prazo global no 1º jogo da 2ª rodada: tudo congelado (palpites + entrada de membros)
+- ✅ Sincronização football-data.org com mapeamento de nomes (Cape Verde Islands, Holland)
+- ✅ Líder atual na Apuração e Classificação no Dashboard mostram nome completo
 
 ### Próximos Passos
 1. Sincronizar `matches` table no Supabase com dados reais (não placeholders)
