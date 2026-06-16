@@ -487,7 +487,8 @@ function MatchRow({
   const tbd = match.home_team === "—" || match.away_team === "—";
   const finished = match.status === "finished";
   const deadlinePassed = useAppStore((s) => s.isDeadlinePassed());
-  const locked = tbd || finished || deadlinePassed;
+  const timeLocked = useAppStore((s) => s.isMatchTimeLocked(match));
+  const locked = tbd || finished || deadlinePassed || timeLocked;
   const filled =
     prediction?.predicted_home_score !== null &&
     prediction?.predicted_home_score !== undefined &&
@@ -523,7 +524,15 @@ function MatchRow({
         </div>
       </TableCell>
       <TableCell onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-1.5 justify-center">
+        <div
+          className="flex items-center gap-1.5 justify-center"
+          onClick={() => {
+            if (timeLocked && !finished)
+              toast.error("Prazo de alteração expirado", {
+                description: "Você pode alterar o palpite até 15 minutos após o início da partida.",
+              });
+          }}
+        >
           <Input
             type="number"
             min={0}
@@ -613,7 +622,8 @@ function BracketRow({
   const tbd = match.home_team === "—" || match.away_team === "—";
   const finished = match.status === "finished";
   const deadlinePassed = useAppStore((s) => s.isDeadlinePassed());
-  const locked = tbd || finished || deadlinePassed;
+  const timeLocked = useAppStore((s) => s.isMatchTimeLocked(match));
+  const locked = tbd || finished || deadlinePassed || timeLocked;
   const filled =
     prediction?.predicted_home_score !== null &&
     prediction?.predicted_home_score !== undefined &&
@@ -651,7 +661,13 @@ function BracketRow({
           </div>
           <div
             className="flex items-center gap-2 max-sm:order-3 max-sm:col-span-2 max-sm:justify-center"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (timeLocked && !finished)
+                toast.error("Prazo de alteração expirado", {
+                  description: "Você pode alterar o palpite até 15 minutos após o início da partida.",
+                });
+            }}
           >
             <Input
               type="number"
@@ -817,7 +833,8 @@ function AlternativePalpites({ matchId }: { matchId: string }) {
   const tbd = match.home_team === "—" || match.away_team === "—";
   const finished = match.status === "finished";
   const deadlinePassed = useAppStore((s) => s.isDeadlinePassed());
-  const locked = tbd || finished || deadlinePassed;
+  const timeLocked = useAppStore((s) => s.isMatchTimeLocked(match));
+  const locked = tbd || finished || deadlinePassed || timeLocked;
 
   return (
     <section>
@@ -849,7 +866,15 @@ function AlternativePalpites({ matchId }: { matchId: string }) {
             <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground w-12">
               Slot {p.slot}
             </span>
-            <div className="flex items-center gap-1.5 flex-1 justify-center">
+            <div
+              className="flex items-center gap-1.5 flex-1 justify-center"
+              onClick={() => {
+                if (timeLocked && !finished)
+                  toast.error("Prazo de alteração expirado", {
+                    description: "Você pode alterar o palpite até 15 minutos após o início da partida.",
+                  });
+              }}
+            >
               <Flag team={match.home_team} iso={match.home_flag} size={14} />
               <Input
                 type="number"

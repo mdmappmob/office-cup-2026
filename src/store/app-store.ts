@@ -25,7 +25,7 @@ interface AppState {
   setAdmin: (v: boolean) => void;
   setCurrentUser: (userId: string, isAdmin: boolean) => void;
   upsertPrediction: (matchId: string, patch: Partial<MockPrediction>, slot?: number) => void;
-  addPredictionSlot: (matchId: string) => MockPrediction;
+  addPredictionSlot: (matchId: string) => MockPrediction | null;
   removePrediction: (predictionId: string) => void;
   predictionsForMatch: (matchId: string, userId?: string) => MockPrediction[];
   settleMatch: (matchId: string, homeScore: number, awayScore: number) => void;
@@ -39,6 +39,7 @@ interface AppState {
   isPhaseExpired: (phase: MatchPhase) => boolean;
   getPhaseFirstMatchDate: (phase: MatchPhase) => string | null;
   isDeadlinePassed: () => boolean;
+  isMatchTimeLocked: (match: MockMatch) => boolean;
   loadFromSupabase: () => Promise<void>;
   loadProfiles: () => Promise<void>;
   syncPredictionsToSupabase: () => Promise<void>;
@@ -109,6 +110,7 @@ export const useAppStore = create<AppState>()(
       upsertPrediction: (matchId, patch, slot = 1) => {
         const match = get().matches.find((m) => m.id === matchId);
         if (match?.status === "finished") return;
+        if (match && get().isMatchTimeLocked(match)) return;
         if (get().isDeadlinePassed()) return;
         const userId = get().currentUserId;
         const existing = get().predictions.find(
@@ -124,6 +126,8 @@ export const useAppStore = create<AppState>()(
         get().syncPredictionsToSupabase();
       },
       addPredictionSlot: (matchId) => {
+        const match = get().matches.find((m) => m.id === matchId);
+        if (match && get().isMatchTimeLocked(match)) return null;
         const userId = get().currentUserId;
         const slots = get()
           .predictions.filter((p) => p.match_id === matchId && p.user_id === userId)
@@ -351,6 +355,11 @@ export const useAppStore = create<AppState>()(
           (earliest, m) => (m.match_date < earliest ? m.match_date : earliest),
           phaseMatches[0].match_date,
         );
+      },
+      isMatchTimeLocked: (match) => {
+        if (match.status === "finished") return true;
+        const matchStart = new Date(match.match_date).getTime();
+        return Date.now() >= matchStart + 15 * 60 * 1000;
       },
       isDeadlinePassed: () => {
         const groups = new Map<string, string[]>();
