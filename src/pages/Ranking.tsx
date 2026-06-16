@@ -35,7 +35,7 @@ export function RankingPage() {
   return (
     <div className="max-w-5xl mx-auto px-8 py-10">
       <header className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tighter">Ranking da Firma</h1>
+        <h1 className="text-3xl font-bold tracking-tighter">Classificação</h1>
         <p className="text-sm text-muted-foreground">
           Classificação geral dos participantes do bolão.
         </p>

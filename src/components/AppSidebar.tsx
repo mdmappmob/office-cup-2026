@@ -32,7 +32,7 @@ import { APP_VERSION, APP_COMMIT } from "@/lib/version";
 const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Inserir Palpites", url: "/palpites", icon: ListChecks },
-  { title: "Ranking da Firma", url: "/ranking", icon: Trophy },
+  { title: "Classificação", url: "/ranking", icon: Trophy },
 ] as const;
 
 export function AppSidebar() {
