@@ -354,7 +354,7 @@ function StatCard({ label, value }: { label: string; value: string }) {
         <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-2">
           {label}
         </div>
-        <div className="text-2xl font-bold tracking-tight">{value}</div>
+        <div className="text-sm font-bold">{value}</div>
       </CardContent>
     </Card>
   );

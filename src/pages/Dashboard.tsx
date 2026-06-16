@@ -234,11 +234,11 @@ function KpiCard({
           {icon}
         </div>
         <div
-          className={`text-3xl font-bold tracking-tight ${accent === "primary" ? "text-primary" : ""}`}
+          className={`text-sm font-bold ${accent === "primary" ? "text-primary" : ""}`}
         >
           {value}
         </div>
-        {sub && <p className="text-[11px] text-muted-foreground mt-1">{sub}</p>}
+        {sub && <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>}
       </CardContent>
     </Card>
   );
