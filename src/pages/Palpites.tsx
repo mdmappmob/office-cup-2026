@@ -529,7 +529,7 @@ function MatchRow({
           onClick={() => {
             if (timeLocked && !finished)
               toast.error("Prazo de alteração expirado", {
-                description: "Você pode alterar o palpite até 15 minutos após o início da partida.",
+                description: "Você pode alterar o palpite até o início da partida.",
               });
           }}
         >
@@ -665,7 +665,7 @@ function BracketRow({
               e.stopPropagation();
               if (timeLocked && !finished)
                 toast.error("Prazo de alteração expirado", {
-                  description: "Você pode alterar o palpite até 15 minutos após o início da partida.",
+                  description: "Você pode alterar o palpite até o início da partida.",
                 });
             }}
           >
@@ -871,7 +871,7 @@ function AlternativePalpites({ matchId }: { matchId: string }) {
               onClick={() => {
                 if (timeLocked && !finished)
                   toast.error("Prazo de alteração expirado", {
-                    description: "Você pode alterar o palpite até 15 minutos após o início da partida.",
+                    description: "Você pode alterar o palpite até o início da partida.",
                   });
               }}
             >

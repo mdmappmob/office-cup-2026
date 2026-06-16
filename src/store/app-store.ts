@@ -359,7 +359,7 @@ export const useAppStore = create<AppState>()(
       isMatchTimeLocked: (match) => {
         if (match.status === "finished") return true;
         const matchStart = new Date(match.match_date).getTime();
-        return Date.now() >= matchStart + 15 * 60 * 1000;
+        return Date.now() >= matchStart;
       },
       isDeadlinePassed: () => {
         const groups = new Map<string, string[]>();
