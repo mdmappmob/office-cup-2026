@@ -59,16 +59,13 @@ export function scoreMatch(match: MockMatch, prediction: MockPrediction): number
 }
 
 export function totalUserPoints(
-  matches: MockMatch[],
+  _matches: MockMatch[],
   predictions: MockPrediction[],
   userId: string,
 ) {
   return predictions
     .filter((p) => p.user_id === userId)
-    .reduce((sum, p) => {
-      const m = matches.find((mm) => mm.id === p.match_id);
-      return sum + (m ? scoreMatch(m, p) : 0);
-    }, 0);
+    .reduce((sum, p) => sum + (p.points_earned ?? 0), 0);
 }
 
 export function userBreakdown(

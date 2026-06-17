@@ -90,16 +90,14 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
-              {isAdmin && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={isActive("/admin/resultados")}>
-                    <Link to="/admin/resultados">
-                      <Gavel className="size-4" />
-                      <span>Apuração</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={isActive("/admin/resultados")}>
+                  <Link to="/admin/resultados">
+                    <Gavel className="size-4" />
+                    <span>Apuração</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

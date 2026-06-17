@@ -184,11 +184,38 @@ export const useAppStore = create<AppState>()(
         if (!userId) return;
         try {
           const leagueId = get().currentLeagueId;
-          const [remotePredictions, remoteMembers] = await Promise.all([
+          const [remotePredictions, remoteMembers, remoteMatches] = await Promise.all([
             predictionsApi.fetchPredictions(userId),
             membersApi.fetchMembers(leagueId),
+            supabase
+              .from("matches")
+              .select("id, home_score, away_score, status")
+              .neq("status", "scheduled"),
           ]);
-          let merged = [...get().predictions];
+
+          // Merge remote match results into local matches
+          if (remoteMatches.data && remoteMatches.data.length > 0) {
+            const mergedMatches = get().matches.map((m) => {
+              const remote = remoteMatches.data.find((r) => r.id === m.id);
+              if (
+                remote &&
+                remote.status === "finished" &&
+                remote.home_score != null &&
+                remote.away_score != null
+              ) {
+                return {
+                  ...m,
+                  home_score: remote.home_score,
+                  away_score: remote.away_score,
+                  status: "finished" as const,
+                };
+              }
+              return m;
+            });
+            set({ matches: mergedMatches });
+          }
+
+          const merged = [...get().predictions];
           for (const rp of remotePredictions) {
             const idx = merged.findIndex(
               (lp) =>
@@ -251,7 +278,13 @@ export const useAppStore = create<AppState>()(
       },
       loadProfiles: async () => {
         try {
-          const uids = [...new Set(get().members.map((m) => m.user_id).filter(Boolean))];
+          const uids = [
+            ...new Set(
+              get()
+                .members.map((m) => m.user_id)
+                .filter(Boolean),
+            ),
+          ];
           if (uids.length === 0) return;
           const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
           const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -277,13 +310,19 @@ export const useAppStore = create<AppState>()(
         if (filled.length === 0) return;
         for (const p of filled) {
           try {
-            await predictionsApi.upsertPrediction(userId, p.match_id, p.slot, {
-              predicted_home_score: p.predicted_home_score,
-              predicted_away_score: p.predicted_away_score,
-              predicted_goalscorers: p.predicted_goalscorers,
-              points_earned: p.points_earned,
-              is_zebra: p.is_zebra,
-            }, p.league_id);
+            await predictionsApi.upsertPrediction(
+              userId,
+              p.match_id,
+              p.slot,
+              {
+                predicted_home_score: p.predicted_home_score,
+                predicted_away_score: p.predicted_away_score,
+                predicted_goalscorers: p.predicted_goalscorers,
+                points_earned: p.points_earned,
+                is_zebra: p.is_zebra,
+              },
+              p.league_id,
+            );
           } catch (err) {
             console.warn("Erro ao sincronizar palpite", p.match_id, err);
           }
@@ -360,10 +399,12 @@ export const useAppStore = create<AppState>()(
         if (match.status === "finished") return true;
         const matchStart = new Date(match.match_date).getTime();
         // Regra geral (fase de grupos 2ª/3ª rodada, mata-mata): trava no início
-        const isFirstRound = match.phase === "grupos" && match.group &&
+        const isFirstRound =
+          match.phase === "grupos" &&
+          match.group &&
           (() => {
-            const groupMatches = get().matches
-              .filter((m) => m.group === match.group && m.phase === "grupos")
+            const groupMatches = get()
+              .matches.filter((m) => m.group === match.group && m.phase === "grupos")
               .sort((a, b) => a.match_date.localeCompare(b.match_date));
             const idx = groupMatches.findIndex((m) => m.id === match.id);
             return idx >= 0 && idx < 2;

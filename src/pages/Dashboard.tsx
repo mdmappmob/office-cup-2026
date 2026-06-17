@@ -35,7 +35,7 @@ export function DashboardPage() {
   const breakdown = userBreakdown(matches, predictions, currentUserId);
   const sortedMembers = [...members].sort((a, b) => b.total_points - a.total_points);
   const topLeader = sortedMembers[0];
-  const topName = topLeader ? profiles[topLeader.user_id] ?? topLeader.user_id.slice(0, 8) : null;
+  const topName = topLeader ? (profiles[topLeader.user_id] ?? topLeader.user_id.slice(0, 8)) : null;
 
   const userPreds = predictions.filter((p) => p.user_id === currentUserId);
   const finishedMatches = matches.filter((m) => m.status === "finished");
@@ -45,9 +45,7 @@ export function DashboardPage() {
     return m && m.home_score !== null && m.away_score !== null;
   }).length;
   const aproveitamento =
-    totalPredictable > 0
-      ? `${Math.round((scoredPredictions / totalPredictable) * 100)}%`
-      : "—";
+    totalPredictable > 0 ? `${Math.round((scoredPredictions / totalPredictable) * 100)}%` : "—";
   const exactCount = userPreds.filter((p) => {
     const m = matches.find((x) => x.id === p.match_id);
     if (!m || m.home_score === null || m.away_score === null) return false;
@@ -63,7 +61,10 @@ export function DashboardPage() {
       const m = matches.find((x) => x.id === p.match_id);
       return sum + (m ? scoreMatch(m, p) : 0);
     }, 0);
-    return { rodada: PHASE_LABEL[phase].replace("Fase de ", "").replace(" de Final", ""), pontos: pts };
+    return {
+      rodada: PHASE_LABEL[phase].replace("Fase de ", "").replace(" de Final", ""),
+      pontos: pts,
+    };
   });
   const barData = [
     { tipo: "Exato", pts: breakdown.exact || 0 },
@@ -93,19 +94,28 @@ export function DashboardPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <KpiCard
+          icon={<TrendingUp className="size-4" />}
+          label="Classificação"
+          value={topName ?? "—"}
+          sub={topLeader ? `${topLeader.total_points} pts` : ""}
+        />
+        <KpiCard
           icon={<Trophy className="size-4" />}
           label="Pontos Totais"
           value={`${live}`}
           accent="primary"
         />
         <KpiCard
-          icon={<TrendingUp className="size-4" />}
-          label="Classificação"
-          value={topName ?? "—"}
-          sub={topLeader ? `${topLeader.total_points} pts` : ""}
+          icon={<Target className="size-4" />}
+          label="Acertos em Cheio"
+          value={String(exactCount)}
         />
-        <KpiCard icon={<Target className="size-4" />} label="Acertos em Cheio" value={String(exactCount)} />
-        <KpiCard icon={<Flame className="size-4" />} label="Aproveitamento" value={aproveitamento} sub={`${scoredPredictions} de ${totalPredictable} palpites`} />
+        <KpiCard
+          icon={<Flame className="size-4" />}
+          label="Aproveitamento"
+          value={aproveitamento}
+          sub={`${scoredPredictions} de ${totalPredictable} palpites`}
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -233,9 +243,7 @@ function KpiCard({
           <span className="text-[10px] font-mono uppercase tracking-widest">{label}</span>
           {icon}
         </div>
-        <div
-          className={`text-sm font-bold ${accent === "primary" ? "text-primary" : ""}`}
-        >
+        <div className={`text-sm font-bold ${accent === "primary" ? "text-primary" : ""}`}>
           {value}
         </div>
         {sub && <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>}

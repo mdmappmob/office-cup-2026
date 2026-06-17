@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAppStore } from "@/store/app-store";
-import { useAuthStore } from "@/store/auth-store";
 import { predictionsRepo } from "@/lib/db";
 import { useShallow } from "zustand/react/shallow";
 import { PHASE_LABEL, PHASE_ORDER, type MatchPhase, type MockMatch } from "@/mocks/types";
@@ -18,11 +17,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Flag } from "@/components/Flag";
-import { CheckCircle2, ShieldAlert, RefreshCw } from "lucide-react";
+import { CheckCircle2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { syncFootballData } from "@/lib/results-sync.server";
 import { API_TEAM_MAP } from "@/lib/results-sync";
-import { userBreakdown } from "@/lib/scoring";
 
 const USER_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -59,23 +57,12 @@ function resolveMatch(matches: MockMatch[], apiHome: string, apiAway: string) {
 }
 
 export function AdminResultadosPage() {
-  const user = useAuthStore((s) => s.user);
-  if (!user?.is_admin) {
-    return (
-      <div className="max-w-md mx-auto px-8 py-20 text-center space-y-4">
-        <ShieldAlert className="size-10 text-destructive mx-auto" />
-        <h1 className="text-2xl font-bold tracking-tighter">Acesso restrito</h1>
-        <p className="text-sm text-muted-foreground">
-          Somente o administrador do bolão pode lançar resultados oficiais.
-        </p>
-      </div>
-    );
-  }
   return <Body />;
 }
 
 function Body() {
   const matches = useAppStore((s) => s.matches);
+  const isAdmin = useAppStore((s) => s.isAdmin);
   const [phase, setPhase] = useState<MatchPhase>("grupos");
   const [syncing, setSyncing] = useState(false);
 
@@ -130,16 +117,18 @@ function Body() {
             automaticamente.
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={syncing}
-          onClick={handleSync}
-          className="shrink-0"
-        >
-          <RefreshCw className={`size-3.5 mr-1.5 ${syncing ? "animate-spin" : ""}`} />
-          {syncing ? "Sincronizando…" : "Sincronizar resultados"}
-        </Button>
+        {isAdmin && (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={syncing}
+            onClick={handleSync}
+            className="shrink-0"
+          >
+            <RefreshCw className={`size-3.5 mr-1.5 ${syncing ? "animate-spin" : ""}`} />
+            {syncing ? "Sincronizando…" : "Sincronizar resultados"}
+          </Button>
+        )}
       </header>
 
       <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
@@ -210,6 +199,7 @@ function ResultRow({ matchId }: { matchId: string }) {
   const predictions = useAppStore(
     useShallow((s) => s.predictions.filter((p) => p.match_id === matchId)),
   );
+  const isAdmin = useAppStore((s) => s.isAdmin);
   const [hs, setHs] = useState<string>(match.home_score?.toString() ?? "");
   const [as, setAs] = useState<string>(match.away_score?.toString() ?? "");
   const tbd = match.home_team === "—" || match.away_team === "—";
@@ -257,7 +247,7 @@ function ResultRow({ matchId }: { matchId: string }) {
           <Input
             type="number"
             min={0}
-            disabled={tbd || finished}
+            disabled={!isAdmin || tbd || finished}
             className="w-14 h-9 text-center font-mono text-base font-bold p-0"
             value={hs}
             onChange={(e) => setHs(e.target.value)}
@@ -266,7 +256,7 @@ function ResultRow({ matchId }: { matchId: string }) {
           <Input
             type="number"
             min={0}
-            disabled={tbd || finished}
+            disabled={!isAdmin || tbd || finished}
             className="w-14 h-9 text-center font-mono text-base font-bold p-0"
             value={as}
             onChange={(e) => setAs(e.target.value)}
@@ -308,14 +298,16 @@ function ResultRow({ matchId }: { matchId: string }) {
           : "—"}
       </TableCell>
       <TableCell className="text-right">
-        <Button
-          size="sm"
-          variant={finished ? "outline" : "default"}
-          disabled={tbd}
-          onClick={handleSettle}
-        >
-          {finished ? "Reapurar" : "Encerrar partida"}
-        </Button>
+        {isAdmin && (
+          <Button
+            size="sm"
+            variant={finished ? "outline" : "default"}
+            disabled={tbd}
+            onClick={handleSettle}
+          >
+            {finished ? "Reapurar" : "Encerrar partida"}
+          </Button>
+        )}
       </TableCell>
     </TableRow>
   );
@@ -331,11 +323,7 @@ function StatsSummary() {
   const totalPts = members.reduce((s, m) => s + m.total_points, 0);
   const top = [...members].sort((a, b) => b.total_points - a.total_points)[0];
   const profiles = useAppStore((s) => s.profiles);
-  const topName = top ? profiles[top.user_id] ?? top.user_id.slice(0, 8) : null;
-
-  const allPts = predictions
-    .filter((p) => p.points_earned > 0)
-    .reduce((s, p) => s + p.points_earned, 0);
+  const topName = top ? (profiles[top.user_id] ?? top.user_id.slice(0, 8)) : null;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
