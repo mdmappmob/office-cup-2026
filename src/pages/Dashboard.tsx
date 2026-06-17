@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAppStore } from "@/store/app-store";
 import { useAuthStore } from "@/store/auth-store";
-import { totalUserPoints, userBreakdown, scoreMatch } from "@/lib/scoring";
+import { totalUserPoints, breakdownFromPoints } from "@/lib/scoring";
 import { PHASE_LABEL, PHASE_ORDER } from "@/mocks/types";
 import {
   LineChart,
@@ -32,35 +32,33 @@ export function DashboardPage() {
   const profiles = useAppStore((s) => s.profiles);
 
   const live = totalUserPoints(matches, predictions, currentUserId);
-  const breakdown = userBreakdown(matches, predictions, currentUserId);
+  const breakdown = breakdownFromPoints(predictions, currentUserId);
   const sortedMembers = [...members].sort((a, b) => b.total_points - a.total_points);
   const topLeader = sortedMembers[0];
   const topName = topLeader ? (profiles[topLeader.user_id] ?? topLeader.user_id.slice(0, 8)) : null;
 
   const userPreds = predictions.filter((p) => p.user_id === currentUserId);
-  const finishedMatches = matches.filter((m) => m.status === "finished");
-  const totalPredictable = finishedMatches.length;
-  const scoredPredictions = userPreds.filter((p) => {
-    const m = matches.find((x) => x.id === p.match_id);
-    return m && m.home_score !== null && m.away_score !== null;
-  }).length;
+  const scoredPredictions = userPreds.filter((p) => (p.points_earned ?? 0) > 0).length;
+  const finishedMatchIds = [
+    ...new Set(
+      predictions
+        .filter((p) => p.user_id === currentUserId && (p.points_earned ?? 0) > 0)
+        .map((p) => p.match_id),
+    ),
+  ];
+  const totalPredictable = finishedMatchIds.length;
   const aproveitamento =
     totalPredictable > 0 ? `${Math.round((scoredPredictions / totalPredictable) * 100)}%` : "—";
-  const exactCount = userPreds.filter((p) => {
-    const m = matches.find((x) => x.id === p.match_id);
-    if (!m || m.home_score === null || m.away_score === null) return false;
-    return m.home_score === p.predicted_home_score && m.away_score === p.predicted_away_score;
-  }).length;
+  const exactCount = userPreds.filter(
+    (p) => p.points_earned === 10 || p.points_earned === 15,
+  ).length;
 
   const lineData = PHASE_ORDER.map((phase) => {
     const phasePreds = userPreds.filter((p) => {
       const m = matches.find((x) => x.id === p.match_id);
       return m && m.phase === phase;
     });
-    const pts = phasePreds.reduce((sum, p) => {
-      const m = matches.find((x) => x.id === p.match_id);
-      return sum + (m ? scoreMatch(m, p) : 0);
-    }, 0);
+    const pts = phasePreds.reduce((sum, p) => sum + (p.points_earned ?? 0), 0);
     return {
       rodada: PHASE_LABEL[phase].replace("Fase de ", "").replace(" de Final", ""),
       pontos: pts,

@@ -111,3 +111,59 @@ export function userBreakdown(
     b.zebraMultiplied;
   return b;
 }
+
+export function breakdownFromPoints(predictions: MockPrediction[], userId: string): ScoreBreakdown {
+  const b: ScoreBreakdown = {
+    exact: 0,
+    winnerWithDiff: 0,
+    winnerOnly: 0,
+    correctDraw: 0,
+    oneTeamScore: 0,
+    invertedScore: 0,
+    zebraMultiplied: 0,
+    total: 0,
+  };
+  for (const p of predictions.filter((x) => x.user_id === userId)) {
+    const pts = p.points_earned;
+    if (pts <= 0) continue;
+    if (p.is_zebra) {
+      let base = 0;
+      if (pts === 15) {
+        base = 10;
+        b.exact += base;
+      } else if (pts === 11) {
+        base = 7;
+        b.winnerWithDiff += base;
+      } else if (pts === 8) {
+        base = 5;
+        b.winnerOnly += base;
+      } else if (pts === 5) {
+        base = 3;
+        b.correctDraw += base;
+      } else if (pts === 3) {
+        base = 2;
+        b.oneTeamScore += base;
+      } else if (pts === 2) {
+        base = 1;
+        b.invertedScore += base;
+      } else continue;
+      b.zebraMultiplied += pts - base;
+    } else {
+      if (pts === 10) b.exact += pts;
+      else if (pts === 7) b.winnerWithDiff += pts;
+      else if (pts === 5) b.winnerOnly += pts;
+      else if (pts === 3) b.correctDraw += pts;
+      else if (pts === 2) b.oneTeamScore += pts;
+      else if (pts === 1) b.invertedScore += pts;
+    }
+  }
+  b.total =
+    b.exact +
+    b.winnerWithDiff +
+    b.winnerOnly +
+    b.correctDraw +
+    b.oneTeamScore +
+    b.invertedScore +
+    b.zebraMultiplied;
+  return b;
+}

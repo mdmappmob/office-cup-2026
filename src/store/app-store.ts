@@ -272,6 +272,36 @@ export const useAppStore = create<AppState>()(
             get().syncPredictionsToSupabase();
           }
           get().loadProfiles();
+
+          // Backfill match results to Supabase (admin only, one-time)
+          if (get().isAdmin) {
+            const finishedMatches = get().matches.filter(
+              (m) => m.home_score != null && m.away_score != null && m.status === "finished",
+            );
+            if (finishedMatches.length > 0) {
+              const { backfillMatchResults } =
+                await import("@/lib/supabase/backfill-matches.server");
+              backfillMatchResults({
+                data: {
+                  matches: finishedMatches.map((m) => ({
+                    id: m.id,
+                    home_team: m.home_team,
+                    away_team: m.away_team,
+                    home_flag: m.home_flag,
+                    away_flag: m.away_flag,
+                    match_date: m.match_date,
+                    venue_tz: m.venue_tz ?? null,
+                    phase: m.phase,
+                    group: m.group ?? null,
+                    home_score: m.home_score!,
+                    away_score: m.away_score!,
+                    status: "finished",
+                    bracket_slot: m.bracket_slot ?? null,
+                  })),
+                },
+              }).catch(console.warn);
+            }
+          }
         } catch (err) {
           console.warn("Erro ao carregar dados do Supabase", err);
         }
