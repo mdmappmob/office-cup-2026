@@ -319,13 +319,20 @@ export const useAppStore = create<AppState>()(
           const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
           const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
           const res = await fetch(
-            `${supabaseUrl}/rest/v1/profiles?select=id,full_name&id=in.(${uids.map((id) => `"${id}"`).join(",")})`,
+            `${supabaseUrl}/rest/v1/profiles?select=id,full_name,email&id=in.(${uids.map((id) => `"${id}"`).join(",")})`,
             { headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` } },
           );
           if (!res.ok) return;
-          const data: Array<{ id: string; full_name: string }> = await res.json();
+          const data: Array<{ id: string; full_name: string | null; email?: string | null }> =
+            await res.json();
           const map: Record<string, string> = {};
-          for (const p of data ?? []) map[p.id] = p.full_name;
+          for (const p of data ?? []) {
+            map[p.id] = p.full_name ?? p.email ?? p.id.slice(0, 8);
+          }
+          // Ensure every member has at least a placeholder
+          for (const uid of uids) {
+            if (!map[uid]) map[uid] = uid.slice(0, 8);
+          }
           set({ profiles: map });
         } catch {}
       },

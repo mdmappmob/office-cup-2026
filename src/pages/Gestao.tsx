@@ -5,18 +5,32 @@ import { Badge } from "@/components/ui/badge";
 import { Link2, Users } from "lucide-react";
 import { useAppStore } from "@/store/app-store";
 import { useAuthStore } from "@/store/auth-store";
-import { mockLeagues } from "@/mocks/leagues";
+import { supabase } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { useEffect, useState } from "react";
 
 export function GestaoPage() {
   const authUser = useAuthStore((s) => s.user);
   const members = useAppStore((s) => s.members);
   const profiles = useAppStore((s) => s.profiles);
   const toggle = useAppStore((s) => s.toggleMemberPaid);
-  const league = mockLeagues[0];
+  const [inviteCode, setInviteCode] = useState("");
+
+  useEffect(() => {
+    if (!authUser?.id) return;
+    supabase
+      .from("leagues")
+      .select("invite_code")
+      .eq("admin_id", authUser.id)
+      .limit(1)
+      .then(({ data }) => {
+        if (data?.[0]?.invite_code) setInviteCode(data[0].invite_code);
+      })
+      .catch(() => {});
+  }, [authUser?.id]);
 
   const copyInvite = () => {
-    const url = `${window.location.origin}/convite/${league.id}-token`;
+    const url = `${window.location.origin}/login?invite=${inviteCode}`;
     navigator.clipboard.writeText(url).catch(() => undefined);
     toast.success("Link de convite copiado");
   };
@@ -39,7 +53,7 @@ export function GestaoPage() {
         </CardHeader>
         <CardContent>
           <code className="block bg-muted/40 border border-border rounded-md p-3 text-xs font-mono text-muted-foreground">
-            /convite/{league.id}-token
+            {inviteCode || "Carregando..."}
           </code>
         </CardContent>
       </Card>

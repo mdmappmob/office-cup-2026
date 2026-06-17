@@ -15,6 +15,15 @@ export function LoginPage() {
   const [tab, setTab] = useState<"signin" | "signup" | "reset">("signin");
   const [prefillEmail, setPrefillEmail] = useState("");
 
+  // Store invite code from URL so Perfil page can auto-join
+  const inviteParam =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("invite")
+      : null;
+  useEffect(() => {
+    if (inviteParam) sessionStorage.setItem("pending_invite", inviteParam);
+  }, [inviteParam]);
+
   useEffect(() => {
     if (ready && user) navigate({ to: "/dashboard" });
   }, [ready, user, navigate]);

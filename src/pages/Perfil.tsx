@@ -92,6 +92,61 @@ export function PerfilPage() {
       .catch(() => {});
   }, [authUser?.id, isAdmin]);
 
+  // Auto-join from invite link (?invite=CODE)
+  useEffect(() => {
+    if (!authUser?.id || joinedLeague) return;
+    const pending = sessionStorage.getItem("pending_invite");
+    if (pending) {
+      sessionStorage.removeItem("pending_invite");
+      setInviteCode(pending);
+      setTimeout(() => {
+        if (!pending.trim()) return;
+        handleJoinWithCode(pending);
+      }, 300);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser?.id, joinedLeague]);
+
+  const handleJoinWithCode = async (code: string) => {
+    if (useAppStore.getState().isDeadlinePassed()) {
+      toast.error("Prazo expirado", {
+        description: "A 2ª rodada já começou. Não é mais permitido entrar no bolão.",
+      });
+      return;
+    }
+    setJoining(true);
+    try {
+      const { data: league } = await supabase
+        .from("leagues")
+        .select("id, name")
+        .eq("invite_code", code.trim().toUpperCase())
+        .maybeSingle();
+      if (!league) {
+        toast.error("Código inválido");
+        return;
+      }
+      const { error } = await supabase
+        .from("members")
+        .upsert(
+          { user_id: authUser!.id, league_id: league.id, has_paid_admin: false, total_points: 0 },
+          { onConflict: "league_id,user_id" },
+        );
+      if (error) throw error;
+      await supabase
+        .from("profiles")
+        .upsert(
+          { id: authUser!.id, full_name: authUser!.full_name, email: authUser!.email },
+          { onConflict: "id" },
+        );
+      setJoinedLeague(league.name);
+      toast.success(`Bem-vindo ao ${league.name}!`);
+    } catch {
+      toast.error("Erro ao entrar no bolão");
+    } finally {
+      setJoining(false);
+    }
+  };
+
   const handleJoinLeague = async () => {
     if (!authUser?.id || !inviteCode.trim()) return;
     if (useAppStore.getState().isDeadlinePassed()) {
@@ -111,15 +166,19 @@ export function PerfilPage() {
         toast.error("Código inválido", { description: "Nenhum bolão encontrado com esse código." });
         return;
       }
-      const { error } = await supabase.from("members").upsert(
-        { user_id: authUser.id, league_id: league.id, has_paid_admin: false, total_points: 0 },
-        { onConflict: "league_id,user_id" },
-      );
+      const { error } = await supabase
+        .from("members")
+        .upsert(
+          { user_id: authUser.id, league_id: league.id, has_paid_admin: false, total_points: 0 },
+          { onConflict: "league_id,user_id" },
+        );
       if (error) throw error;
-      await supabase.from("profiles").upsert(
-        { id: authUser.id, full_name: authUser.full_name, email: authUser.email },
-        { onConflict: "id" },
-      );
+      await supabase
+        .from("profiles")
+        .upsert(
+          { id: authUser.id, full_name: authUser.full_name, email: authUser.email },
+          { onConflict: "id" },
+        );
       setJoinedLeague(league.name);
       toast.success(`Bem-vindo ao ${league.name}!`);
       setInviteCode("");
@@ -157,9 +216,13 @@ export function PerfilPage() {
       });
       if (result.ok) {
         localStorage.setItem(`supabase_migrated_${authUser.id}`, "1");
-        toast.success(`${localPredictions} palpite(s) migrados com sucesso! (predCount=${result.predCount ?? "?"})`);
+        toast.success(
+          `${localPredictions} palpite(s) migrados com sucesso! (predCount=${result.predCount ?? "?"})`,
+        );
       } else {
-        toast.error("Erro na migração", { description: `${result.error} (preds=${localPredictions})` });
+        toast.error("Erro na migração", {
+          description: `${result.error} (preds=${localPredictions})`,
+        });
       }
     } catch (err) {
       toast.error("Erro na migração", { description: (err as Error).message });
@@ -245,7 +308,11 @@ export function PerfilPage() {
                   value={inviteCode}
                   onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
                 />
-                <Button size="sm" disabled={!inviteCode.trim() || joining} onClick={handleJoinLeague}>
+                <Button
+                  size="sm"
+                  disabled={!inviteCode.trim() || joining}
+                  onClick={handleJoinLeague}
+                >
                   {joining ? "Entrando..." : "Entrar"}
                 </Button>
               </div>
