@@ -361,13 +361,25 @@ export const useAppStore = create<AppState>()(
       syncMembersToSupabase: async () => {
         const userId = get().currentUserId;
         if (!userId) return;
-        const mine = get().members.find((m) => m.user_id === userId);
-        if (!mine) return;
+        const all = get().members;
+        if (all.length === 0) return;
         try {
-          await membersApi.upsertMember(mine.user_id, mine.league_id, mine.total_points);
+          await membersApi.upsertMember(userId, get().currentLeagueId, 0);
         } catch (err) {
-          console.warn("Erro ao sincronizar member", mine.user_id, err);
+          console.warn("Erro ao sincronizar member local", userId, err);
         }
+        // Sync ALL members (incl. has_paid_admin) via service role
+        const { syncAllMembers } = await import("@/lib/supabase/sync-members.server");
+        syncAllMembers({
+          data: {
+            members: all.map((m) => ({
+              user_id: m.user_id,
+              league_id: m.league_id,
+              has_paid_admin: m.has_paid_admin,
+              total_points: m.total_points,
+            })),
+          },
+        }).catch(console.warn);
       },
       recomputeStandings: () => {
         const preds = get().predictions;
