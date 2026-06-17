@@ -5,13 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { Link2, Users } from "lucide-react";
 import { useAppStore } from "@/store/app-store";
 import { useAuthStore } from "@/store/auth-store";
-import { mockProfiles } from "@/mocks/profiles";
 import { mockLeagues } from "@/mocks/leagues";
 import { toast } from "sonner";
 
 export function GestaoPage() {
   const authUser = useAuthStore((s) => s.user);
   const members = useAppStore((s) => s.members);
+  const profiles = useAppStore((s) => s.profiles);
   const toggle = useAppStore((s) => s.toggleMemberPaid);
   const league = mockLeagues[0];
 
@@ -52,16 +52,8 @@ export function GestaoPage() {
         </CardHeader>
         <CardContent className="divide-y divide-border">
           {members.map((m) => {
-            const p =
-              authUser?.id === m.user_id
-                ? {
-                    id: authUser.id,
-                    email: authUser.email,
-                    full_name: authUser.full_name,
-                    avatar_url: "",
-                  }
-                : mockProfiles.find((x) => x.id === m.user_id);
-            const name = p?.full_name ?? "Usuário local";
+            const isMe = m.user_id === authUser?.id;
+            const name = isMe ? authUser.full_name : (profiles[m.user_id] ?? "Usuário local");
             return (
               <div key={m.id} className="flex items-center justify-between py-3">
                 <div className="flex items-center gap-3">
@@ -74,7 +66,9 @@ export function GestaoPage() {
                   </div>
                   <div>
                     <p className="text-sm font-semibold">{name}</p>
-                    <p className="text-xs text-muted-foreground font-mono">{p?.email}</p>
+                    {isMe && (
+                      <p className="text-xs text-muted-foreground font-mono">{authUser.email}</p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
