@@ -26,6 +26,8 @@
 - O admin pode lançar resultado de qualquer partida via página "Apuração"
 - **Artilheiros removidos**: não há mais pontuação por artilheiros (predicted_goalscorers ignorado na pontuação)
 - As categorias são mutuamente exclusivas: aplica-se sempre a maior pontuação possível
+- `totalUserPoints()` soma `p.points_earned` diretamente (não recalcula via `scoreMatch`)
+- `breakdownFromPoints()` deriva categorias de acerto a partir de `points_earned` + `is_zebra`, sem depender de `match.home_score` — usado pelo Dashboard mesmo sem resultados locais
 
 ## Bracket Oficial FIFA (src/lib/bracket.ts)
 
@@ -103,25 +105,34 @@ Implementação completa do chaveamento da Copa 2026 conforme regulamento da FIF
 - Ctrl+S continua funcionando como atalho
 
 ### Resultados / Apuração (src/pages/AdminResultados.tsx)
+- **Membros podem visualizar** resultados e pontos, sem os botões de admin
+- Botões "Sincronizar resultados" e "Encerrar partida"/"Reapurar" renderizam apenas para admin
+- Inputs de placar desabilitados para não-admin (visualização apenas)
 - Admin lança resultado de qualquer partida
 - **Sincronização automática**: botão "Sincronizar resultados" busca placares da football-data.org
 - Ao encerrar partida, `settleMatch()` (app-store.ts) recalcula pontos localmente + dispara `settleAllPredictions` (server fn) que:
   1. Busca TODAS as predictions da partida no Supabase
   2. Recalcula `points_earned` e `is_zebra` para cada uma
   3. Atualiza `total_points` na tabela `members` para todos os usuários afetados
+  4. **Upserta o resultado na tabela `matches`** do Supabase (via service role)
 - Partidas com data passada são destacadas para lançamento
 
 ### Ranking / Dashboard
 - **Ranking** (`src/pages/Ranking.tsx`): tabela completa, busca `profiles` do Zustand (populado por `loadProfiles`)
 - **Dashboard** (`src/pages/Dashboard.tsx`): "Top do Bolão" com top 5, gráfico de evolução, breakdown por fase
 - Ambos leem `useAppStore((s) => s.profiles)` — mesma fonte, sem duplicação
-- `loadProfiles()` busca da tabela `profiles` do Supabase via fetch direto (não supabase-js)
-- Status de pagamento (PAGO/PENDENTE) gerenciado pelo admin
+- Dashboard **não depende de resultados locais**: usa `points_earned` das predictions + `breakdownFromPoints()`
+- Cards: "Classificação" primeiro, depois "Pontos Totais", "Acertos em Cheio", "Aproveitamento"
+- `loadProfiles()` busca `id, full_name, email` da tabela `profiles`; fallback: `full_name` → `email` → `id.slice(0,8)`
+- Status de pagamento (PAGO/PENDENTE) gerenciado pelo admin via Gestão
 - Nomes dos membros vindos da tabela `profiles`; upsert automático no login
 
 ### Convite
-- Admin vê código do bolão no Perfil (botão Copiar)
-- Convidado insere código no Perfil → `handleJoinLeague()`:
+- Admin vê código do bolão no Perfil (botão Copiar) e na **Gestão** (com link funcional)
+- Gestão: busca `invite_code` real do Supabase e copia `https://app/login?invite=CODE`
+- Login: salva `pending_invite` na `sessionStorage`
+- Perfil: detecta `pending_invite` e **auto-entra no bolão** ao carregar
+- Convidado também pode inserir código manualmente no Perfil → `handleJoinLeague()`:
   1. Busca liga por `invite_code`
   2. Upsert em `members` + `profiles`
   3. Mostra "Você está participando do [nome da liga]"
@@ -253,6 +264,8 @@ Persist via `partialize`:
 | `src/lib/supabase/members.ts` | CRUD members |
 | `src/lib/supabase/settle-all.server.ts` | Server fn: recalcula points_earned + total_points de TODOS os usuários |
 | `src/lib/supabase/migrate.server.ts` | Server fn: migra dados locais para Supabase |
+| `src/lib/supabase/backfill-matches.server.ts` | Server fn: backfill de resultados locais para tabela matches do Supabase |
+| `src/lib/supabase/sync-members.server.ts` | Server fn: sincroniza has_paid_admin + total_points de todos os membros |
 | `src/mocks/types.ts` | Tipos compartilhados (MockMatch, MockPrediction, etc.) |
 | `src/mocks/matches.ts` | Fixtures das 103 partidas reais com timezone por partida |
 | `src/pages/Palpites.tsx` | Página de palpites |
@@ -282,6 +295,7 @@ Persist via `partialize`:
    - Busca TODAS predictions da partida no Supabase
    - Recalcula `points_earned` + `is_zebra` para cada prediction
    - Recalcula `total_points` na tabela `members` para todos afetados
+   - **Upserta resultado na tabela `matches`** (agora visível a todos)
 4. `loadFromSupabase()` no mount do Ranking recarrega dados + recalcula localmente se prediction veio com 0
 
 ### Funcionalidades Verificadas
@@ -301,8 +315,14 @@ Persist via `partialize`:
 - ✅ Prazo global no 1º jogo da 2ª rodada: tudo congelado (palpites + entrada de membros)
 - ✅ Sincronização football-data.org com mapeamento de nomes (Cape Verde Islands, Holland)
 - ✅ Líder atual na Apuração e Classificação no Dashboard mostram nome completo
+- ✅ Membros visualizam Apuração com resultados e pontos (sem botões admin)
+- ✅ Dashboard membro: cards e gráficos funcionam sem resultados locais (breakdownFromPoints)
+- ✅ Gestão: toggleMemberPaid persiste no Supabase via sync-members.server (service role)
+- ✅ Gestão: nomes dos membros vindos do Supabase (fallback email/id)
+- ✅ Link convite funcional: /login?invite=CODE → sessionStorage → Perfil auto-join
+- ✅ Resultados de partidas sincronizados para tabela matches do Supabase
+- ✅ loadFromSupabase busca match results do Supabase e mescla no estado local
 
 ### Próximos Passos
-1. Sincronizar `matches` table no Supabase com dados reais (não placeholders)
-2. Implementar recuperação de senha
-3. Múltiplas ligas com seleção dinâmica (remover `CURRENT_LEAGUE_ID` hardcoded)
+1. Implementar recuperação de senha
+2. Múltiplas ligas com seleção dinâmica (remover `CURRENT_LEAGUE_ID` hardcoded)
