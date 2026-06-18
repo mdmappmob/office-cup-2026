@@ -137,10 +137,15 @@ export function PalpitesPage() {
           Clique sobre o card de um jogo para ver informações detalhadas das seleções, palpites
           alternativos e análise do Copilot.
         </p>
-        <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5">
-          <Lock className="size-3 shrink-0" />
-          Todas as partidas têm 10 minutos após o início para alterar o palpite.
-        </p>
+        <div className="mt-3 p-3 rounded-md border border-sky-400/40 bg-sky-50 dark:bg-sky-950/20 flex items-start gap-2.5">
+          <Lock className="size-4 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-sky-700 dark:text-sky-300">Janela de alteração</p>
+            <p className="text-xs text-sky-600/80 dark:text-sky-400/80 mt-0.5">
+              Todas as partidas têm 10 minutos após o início para alterar o palpite.
+            </p>
+          </div>
+        </div>
       </header>
 
       <Card className="mb-6">
