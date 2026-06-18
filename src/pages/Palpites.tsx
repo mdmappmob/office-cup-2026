@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { useAppStore } from "@/store/app-store";
+import { useAppStore, MAX_EXTRA_SLOTS } from "@/store/app-store";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -412,7 +412,7 @@ function MatchRow({
   onSelect: (id: string) => void;
 }) {
   const match = useAppStore((s) => s.matches.find((x) => x.id === matchId)!);
-  const prediction = useAppStore((s) => s.predictions.find((p) => p.match_id === matchId));
+  const prediction = useAppStore((s) => s.predictions.find((p) => p.match_id === matchId && p.user_id === s.currentUserId));
   const upsert = predictionsRepo.upsertPrediction;
   const tbd = match.home_team === "—" || match.away_team === "—";
   const finished = match.status === "finished";
@@ -546,7 +546,7 @@ function BracketRow({
   onSelect: (id: string) => void;
 }) {
   const match = useAppStore((s) => s.matches.find((x) => x.id === matchId)!);
-  const prediction = useAppStore((s) => s.predictions.find((p) => p.match_id === matchId));
+  const prediction = useAppStore((s) => s.predictions.find((p) => p.match_id === matchId && p.user_id === s.currentUserId));
   const upsert = predictionsRepo.upsertPrediction;
   const tbd = match.home_team === "—" || match.away_team === "—";
   const finished = match.status === "finished";
@@ -593,7 +593,7 @@ function BracketRow({
               e.stopPropagation();
               if (timeLocked && !finished)
                 toast.error("Prazo de alteração expirado", {
-                  description: "Você pode alterar o palpite até 10 minutos antes do início da partida.",
+                  description: "Você pode alterar o palpite até 10 minutos após o início da partida.",
                 });
             }}
           >
@@ -769,15 +769,17 @@ function AlternativePalpites({ matchId }: { matchId: string }) {
         <h4 className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground">
           <Sparkles className="size-3.5 text-primary" /> Meus palpites para esta partida
         </h4>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={locked}
-          onClick={() => addSlot(matchId)}
-          className="h-7"
-        >
-          <Plus className="size-3.5 mr-1" /> Novo palpite
-        </Button>
+        {predictions.length < MAX_EXTRA_SLOTS + 1 && (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={locked}
+            onClick={() => addSlot(matchId)}
+            className="h-7"
+          >
+            <Plus className="size-3.5 mr-1" /> Novo palpite
+          </Button>
+        )}
       </div>
       <div className="space-y-2">
         {predictions.length === 0 && (
@@ -798,7 +800,7 @@ function AlternativePalpites({ matchId }: { matchId: string }) {
               onClick={() => {
                 if (timeLocked && !finished)
                   toast.error("Prazo de alteração expirado", {
-                    description: "Você pode alterar o palpite até 10 minutos antes do início da partida.",
+                    description: "Você pode alterar o palpite até 10 minutos após o início da partida.",
                   });
               }}
             >
