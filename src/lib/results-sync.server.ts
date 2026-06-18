@@ -39,7 +39,9 @@ export const syncFootballData = createServerFn({ method: "GET" }).handler(
     }
 
     const competitionId = process.env.FOOTBALL_COMPETITION_ID ?? "2000";
-    const url = `https://api.football-data.org/v4/competitions/${competitionId}/matches`;
+    const dateFrom = process.env.FOOTBALL_DATE_FROM ?? "2026-06-01";
+    const season = process.env.FOOTBALL_SEASON ?? "2026";
+    const url = `https://api.football-data.org/v4/competitions/${competitionId}/matches?dateFrom=${dateFrom}&season=${season}`;
 
     try {
       const response = await fetch(url, {

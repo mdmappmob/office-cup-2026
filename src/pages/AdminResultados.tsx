@@ -76,19 +76,32 @@ function Body() {
       }
       let applied = 0;
       let skipped = 0;
+      let notFound: string[] = [];
       for (const r of results) {
         if (r.status !== "finished" || r.homeScore === null || r.awayScore === null) continue;
         const currentMatches = useAppStore.getState().matches;
         const match = resolveMatch(currentMatches, r.homeTeam, r.awayTeam);
         if (match) {
           if (match.home_score === null || match.away_score === null) {
-            predictionsRepo.settleMatch(match.id, r.homeScore, r.awayScore);
+            const res = await predictionsRepo.settleMatch(match.id, r.homeScore, r.awayScore);
+            if (!res.ok) {
+              toast.error(`Falha ao registrar ${r.homeTeam}×${r.awayTeam}`, { description: res.error });
+            }
             applied++;
           } else {
             skipped++;
           }
         } else {
-          console.warn("Sync: partida não encontrada", r.homeTeam + " x " + r.awayTeam);
+          notFound.push(`${r.homeTeam} × ${r.awayTeam}`);
+        }
+      }
+      if (notFound.length > 0) {
+        console.warn("Sync: partidas não encontradas", notFound);
+        if (applied === 0) {
+          toast.warning("Nenhuma partida encontrada", {
+            description: `A API retornou ${results.filter(r => r.status === "finished" && r.homeScore !== null).length} resultado(s), mas nenhum correspondeu aos times locais. Ex.: ${notFound.slice(0, 3).join(", ")}`,
+            duration: 8000,
+          });
         }
       }
       if (applied > 0) {
