@@ -97,7 +97,7 @@ Implementação completa do chaveamento da Copa 2026 conforme regulamento da FIF
 - Fase de grupos usa `GroupTable` com data do jogo exibida
 - Ctrl+S continua funcionando como atalho
 - **Trava por tempo**: palpites são bloqueados conforme regras detalhadas na seção "Trava por Tempo". Guard também no `upsertPrediction` da store e no `addPredictionSlot`.
-- **Prazo global**: após o 1º jogo da 2ª rodada da fase de grupos, todo o bolão é congelado — não é mais permitido alterar palpites nem entrar no bolão.
+- **Banner informativo**: banner azul fixo no topo informando "Janela de alteração: você pode alterar seu palpite até 10 minutos após o início da partida"
 - **Avançar fase**: botão "Avançar fase" visível em todos os dispositivos
 - Progresso da fase atual mostrado ao lado do botão
 - Fases mata-mata usam `BracketRow` (Card responsivo) com layout adaptável
@@ -307,8 +307,8 @@ Persist via `partialize`:
 - ✅ Título da liga dinâmico no Ranking
 - ✅ Multi-browser (admin + MDM + Thiago)
 - ✅ 12+ partidas apuradas com pontuação de todos os membros
-- ✅ Trava por tempo: 10min na 1ª rodada (só para quem completou todos os palpites), trava no início nas demais fases
-- ✅ Prazo global no 1º jogo da 2ª rodada: tudo congelado (palpites + entrada de membros)
+- ✅ Trava por tempo: 10 min após o início de cada partida (regra única para todas as fases)
+- ✅ Banner informativo azul "Janela de alteração" sempre visível na página de palpites
 - ✅ Sincronização football-data.org com mapeamento de nomes (Cape Verde Islands, Holland)
 - ✅ Líder atual na Apuração e Classificação no Dashboard mostram nome completo
 - ✅ Membros visualizam Apuração com resultados e pontos (sem botões admin)
@@ -318,6 +318,22 @@ Persist via `partialize`:
 - ✅ Link convite funcional: /login?invite=CODE → sessionStorage → Perfil auto-join
 - ✅ Resultados de partidas sincronizados para tabela matches do Supabase
 - ✅ loadFromSupabase busca match results do Supabase e mescla no estado local
+
+## Últimas Alterações
+
+### 2026-06-18 — Snyk + Time Lock
+- **Snyk**: upgrade `@cloudflare/vite-plugin` 1.40.1 → 1.42.0 (fixa vulnerabilidades em `undici` e `ws`)
+- **Time lock**: trava passou de 10 min **antes** para 10 min **após** o início da partida
+- **Prazo global removido**: não há mais deadline único; cada partida é independente
+- **Banner azul**: mensagem "Janela de alteração" em banner fixo (`bg-sky-50`) sempre visível em Palpites
+- **Limpeza**: `isDeadlinePassed` removido do app-store, Palpites e Perfil
+
+### 2026-06-18 — Fix userId filter + limite de slots extras
+- **Bug MatchRow/BracketRow**: `predictions.find` sem filtro `userId` exibia palpites de outro usuário e impedia edição do slot principal
+- **Limite de slots**: `MAX_EXTRA_SLOTS = 1` (máx. 2 slots por partida: principal + 1 extra)
+- **Botão oculto**: "+ Novo palpite" some quando limite é atingido (não apenas disabled)
+- **Constantes exportadas**: `LOCK_TIME_MINUTES`, `MAX_EXTRA_SLOTS` em `src/store/app-store.ts`
+- **Toast corrigido**: BracketRow e AlternativePalpites agora dizem "após o início" (estava "antes")
 
 ### Próximos Passos
 1. Implementar recuperação de senha
