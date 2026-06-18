@@ -340,6 +340,12 @@ Persist via `partialize`:
 - **settleMatch agora async**: retorna o resultado do sync remoto
 - **Toast condicional**: AdminResultados mostra toast de erro se o sync falhar
 
+### 2026-06-18 — Fix sync football-data: dateFrom + season + feedback
+- **Bug sync automático**: API gratuita football-data.org só retorna matchday atual + próximo; partidas de rodadas anteriores (ex.: Suíça×Bósnia) não apareciam mais
+- **Fix**: adicionado `?dateFrom=2026-06-01&season=2026` na chamada à API
+- **Feedback**: AdminResultados agora exibe toast.warning listando partidas que a API retornou mas não foram encontradas localmente
+- **Env vars**: `FOOTBALL_DATE_FROM`, `FOOTBALL_SEASON` (defaults: `2026-06-01`, `2026`)
+
 ### Próximos Passos
 1. Implementar recuperação de senha
 2. Múltiplas ligas com seleção dinâmica (remover `CURRENT_LEAGUE_ID` hardcoded)
