@@ -335,6 +335,11 @@ Persist via `partialize`:
 - **Constantes exportadas**: `LOCK_TIME_MINUTES`, `MAX_EXTRA_SLOTS` em `src/store/app-store.ts`
 - **Toast corrigido**: BracketRow e AlternativePalpites agora dizem "após o início" (estava "antes")
 
+### 2026-06-18 — Fix sync silencioso + async settleMatch
+- **Bug crítico**: `settleAllPredictions` engolia erros (retornava `{ ok: false }` em vez de lançar exceção), então `.catch()` nunca disparava e o admin via "Resultado registrado" mesmo com falha
+- **settleMatch agora async**: retorna o resultado do sync remoto
+- **Toast condicional**: AdminResultados mostra toast de erro se o sync falhar
+
 ### Próximos Passos
 1. Implementar recuperação de senha
 2. Múltiplas ligas com seleção dinâmica (remover `CURRENT_LEAGUE_ID` hardcoded)
