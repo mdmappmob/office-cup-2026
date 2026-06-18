@@ -41,15 +41,7 @@ import { toast } from "sonner";
 
 const USER_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-function isFirstRoundMatch(match: MockMatch): boolean {
-  if (match.phase !== "grupos" || !match.group) return false;
-  const allMatches = useAppStore.getState().matches;
-  const groupMatches = allMatches
-    .filter((m) => m.group === match.group && m.phase === "grupos")
-    .sort((a, b) => a.match_date.localeCompare(b.match_date));
-  const idx = groupMatches.findIndex((m) => m.id === match.id);
-  return idx >= 0 && idx < 2;
-}
+
 
 function getSecondRoundStartDate(matches: MockMatch[]): string {
   const groups = new Map<string, string[]>();
@@ -217,6 +209,10 @@ export function PalpitesPage() {
         <p className="text-xs text-muted-foreground mt-1">
           Clique sobre o card de um jogo para ver informações detalhadas das seleções, palpites
           alternativos e análise do Copilot.
+        </p>
+        <p className="text-xs text-muted-foreground/70 mt-2 flex items-center gap-1.5">
+          <Lock className="size-3 shrink-0" />
+          Todas as partidas têm uma janela de 10 minutos antes do início para alterar o palpite.
         </p>
       </header>
 
@@ -535,9 +531,7 @@ function MatchRow({
           onClick={() => {
             if (timeLocked && !finished)
               toast.error("Prazo de alteração expirado", {
-                description: isFirstRoundMatch(match)
-                  ? "Você pode alterar o palpite até 10 minutos após o início da partida."
-                  : "Você pode alterar o palpite até o início da partida.",
+                description: "Você pode alterar o palpite até 10 minutos antes do início da partida.",
               });
           }}
         >
@@ -673,9 +667,7 @@ function BracketRow({
               e.stopPropagation();
               if (timeLocked && !finished)
                 toast.error("Prazo de alteração expirado", {
-                  description: isFirstRoundMatch(match)
-                    ? "Você pode alterar o palpite até 10 minutos após o início da partida."
-                    : "Você pode alterar o palpite até o início da partida.",
+                  description: "Você pode alterar o palpite até 10 minutos antes do início da partida.",
                 });
             }}
           >
@@ -881,9 +873,7 @@ function AlternativePalpites({ matchId }: { matchId: string }) {
               onClick={() => {
                 if (timeLocked && !finished)
                   toast.error("Prazo de alteração expirado", {
-                    description: isFirstRoundMatch(match)
-                      ? "Você pode alterar o palpite até 10 minutos após o início da partida."
-                      : "Você pode alterar o palpite até o início da partida.",
+                    description: "Você pode alterar o palpite até 10 minutos antes do início da partida.",
                   });
               }}
             >
