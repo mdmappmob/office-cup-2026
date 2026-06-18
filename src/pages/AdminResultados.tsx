@@ -210,15 +210,19 @@ function ResultRow({ matchId }: { matchId: string }) {
     setAs(match.away_score?.toString() ?? "");
   }, [match.home_score, match.away_score]);
 
-  const handleSettle = () => {
+  const handleSettle = async () => {
     const h = Number(hs);
     const a = Number(as);
     if (Number.isNaN(h) || Number.isNaN(a) || hs === "" || as === "") {
       toast.error("Informe os dois placares.");
       return;
     }
-    predictionsRepo.settleMatch(matchId, h, a);
-    toast.success(`Resultado registrado · ${predictions.length} palpites apurados.`);
+    const result = await predictionsRepo.settleMatch(matchId, h, a);
+    if (result.ok) {
+      toast.success(`Resultado registrado · ${predictions.length} palpites apurados.`);
+    } else {
+      toast.error(`Erro ao sincronizar: ${result.error}`);
+    }
   };
 
   return (

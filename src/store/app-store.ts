@@ -31,7 +31,7 @@ interface AppState {
   addPredictionSlot: (matchId: string) => MockPrediction | null;
   removePrediction: (predictionId: string) => void;
   predictionsForMatch: (matchId: string, userId?: string) => MockPrediction[];
-  settleMatch: (matchId: string, homeScore: number, awayScore: number) => void;
+  settleMatch: (matchId: string, homeScore: number, awayScore: number) => Promise<{ ok: boolean; count?: number; error?: string }>;
   toggleMemberPaid: (memberId: string) => void;
   unlockedPhases: () => MatchPhase[];
   matchesByPhase: (phase: MatchPhase) => MockMatch[];
@@ -148,7 +148,7 @@ export const useAppStore = create<AppState>()(
           .predictions.filter((p) => p.match_id === matchId && p.user_id === uid)
           .sort((a, b) => a.slot - b.slot);
       },
-      settleMatch: (matchId, homeScore, awayScore) => {
+      settleMatch: async (matchId, homeScore, awayScore) => {
         const newMatches = get().matches.map((m) =>
           m.id === matchId
             ? { ...m, home_score: homeScore, away_score: awayScore, status: "finished" as const }
@@ -162,8 +162,7 @@ export const useAppStore = create<AppState>()(
         get().recomputeStandings();
         get().syncPredictionsToSupabase();
         get().syncMembersToSupabase();
-        // Recalcula pontos de TODOS os usuários no Supabase (não só do admin)
-        settleAllPredictions({
+        const result = await settleAllPredictions({
           data: {
             matchId,
             homeScore,
@@ -179,7 +178,11 @@ export const useAppStore = create<AppState>()(
             status: "finished",
             bracketSlot: settled.bracket_slot ?? null,
           },
-        }).catch((err) => console.warn("Erro ao settle remoto", err));
+        });
+        if (!result.ok) {
+          console.warn("Erro ao settle remoto:", result.error);
+        }
+        return result;
       },
       loadFromSupabase: async () => {
         const userId = get().currentUserId;
