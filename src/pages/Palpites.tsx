@@ -210,7 +210,7 @@ export function PalpitesPage() {
           Clique sobre o card de um jogo para ver informações detalhadas das seleções, palpites
           alternativos e análise do Copilot.
         </p>
-        <p className="text-xs text-muted-foreground/70 mt-2 flex items-center gap-1.5">
+        <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5">
           <Lock className="size-3 shrink-0" />
           Todas as partidas têm uma janela de 10 minutos antes do início para alterar o palpite.
         </p>
