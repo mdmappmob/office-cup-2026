@@ -212,8 +212,7 @@ Persist via `partialize`:
 ## Trava por Tempo (Match Time Lock)
 
 ### Regra
-- **Primeira rodada** da fase de grupos (2 primeiros jogos de cada grupo): palpite **trava 10 minutos após o início da partida**, mas apenas para usuários que já completaram **todos os 103 palpites** (grupos + mata-mata). Usuários que **ainda não completaram** todos os palpites podem continuar inserindo/editando sem trava por tempo (respeitam apenas o prazo global `isDeadlinePassed`)
-- **2ª/3ª rodada da fase de grupos e fases mata-mata**: trava **no horário de início da partida** (regra original, sem janela de tolerância)
+- **Todas as partidas**: palpite **trava 10 minutos antes do início da partida** para todos os usuários, independentemente da fase ou de quantos palpites já completaram
 - A trava se aplica tanto aos inputs visuais quanto aos guards no `upsertPrediction` e `addPredictionSlot` da store
 
 ### Prazo Global (isDeadlinePassed)
@@ -226,7 +225,7 @@ Persist via `partialize`:
 
 | Local | O que faz |
 |---|---|
-| `app-store.ts:isMatchTimeLocked(match)` | Retorna `true` se `Date.now() >= matchStart` ou se status é `finished` |
+| `app-store.ts:isMatchTimeLocked(match)` | Retorna `true` se `Date.now() >= matchStart - 10min` ou se status é `finished` |
 | `app-store.ts:upsertPrediction()` | Guard: se `isMatchTimeLocked` → retorna sem salvar |
 | `app-store.ts:addPredictionSlot()` | Guard: se `isMatchTimeLocked` → retorna `null` |
 | `Palpites.tsx:MatchRow` | `locked` inclui `timeLocked` (desabilita inputs) + toast no onClick |

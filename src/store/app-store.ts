@@ -447,36 +447,9 @@ export const useAppStore = create<AppState>()(
       isMatchTimeLocked: (match) => {
         if (match.status === "finished") return true;
         const matchStart = new Date(match.match_date).getTime();
-        // Regra geral (fase de grupos 2ª/3ª rodada, mata-mata): trava no início
-        const isFirstRound =
-          match.phase === "grupos" &&
-          match.group &&
-          (() => {
-            const groupMatches = get()
-              .matches.filter((m) => m.group === match.group && m.phase === "grupos")
-              .sort((a, b) => a.match_date.localeCompare(b.match_date));
-            const idx = groupMatches.findIndex((m) => m.id === match.id);
-            return idx >= 0 && idx < 2;
-          })();
-        if (!isFirstRound) {
-          return Date.now() >= matchStart;
-        }
-        // Primeira rodada: janela de 10min só para quem completou todos os palpites
-        const userId = get().currentUserId;
-        if (!userId) return false;
-        const allMatches = get().matches;
-        const userPredictions = get().predictions.filter((p) => p.user_id === userId);
-        const hasAllPredictions = allMatches.every((m) => {
-          if (m.home_team === "—" || m.away_team === "—") return true;
-          const pred = userPredictions.find((p) => p.match_id === m.id);
-          return pred && pred.predicted_home_score !== null && pred.predicted_away_score !== null;
-        });
-        if (hasAllPredictions) {
-          const graceEnd = matchStart + 10 * 60 * 1000;
-          return Date.now() >= graceEnd;
-        }
-        // Quem ainda não completou todos os palpites pode continuar inserindo
-        return false;
+        // Trava 10 minutos antes do início da partida para todos
+        const lockTime = matchStart - 10 * 60 * 1000;
+        return Date.now() >= lockTime;
       },
       isDeadlinePassed: () => {
         // A partir do 1º jogo da 2ª rodada, tudo é bloqueado
