@@ -20,7 +20,7 @@ import {
   type MockMatch,
   type MockPrediction,
 } from "@/mocks/types";
-import { fmtTime, fmtDate, fmtDateTime } from "@/lib/date";
+import { fmtTime, fmtDate } from "@/lib/date";
 import {
   Lock,
   Sparkles,
@@ -30,7 +30,6 @@ import {
   X,
   Plus,
   Trash2,
-  AlertTriangle,
 } from "lucide-react";
 import { analyzeMatch } from "@/lib/copilot";
 import { matchesRepo, predictionsRepo } from "@/lib/db";
@@ -40,24 +39,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
 const USER_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-
-
-function getSecondRoundStartDate(matches: MockMatch[]): string {
-  const groups = new Map<string, string[]>();
-  for (const m of matches) {
-    if (m.phase !== "grupos" || !m.group) continue;
-    if (!groups.has(m.group)) groups.set(m.group, []);
-    groups.get(m.group)!.push(m.match_date);
-  }
-  let earliest = "";
-  for (const dates of groups.values()) {
-    dates.sort();
-    const r2 = dates[2]; // índice 2 = 1ª partida da 2ª rodada
-    if (r2 && (!earliest || r2 < earliest)) earliest = r2;
-  }
-  return earliest;
-}
 
 function isPhaseComplete(
   phase: MatchPhase,
@@ -78,14 +59,6 @@ export function PalpitesPage() {
   const predictions = useAppStore((s) => s.predictions);
   const isPhaseExpired = useAppStore((s) => s.isPhaseExpired);
   const regenerateBracket = useAppStore((s) => s.regenerateBracket);
-
-  const deadline = useMemo(() => {
-    const d = getSecondRoundStartDate(matches);
-    if (!d) return null;
-    return { utc: d, br: fmtDateTime(d, USER_TZ) };
-  }, [matches]);
-
-  const deadlinePassed = deadline ? Date.now() >= new Date(deadline.utc).getTime() : false;
 
   const unlocked = useMemo(() => {
     const result: MatchPhase[] = ["grupos"];
@@ -148,63 +121,17 @@ export function PalpitesPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-8 py-10">
-      {deadlinePassed && (
-        <div className="mb-6 p-4 rounded-md border border-destructive/40 bg-destructive/10 flex items-start gap-3">
-          <AlertTriangle className="size-5 text-destructive shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-bold text-destructive">Prazo de palpites encerrado</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              A 2ª rodada da Fase de Grupos já começou. Não é mais permitido alterar palpites em
-              nenhuma fase. Os palpites já registrados serão considerados para a pontuação final.
-            </p>
-          </div>
-        </div>
-      )}
 
-      {!deadlinePassed && deadline && (
-        <div className="mb-6 p-4 rounded-md border border-amber-400/40 bg-amber-50 dark:bg-amber-950/20 flex items-start gap-3">
-          <AlertTriangle className="size-5 text-amber-500 shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-bold text-amber-700 dark:text-amber-400">
-              Prazo final para todos os palpites: {deadline.br}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1 space-y-1">
-              Após o início da 2ª rodada da Fase de Grupos,{" "}
-              <strong>não será mais permitido alterar NENHUM palpite</strong> em fase alguma,
-              incluindo a Fase de Grupos.
-            </p>
-            <ul className="text-xs text-muted-foreground mt-2 space-y-1 list-disc list-inside">
-              <li>Preencha todos os jogos da Fase de Grupos até a Final</li>
-              <li>
-                Use o botão <strong>Avançar fase</strong> (ou{" "}
-                <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded border border-border bg-muted">
-                  Ctrl + S
-                </kbd>
-                ) para confirmar a fase atual e avançar
-              </li>
-              <li>
-                Se os palpites não estiverem completos até o início da 2ª rodada, você será
-                desclassificado(a)
-              </li>
-            </ul>
-          </div>
-        </div>
-      )}
 
       <header className="mb-8">
         <h1 className="text-3xl font-bold tracking-tighter">Palpites</h1>
         <p className="text-sm text-muted-foreground">
           Preencha todos os jogos de uma fase para liberar a próxima.
-          {!deadlinePassed && (
-            <>
-              {" "}
-              Preencha todos os jogos e clique em <strong>Avançar fase</strong> (ou{" "}
-              <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded border border-border bg-muted">
-                Ctrl + S
-              </kbd>
-              ).
-            </>
-          )}
+          {" "}Preencha todos os jogos e clique em <strong>Avançar fase</strong> (ou{" "}
+          <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded border border-border bg-muted">
+            Ctrl + S
+          </kbd>
+          ).
         </p>
         <p className="text-xs text-muted-foreground mt-1">
           Clique sobre o card de um jogo para ver informações detalhadas das seleções, palpites
@@ -212,7 +139,7 @@ export function PalpitesPage() {
         </p>
         <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5">
           <Lock className="size-3 shrink-0" />
-          Todas as partidas têm uma janela de 10 minutos antes do início para alterar o palpite.
+          Todas as partidas têm 10 minutos após o início para alterar o palpite.
         </p>
       </header>
 
@@ -237,7 +164,7 @@ export function PalpitesPage() {
         {PHASE_ORDER.map((p) => {
           const isUnlocked = unlocked.includes(p);
           const isActive = activePhase === p;
-          const disabled = !isUnlocked || deadlinePassed;
+          const disabled = !isUnlocked;
           return (
             <button
               key={p}
@@ -246,7 +173,7 @@ export function PalpitesPage() {
               className={`px-4 py-2 rounded-md text-xs font-mono uppercase tracking-widest border transition-colors whitespace-nowrap flex items-center gap-2 ${
                 isActive
                   ? "bg-foreground text-background border-foreground"
-                  : isUnlocked && !deadlinePassed
+                  : isUnlocked
                     ? "bg-card hover:bg-muted border-border"
                     : "bg-muted/30 text-muted-foreground border-dashed cursor-not-allowed"
               }`}
@@ -261,20 +188,18 @@ export function PalpitesPage() {
       <div className="mb-6 flex items-center gap-3 flex-wrap">
         <Button
           onClick={advancePhase}
-          disabled={!phaseComplete || deadlinePassed}
+          disabled={!phaseComplete}
           size="default"
           className="gap-2"
         >
           <CheckCircle2 className="size-4" />
           Avançar fase
         </Button>
-        {!deadlinePassed && (
-          <span className="text-xs text-muted-foreground font-mono">
-            {phaseComplete
-              ? "Todos os jogos preenchidos"
-              : `${phaseMissing} jogo(s) restante(s) — preencha todos para avançar`}
-          </span>
-        )}
+        <span className="text-xs text-muted-foreground font-mono">
+          {phaseComplete
+            ? "Todos os jogos preenchidos"
+            : `${phaseMissing} jogo(s) restante(s) — preencha todos para avançar`}
+        </span>
       </div>
 
       <PhaseProgress phase={activePhase} />
@@ -291,20 +216,18 @@ export function PalpitesPage() {
       <div className="mt-6 flex items-center gap-3 flex-wrap md:hidden">
         <Button
           onClick={advancePhase}
-          disabled={!phaseComplete || deadlinePassed}
+          disabled={!phaseComplete}
           size="default"
           className="gap-2"
         >
           <CheckCircle2 className="size-4" />
           Avançar fase
         </Button>
-        {!deadlinePassed && (
-          <span className="text-xs text-muted-foreground font-mono">
-            {phaseComplete
-              ? "Todos os jogos preenchidos"
-              : `${phaseMissing} jogo(s) restante(s)`}
-          </span>
-        )}
+        <span className="text-xs text-muted-foreground font-mono">
+          {phaseComplete
+            ? "Todos os jogos preenchidos"
+            : `${phaseMissing} jogo(s) restante(s)`}
+        </span>
       </div>
     </div>
   );
@@ -488,9 +411,8 @@ function MatchRow({
   const upsert = predictionsRepo.upsertPrediction;
   const tbd = match.home_team === "—" || match.away_team === "—";
   const finished = match.status === "finished";
-  const deadlinePassed = useAppStore((s) => s.isDeadlinePassed());
   const timeLocked = useAppStore((s) => s.isMatchTimeLocked(match));
-  const locked = tbd || finished || deadlinePassed || timeLocked;
+  const locked = tbd || finished || timeLocked;
   const filled =
     prediction?.predicted_home_score !== null &&
     prediction?.predicted_home_score !== undefined &&
@@ -531,8 +453,8 @@ function MatchRow({
           onClick={() => {
             if (timeLocked && !finished)
               toast.error("Prazo de alteração expirado", {
-                description: "Você pode alterar o palpite até 10 minutos antes do início da partida.",
-              });
+              description: "Você pode alterar o palpite até 10 minutos após o início da partida.",
+            });
           }}
         >
           <Input
@@ -623,9 +545,8 @@ function BracketRow({
   const upsert = predictionsRepo.upsertPrediction;
   const tbd = match.home_team === "—" || match.away_team === "—";
   const finished = match.status === "finished";
-  const deadlinePassed = useAppStore((s) => s.isDeadlinePassed());
   const timeLocked = useAppStore((s) => s.isMatchTimeLocked(match));
-  const locked = tbd || finished || deadlinePassed || timeLocked;
+  const locked = tbd || finished || timeLocked;
   const filled =
     prediction?.predicted_home_score !== null &&
     prediction?.predicted_home_score !== undefined &&
@@ -820,7 +741,7 @@ function CopilotPanel({ matchId }: { matchId: string }) {
 }
 
 function AlternativePalpites({ matchId }: { matchId: string }) {
-  const userId = useAppStore((s) => s.currentUserId);
+  const userId = useAppStore((s) => s.currentUserId ?? "");
   const predictions = useAppStore(
     useShallow((s) =>
       s.predictions
@@ -834,9 +755,8 @@ function AlternativePalpites({ matchId }: { matchId: string }) {
   const match = useAppStore((s) => s.matches.find((m) => m.id === matchId)!);
   const tbd = match.home_team === "—" || match.away_team === "—";
   const finished = match.status === "finished";
-  const deadlinePassed = useAppStore((s) => s.isDeadlinePassed());
   const timeLocked = useAppStore((s) => s.isMatchTimeLocked(match));
-  const locked = tbd || finished || deadlinePassed || timeLocked;
+  const locked = tbd || finished || timeLocked;
 
   return (
     <section>

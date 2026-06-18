@@ -38,7 +38,6 @@ interface AppState {
   recomputeStandings: () => void;
   isPhaseExpired: (phase: MatchPhase) => boolean;
   getPhaseFirstMatchDate: (phase: MatchPhase) => string | null;
-  isDeadlinePassed: () => boolean;
   isMatchTimeLocked: (match: MockMatch) => boolean;
   loadFromSupabase: () => Promise<void>;
   loadProfiles: () => Promise<void>;
@@ -111,7 +110,6 @@ export const useAppStore = create<AppState>()(
         const match = get().matches.find((m) => m.id === matchId);
         if (match?.status === "finished") return;
         if (match && get().isMatchTimeLocked(match)) return;
-        if (get().isDeadlinePassed()) return;
         const userId = get().currentUserId;
         const existing = get().predictions.find(
           (p) => p.match_id === matchId && p.user_id === userId && p.slot === slot,
@@ -447,28 +445,9 @@ export const useAppStore = create<AppState>()(
       isMatchTimeLocked: (match) => {
         if (match.status === "finished") return true;
         const matchStart = new Date(match.match_date).getTime();
-        // Trava 10 minutos antes do início da partida para todos
-        const lockTime = matchStart - 10 * 60 * 1000;
+        // 10 minutos de tolerância após o início da partida
+        const lockTime = matchStart + 10 * 60 * 1000;
         return Date.now() >= lockTime;
-      },
-      isDeadlinePassed: () => {
-        // A partir do 1º jogo da 2ª rodada, tudo é bloqueado
-        let firstRound2Date = "";
-        const groups = new Map<string, MockMatch[]>();
-        for (const m of get().matches) {
-          if (m.phase !== "grupos" || !m.group) continue;
-          if (!groups.has(m.group)) groups.set(m.group, []);
-          groups.get(m.group)!.push(m);
-        }
-        for (const ms of groups.values()) {
-          ms.sort((a, b) => a.match_date.localeCompare(b.match_date));
-          const r2 = ms[2]; // índice 2 = 1ª partida da 2ª rodada
-          if (r2 && (!firstRound2Date || r2.match_date < firstRound2Date)) {
-            firstRound2Date = r2.match_date;
-          }
-        }
-        if (!firstRound2Date) return false;
-        return Date.now() >= new Date(firstRound2Date).getTime();
       },
       recalculateAllScores: () => {
         const matches = get().matches;

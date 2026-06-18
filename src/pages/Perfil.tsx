@@ -108,12 +108,6 @@ export function PerfilPage() {
   }, [authUser?.id, joinedLeague]);
 
   const handleJoinWithCode = async (code: string) => {
-    if (useAppStore.getState().isDeadlinePassed()) {
-      toast.error("Prazo expirado", {
-        description: "A 2ª rodada já começou. Não é mais permitido entrar no bolão.",
-      });
-      return;
-    }
     setJoining(true);
     try {
       const { data: league } = await supabase
@@ -149,12 +143,6 @@ export function PerfilPage() {
 
   const handleJoinLeague = async () => {
     if (!authUser?.id || !inviteCode.trim()) return;
-    if (useAppStore.getState().isDeadlinePassed()) {
-      toast.error("Prazo expirado", {
-        description: "A 2ª rodada já começou. Não é mais permitido entrar no bolão.",
-      });
-      return;
-    }
     setJoining(true);
     try {
       const { data: league } = await supabase
