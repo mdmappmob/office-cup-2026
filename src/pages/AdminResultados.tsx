@@ -36,6 +36,8 @@ function resolveMatch(matches: MockMatch[], apiHome: string, apiAway: string) {
   const searchPairs = [
     [API_TEAM_MAP[apiHome] ?? apiHome, API_TEAM_MAP[apiAway] ?? apiAway],
     [apiHome, apiAway],
+    [API_TEAM_MAP[apiAway] ?? apiAway, API_TEAM_MAP[apiHome] ?? apiHome],
+    [apiAway, apiHome],
   ];
   for (const [homeName, awayName] of searchPairs) {
     const m = matches.find((m) => m.home_team === homeName && m.away_team === awayName);
@@ -45,11 +47,17 @@ function resolveMatch(matches: MockMatch[], apiHome: string, apiAway: string) {
   const nAway = normalize(apiAway);
   for (const m of matches) {
     if (normalize(m.home_team) === nHome && normalize(m.away_team) === nAway) return m;
+    if (normalize(m.home_team) === nAway && normalize(m.away_team) === nHome) return m;
   }
   for (const m of matches) {
     if (
       (normalize(m.home_team).includes(nHome) || nHome.includes(normalize(m.home_team))) &&
       (normalize(m.away_team).includes(nAway) || nAway.includes(normalize(m.away_team)))
+    )
+      return m;
+    if (
+      (normalize(m.home_team).includes(nAway) || nAway.includes(normalize(m.home_team))) &&
+      (normalize(m.away_team).includes(nHome) || nHome.includes(normalize(m.away_team)))
     )
       return m;
   }
@@ -97,12 +105,14 @@ function Body() {
       }
       if (notFound.length > 0) {
         console.warn("Sync: partidas não encontradas", notFound);
-        if (applied === 0) {
-          toast.warning("Nenhuma partida encontrada", {
-            description: `A API retornou ${results.filter(r => r.status === "finished" && r.homeScore !== null).length} resultado(s), mas nenhum correspondeu aos times locais. Ex.: ${notFound.slice(0, 3).join(", ")}`,
-            duration: 8000,
-          });
-        }
+        const finishedCount = results.filter(r => r.status === "finished" && r.homeScore !== null).length;
+        const msg = notFound.length === finishedCount
+          ? `Nenhuma das ${finishedCount} partidas finalizadas retornadas pela API correspondeu aos times locais.`
+          : `${notFound.length} de ${finishedCount} resultado(s) retornados pela API não corresponderam: ${notFound.slice(0, 5).join(", ")}`;
+        toast.warning("Partidas não encontradas", {
+          description: msg,
+          duration: 8000,
+        });
       }
       if (applied > 0) {
         useAppStore.getState().regenerateBracket();
