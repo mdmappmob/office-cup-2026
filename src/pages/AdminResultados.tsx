@@ -101,19 +101,6 @@ function Body() {
           }
         } else {
           notFound.push(`${r.homeTeam} × ${r.awayTeam}`);
-          // debug: mostra detalhes do primeiro match não encontrado
-          if (notFound.length === 1) {
-            const mappedHome = API_TEAM_MAP[r.homeTeam] ?? r.homeTeam;
-            const mappedAway = API_TEAM_MAP[r.awayTeam] ?? r.awayTeam;
-            const local = currentMatches.filter(m =>
-              m.home_team === mappedHome || m.away_team === mappedAway ||
-              m.home_team === mappedAway || m.away_team === mappedHome
-            );
-            toast.info(`Debug: API→${r.homeTeam}×${r.awayTeam} mapeado→${mappedHome}×${mappedAway}`, {
-              description: `Partidas locais com esses times: ${local.length > 0 ? local.map(m => `${m.id} ${m.home_team}×${m.away_team}`).join(", ") : "NENHUMA"}`,
-              duration: 15000,
-            });
-          }
         }
       }
       if (notFound.length > 0) {
