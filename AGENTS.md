@@ -346,6 +346,15 @@ Persist via `partialize`:
 - **Feedback**: AdminResultados agora exibe toast.warning listando partidas que a API retornou mas não foram encontradas localmente
 - **Env vars**: `FOOTBALL_DATE_FROM`, `FOOTBALL_SEASON` (defaults: `2026-06-01`, `2026`)
 
+### 2026-06-18 — Fix sync football-data: API_TEAM_MAP + swapped fallback + fresh deploy
+- **Bug**: Suíça×Bósnia-Herzegovina (g8) não era encontrada pelo `resolveMatch` mesmo com "Switzerland" mapeado — API retornava "Bosnia-Herzegovina" (hífen) que não estava no `API_TEAM_MAP`
+- **Fix**: adicionado `"Bosnia-Herzegovina" → "Bósnia-Herzegovina"` ao `API_TEAM_MAP`
+- **Fix**: adicionado fallback de busca com home/away invertido em `resolveMatch`
+- **Fix**: adicionados `dateFrom=2026-06-01&dateTo=2026-07-31` na chamada `syncFootballData` para evitar partidas faltando de rodadas anteriores
+- **Causa raiz**: mapping correto existia no código mas deploy no Vercel não havia sido acionado — build stale impedia o fix de entrar em produção
+- **Resolução**: novo commit forçou build fresh e o mapeamento passou a funcionar
+- **Troubleshooting**: debug toast com detalhes do `resolveMatch` (API→mapeado→matches locais) adicionado e posteriormente removido
+
 ### Próximos Passos
 1. Implementar recuperação de senha
 2. Múltiplas ligas com seleção dinâmica (remover `CURRENT_LEAGUE_ID` hardcoded)
