@@ -18,6 +18,7 @@ export const API_TEAM_MAP: Record<string, string> = {
   Canada: "Canadá",
   "Bosnia and Herzegovina": "Bósnia-Herzegovina",
   Bosnia: "Bósnia-Herzegovina",
+  "Bosnia-Herzegovina": "Bósnia-Herzegovina",
   Qatar: "Qatar",
   Switzerland: "Suíça",
   Brazil: "Brasil",
