@@ -32,21 +32,19 @@ export function DashboardPage() {
   const profiles = useAppStore((s) => s.profiles);
 
   const live = totalUserPoints(matches, predictions, currentUserId);
-  const breakdown = breakdownFromPoints(predictions, currentUserId);
+  const breakdown = breakdownFromPoints(predictions, currentUserId, matches);
   const sortedMembers = [...members].sort((a, b) => b.total_points - a.total_points);
   const topLeader = sortedMembers[0];
   const topName = topLeader ? (profiles[topLeader.user_id] ?? topLeader.user_id.slice(0, 8)) : null;
 
   const userPreds = predictions.filter((p) => p.user_id === currentUserId);
   const scoredPredictions = userPreds.filter((p) => (p.points_earned ?? 0) > 0).length;
-  const finishedMatchIds = [
-    ...new Set(
-      predictions
-        .filter((p) => p.user_id === currentUserId && (p.points_earned ?? 0) > 0)
-        .map((p) => p.match_id),
-    ),
-  ];
-  const totalPredictable = finishedMatchIds.length;
+  const predictedMatchIds = [...new Set(userPreds.map((p) => p.match_id))];
+  const finishedPredictedMatches = predictedMatchIds.filter((id) => {
+    const m = matches.find((x) => x.id === id);
+    return m && m.status === "finished" && m.home_score !== null;
+  });
+  const totalPredictable = finishedPredictedMatches.length;
   const aproveitamento =
     totalPredictable > 0 ? `${Math.round((scoredPredictions / totalPredictable) * 100)}%` : "—";
   const exactCount = userPreds.filter(

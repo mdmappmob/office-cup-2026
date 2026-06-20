@@ -157,7 +157,7 @@ function HomePage() {
               {
                 n: "02",
                 t: "Palpite nos 104 jogos",
-                d: "Da fase de grupos à final. Pontos por placar exato, vencedor e zebras.",
+                d: "Da fase de grupos à final. Pontos por placar exato, vencedor e zebras. A cada fase a pontuação é multiplicada: 16-avos ×2, Oitavas ×3 e assim até a Final ×6.",
               },
               {
                 n: "03",

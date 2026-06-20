@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState } from "react";
-import { useAppStore, MAX_EXTRA_SLOTS } from "@/store/app-store";
+import { useAppStore } from "@/store/app-store";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -13,18 +13,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  PHASE_LABEL,
-  PHASE_ORDER,
-  type MatchPhase,
-  type MockMatch,
-  type MockPrediction,
-} from "@/mocks/types";
+import { PHASE_LABEL, PHASE_ORDER, type MatchPhase, type MockMatch } from "@/mocks/types";
 import { fmtTime, fmtDate } from "@/lib/date";
-import { Lock, Sparkles, Brain, ChevronDown, CheckCircle2, X, Plus, Trash2 } from "lucide-react";
+import { Lock, Sparkles, Brain, ChevronDown, CheckCircle2, X } from "lucide-react";
 import { analyzeMatch } from "@/lib/copilot";
 import { matchesRepo, predictionsRepo } from "@/lib/db";
-import { useShallow } from "zustand/react/shallow";
 import { Flag } from "@/components/Flag";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -78,6 +71,10 @@ export function PalpitesPage() {
           Quando todos os resultados de uma fase forem registrados, a próxima fase é liberada
           automaticamente com o chaveamento real.
         </p>
+        <p className="text-xs text-muted-foreground/70 mt-1">
+          A pontuação é multiplicada pelo número da fase: Grupos ×1, 16-avos ×2, Oitavas ×3, Quartas
+          ×4, Semi ×5, Final ×6.
+        </p>
         <div className="mt-3 p-3 rounded-md border border-sky-400/40 bg-sky-50 dark:bg-sky-950/20 flex items-start gap-2.5">
           <Lock className="size-4 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" />
           <div>
@@ -94,7 +91,7 @@ export function PalpitesPage() {
       <Card className="mb-6">
         <CardContent className="p-4">
           <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-3">
-            Pontuação
+            Pontuação base
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-center">
             <ScoreCell label="Exato" value="10" />
@@ -104,6 +101,17 @@ export function PalpitesPage() {
             <ScoreCell label="Placar de 1" value="2" />
             <ScoreCell label="Inverso" value="1" />
             <ScoreCell label="Zebra" value="×1.5" accent />
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-mono text-muted-foreground">
+            <span className="text-primary font-semibold">×2</span> 16-avos
+            <span className="text-muted-foreground/30 mx-1">·</span>
+            <span className="text-primary font-semibold">×3</span> Oitavas
+            <span className="text-muted-foreground/30 mx-1">·</span>
+            <span className="text-primary font-semibold">×4</span> Quartas
+            <span className="text-muted-foreground/30 mx-1">·</span>
+            <span className="text-primary font-semibold">×5</span> Semi
+            <span className="text-muted-foreground/30 mx-1">·</span>
+            <span className="text-primary font-semibold">×6</span> Final
           </div>
         </CardContent>
       </Card>
@@ -721,15 +729,9 @@ function CopilotPanel({ matchId }: { matchId: string }) {
 
 function AlternativePalpites({ matchId }: { matchId: string }) {
   const userId = useAppStore((s) => s.currentUserId ?? "");
-  const predictions = useAppStore(
-    useShallow((s) =>
-      s.predictions
-        .filter((p) => p.match_id === matchId && p.user_id === userId)
-        .sort((a, b) => a.slot - b.slot),
-    ),
+  const prediction = useAppStore((s) =>
+    s.predictions.find((p) => p.match_id === matchId && p.user_id === userId),
   );
-  const addSlot = useAppStore((s) => s.addPredictionSlot);
-  const removePrediction = predictionsRepo.removePrediction;
   const upsert = predictionsRepo.upsertPrediction;
   const match = useAppStore((s) => s.matches.find((m) => m.id === matchId)!);
   const tbd = match.home_team === "—" || match.away_team === "—";
@@ -739,102 +741,60 @@ function AlternativePalpites({ matchId }: { matchId: string }) {
 
   return (
     <section>
-      <div className="flex items-center justify-between mb-3">
-        <h4 className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground">
-          <Sparkles className="size-3.5 text-primary" /> Meus palpites para esta partida
-        </h4>
-        {predictions.length < MAX_EXTRA_SLOTS + 1 && (
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={locked}
-            onClick={() => addSlot(matchId)}
-            className="h-7"
-          >
-            <Plus className="size-3.5 mr-1" /> Novo palpite
-          </Button>
-        )}
-      </div>
-      <div className="space-y-2">
-        {predictions.length === 0 && (
-          <p className="text-xs text-muted-foreground italic">
-            Preencha o placar acima — seu 1º palpite aparece aqui automaticamente.
-          </p>
-        )}
-        {predictions.map((p) => (
-          <div
-            key={p.id}
-            className="flex items-center gap-3 px-3 py-2 rounded-md border border-border bg-background/50"
-          >
-            <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground w-12">
-              Slot {p.slot}
-            </span>
-            <div
-              className="flex items-center gap-1.5 flex-1 justify-center"
-              onClick={() => {
-                if (timeLocked && !finished)
-                  toast.error("Prazo de alteração expirado", {
-                    description:
-                      "Você pode alterar o palpite até 10 minutos após o início da partida.",
-                  });
-              }}
-            >
-              <Flag team={match.home_team} iso={match.home_flag} size={14} />
-              <Input
-                type="number"
-                min={0}
-                disabled={locked || finished}
-                className="w-12 h-8 text-center font-mono text-sm font-bold p-0"
-                value={p.predicted_home_score ?? ""}
-                onChange={(e) =>
-                  upsert(
-                    matchId,
-                    {
-                      predicted_home_score: e.target.value === "" ? null : Number(e.target.value),
-                    },
-                    p.slot,
-                  )
-                }
-              />
-              <span className="text-muted-foreground font-mono text-xs">×</span>
-              <Input
-                type="number"
-                min={0}
-                disabled={locked || finished}
-                className="w-12 h-8 text-center font-mono text-sm font-bold p-0"
-                value={p.predicted_away_score ?? ""}
-                onChange={(e) =>
-                  upsert(
-                    matchId,
-                    {
-                      predicted_away_score: e.target.value === "" ? null : Number(e.target.value),
-                    },
-                    p.slot,
-                  )
-                }
-              />
-              <Flag team={match.away_team} iso={match.away_flag} size={14} />
-            </div>
-            {p.points_earned > 0 && (
-              <span className="font-mono text-xs text-accent font-bold">+{p.points_earned}pts</span>
-            )}
-            {p.slot > 1 && !locked && (
-              <Button
-                size="icon"
-                variant="ghost"
-                className="size-7"
-                onClick={() => removePrediction(p.id)}
-                title="Remover este palpite"
-              >
-                <Trash2 className="size-3.5" />
-              </Button>
-            )}
-          </div>
-        ))}
-        <p className="text-[10px] text-muted-foreground font-mono">
-          Pontuação considera o melhor palpite cadastrado.
+      <h4 className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground mb-3">
+        <Sparkles className="size-3.5 text-primary" /> Meu palpite
+      </h4>
+      {!prediction ? (
+        <p className="text-xs text-muted-foreground italic">
+          Preencha o placar acima para registrar seu palpite.
         </p>
-      </div>
+      ) : (
+        <div className="flex items-center gap-3 px-3 py-2 rounded-md border border-border bg-background/50 max-w-xs">
+          <div
+            className="flex items-center gap-1.5 flex-1 justify-center"
+            onClick={() => {
+              if (timeLocked && !finished)
+                toast.error("Prazo de alteração expirado", {
+                  description:
+                    "Você pode alterar o palpite até 10 minutos após o início da partida.",
+                });
+            }}
+          >
+            <Flag team={match.home_team} iso={match.home_flag} size={14} />
+            <Input
+              type="number"
+              min={0}
+              disabled={locked || finished}
+              className="w-12 h-8 text-center font-mono text-sm font-bold p-0"
+              value={prediction.predicted_home_score ?? ""}
+              onChange={(e) =>
+                upsert(matchId, {
+                  predicted_home_score: e.target.value === "" ? null : Number(e.target.value),
+                })
+              }
+            />
+            <span className="text-muted-foreground font-mono text-xs">×</span>
+            <Input
+              type="number"
+              min={0}
+              disabled={locked || finished}
+              className="w-12 h-8 text-center font-mono text-sm font-bold p-0"
+              value={prediction.predicted_away_score ?? ""}
+              onChange={(e) =>
+                upsert(matchId, {
+                  predicted_away_score: e.target.value === "" ? null : Number(e.target.value),
+                })
+              }
+            />
+            <Flag team={match.away_team} iso={match.away_flag} size={14} />
+          </div>
+          {prediction.points_earned > 0 && (
+            <span className="font-mono text-xs text-accent font-bold whitespace-nowrap">
+              +{prediction.points_earned}pts
+            </span>
+          )}
+        </div>
+      )}
     </section>
   );
 }

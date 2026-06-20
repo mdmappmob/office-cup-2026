@@ -11,7 +11,7 @@ import { scoreMatch } from "@/lib/scoring";
 import { settleAllPredictions } from "@/lib/supabase/settle-all.server";
 import { computeBracket as computeOfficialBracket, computeBracketFromResults } from "@/lib/bracket";
 
-export const MAX_EXTRA_SLOTS = 1;
+export const MAX_EXTRA_SLOTS = 0;
 export const LOCK_TIME_MINUTES = 10;
 
 interface AppState {
@@ -138,20 +138,7 @@ export const useAppStore = create<AppState>()(
         set({ predictions: newPredictions });
         get().syncPredictionsToSupabase();
       },
-      addPredictionSlot: (matchId) => {
-        const match = get().matches.find((m) => m.id === matchId);
-        if (match && get().isMatchTimeLocked(match)) return null;
-        const userId = get().currentUserId;
-        const userSlots = get().predictions.filter(
-          (p) => p.match_id === matchId && p.user_id === userId,
-        );
-        if (userSlots.length >= MAX_EXTRA_SLOTS + 1) return null;
-        const slots = userSlots.map((p) => p.slot);
-        const nextSlot = (slots.length === 0 ? 0 : Math.max(...slots)) + 1;
-        const empty = makeEmptyPrediction(matchId, nextSlot, userId);
-        set({ predictions: [...get().predictions, empty] });
-        return empty;
-      },
+      addPredictionSlot: () => null,
       removePrediction: (predictionId) => {
         set({ predictions: get().predictions.filter((p) => p.id !== predictionId) });
       },

@@ -1,5 +1,15 @@
-import type { MockMatch, MockPrediction } from "@/mocks/types";
+import type { MockMatch, MockPrediction, MatchPhase } from "@/mocks/types";
 import { analyzeMatch } from "./copilot";
+import { PHASE_ORDER } from "@/mocks/types";
+
+export const PHASE_MULTIPLIER: Record<MatchPhase, number> = {
+  grupos: 1,
+  r32: 2,
+  oitavas: 3,
+  quartas: 4,
+  semi: 5,
+  final: 6,
+};
 
 export interface ScoreBreakdown {
   exact: number;
@@ -54,8 +64,11 @@ export function scoreMatch(match: MockMatch, prediction: MockPrediction): number
   const { pts } = computeBasePoints(hs, as, phs, pas);
   if (pts === 0) return 0;
 
-  if (analyzeMatch(match, prediction).isZebra) return Math.round(pts * 1.5);
-  return pts;
+  const multiplier = PHASE_MULTIPLIER[match.phase] ?? 1;
+  const multiplied = pts * multiplier;
+
+  if (analyzeMatch(match, prediction).isZebra) return Math.round(multiplied * 1.5);
+  return multiplied;
 }
 
 export function totalUserPoints(
@@ -93,13 +106,16 @@ export function userBreakdown(
       pas = p.predicted_away_score;
     const { tier, pts } = computeBasePoints(hs, as, phs, pas);
     if (pts === 0) continue;
-    if (tier === "exact") b.exact += pts;
-    else if (tier === "winnerWithDiff") b.winnerWithDiff += pts;
-    else if (tier === "winnerOnly") b.winnerOnly += pts;
-    else if (tier === "correctDraw") b.correctDraw += pts;
-    else if (tier === "oneTeamScore") b.oneTeamScore += pts;
-    else if (tier === "invertedScore") b.invertedScore += pts;
-    if (analyzeMatch(m, p).isZebra) b.zebraMultiplied += Math.round(pts * 0.5);
+    const multiplier = PHASE_MULTIPLIER[m.phase] ?? 1;
+    const finalPts = pts * multiplier;
+    const isZebra = analyzeMatch(m, p).isZebra;
+    if (tier === "exact") b.exact += finalPts;
+    else if (tier === "winnerWithDiff") b.winnerWithDiff += finalPts;
+    else if (tier === "winnerOnly") b.winnerOnly += finalPts;
+    else if (tier === "correctDraw") b.correctDraw += finalPts;
+    else if (tier === "oneTeamScore") b.oneTeamScore += finalPts;
+    else if (tier === "invertedScore") b.invertedScore += finalPts;
+    if (isZebra) b.zebraMultiplied += Math.round(finalPts * 0.5);
   }
   b.total =
     b.exact +
@@ -112,7 +128,11 @@ export function userBreakdown(
   return b;
 }
 
-export function breakdownFromPoints(predictions: MockPrediction[], userId: string): ScoreBreakdown {
+export function breakdownFromPoints(
+  predictions: MockPrediction[],
+  userId: string,
+  matches?: MockMatch[],
+): ScoreBreakdown {
   const b: ScoreBreakdown = {
     exact: 0,
     winnerWithDiff: 0,
@@ -123,9 +143,56 @@ export function breakdownFromPoints(predictions: MockPrediction[], userId: strin
     zebraMultiplied: 0,
     total: 0,
   };
+
   for (const p of predictions.filter((x) => x.user_id === userId)) {
     const pts = p.points_earned;
     if (pts <= 0) continue;
+
+    // If matches available, use computeBasePoints for accurate tier detection
+    if (matches) {
+      const m = matches.find((mm) => mm.id === p.match_id);
+      if (
+        m &&
+        m.home_score != null &&
+        m.away_score != null &&
+        p.predicted_home_score != null &&
+        p.predicted_away_score != null
+      ) {
+        const { tier, pts: base } = computeBasePoints(
+          m.home_score,
+          m.away_score,
+          p.predicted_home_score,
+          p.predicted_away_score,
+        );
+        if (base === 0) continue;
+        const multiplier = PHASE_MULTIPLIER[m.phase] ?? 1;
+        const finalBase = base * multiplier;
+        switch (tier) {
+          case "exact":
+            b.exact += finalBase;
+            break;
+          case "winnerWithDiff":
+            b.winnerWithDiff += finalBase;
+            break;
+          case "winnerOnly":
+            b.winnerOnly += finalBase;
+            break;
+          case "correctDraw":
+            b.correctDraw += finalBase;
+            break;
+          case "oneTeamScore":
+            b.oneTeamScore += finalBase;
+            break;
+          case "invertedScore":
+            b.invertedScore += finalBase;
+            break;
+        }
+        if (p.is_zebra) b.zebraMultiplied += Math.round(finalBase * 0.5);
+        continue;
+      }
+    }
+
+    // Fallback: derive from points_earned (works for grupos ×1 only)
     if (p.is_zebra) {
       let base = 0;
       if (pts === 15) {
@@ -157,6 +224,7 @@ export function breakdownFromPoints(predictions: MockPrediction[], userId: strin
       else if (pts === 1) b.invertedScore += pts;
     }
   }
+
   b.total =
     b.exact +
     b.winnerWithDiff +
@@ -166,4 +234,19 @@ export function breakdownFromPoints(predictions: MockPrediction[], userId: strin
     b.invertedScore +
     b.zebraMultiplied;
   return b;
+}
+
+export function pointsByPhase(
+  predictions: MockPrediction[],
+  matches: MockMatch[],
+  userId: string,
+): Record<MatchPhase, number> {
+  const result: Record<string, number> = {};
+  for (const phase of PHASE_ORDER) result[phase] = 0;
+  for (const p of predictions.filter((x) => x.user_id === userId)) {
+    const m = matches.find((mm) => mm.id === p.match_id);
+    if (!m) continue;
+    result[m.phase] = (result[m.phase] ?? 0) + (p.points_earned ?? 0);
+  }
+  return result as Record<MatchPhase, number>;
 }

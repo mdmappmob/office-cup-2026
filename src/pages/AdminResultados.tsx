@@ -200,12 +200,11 @@ function Body() {
                 <TableHead className="font-mono text-[10px] uppercase tracking-widest text-center">
                   Status
                 </TableHead>
-                <TableHead className="font-mono text-[10px] uppercase tracking-widest text-center w-[80px]">
-                  Pontos
-                </TableHead>
-                <TableHead className="font-mono text-[10px] uppercase tracking-widest text-right">
-                  Ação
-                </TableHead>
+                {isAdmin && (
+                  <TableHead className="font-mono text-[10px] uppercase tracking-widest text-right">
+                    Ação
+                  </TableHead>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -323,23 +322,6 @@ function ResultRow({ matchId }: { matchId: string }) {
             agendado
           </span>
         )}
-      </TableCell>
-      <TableCell className="text-center font-mono text-xs">
-        {finished && predictions.length > 0
-          ? (() => {
-              const scored = predictions.filter((p) => p.points_earned > 0).length;
-              const pts = predictions.reduce((s, p) => s + p.points_earned, 0);
-              return (
-                <span className={scored > 0 ? "text-accent font-bold" : "text-muted-foreground"}>
-                  {pts}
-                  <span className="text-[9px] ml-0.5">pts</span>
-                  <span className="text-[9px] text-muted-foreground/50 ml-1">
-                    ({scored}/{predictions.length})
-                  </span>
-                </span>
-              );
-            })()
-          : "—"}
       </TableCell>
       <TableCell className="text-right">
         {isAdmin && (

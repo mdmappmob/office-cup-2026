@@ -396,6 +396,16 @@ computeBracketFromResults(matches)
 - **Novos membros**: entram a qualquer momento, veem o mesmo chaveamento de todos, palpam a fase atual (fases passadas = 0 pontos)
 - **Toast de fase encerrada**: AdminResultados mostra toast diferente quando uma fase é completamente settleada
 
+### 2026-06-20 — Extra slots removidos + multiplicador por fase + ranking por fase + homepage cleanup
+- **Extra slots removidos**: `MAX_EXTRA_SLOTS = 0` em `app-store.ts`; botão "Novo palpite" e UI de slots extras removidos de `Palpites.tsx`; `AlternativePalpites` simplificado para prediction única
+- **Multiplicador por fase**: `PHASE_MULTIPLIER` em `scoring.ts` (grupos×1, r32×2, oitavas×3, quartas×4, semi×5, final×6); `scoreMatch()` aplica multiplicador antes do zebra 1.5×; `breakdownFromPoints()` aceita `matches` opcional para detectar tier do palpite; `userBreakdown()` aplica multiplicador por fase
+- **Ranking por fase**: `Ranking.tsx` com abas "Geral" | "Por Fase"; cards por fase com ícone (Trophy/Swords/Shield/Medal/Star/Crown), badge do multiplicador, mini-ranking com pontos na fase + acumulado; linhas com 0 pontos ocultas
+- **Dashboard**: fix `totalPredictable` — conta partidas encerradas onde usuário palpitou (não só onde pontuou); `breakdownFromPoints` recebe `matches`
+- **AdminResultados**: coluna "Pontos" removida; coluna "Ação" só aparece para admin
+- **Homepage**: grid de seleções e times removido
+- **Restrição**: nenhum dado de artilheiros/cartões/cantos por falta de fonte gratuita confiável
+- **Legenda**: `Palpites.tsx` exibe tabela de multiplicadores abaixo da tabela de pontuação
+
 ### Próximos Passos
 1. Implementar recuperação de senha
 2. Múltiplas ligas com seleção dinâmica (remover `CURRENT_LEAGUE_ID` hardcoded)
