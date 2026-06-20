@@ -71,18 +71,18 @@ function HomePage() {
       <main>
         <section className="relative overflow-hidden">
           <div
-            className="absolute inset-0 bg-cover bg-center opacity-15 pointer-events-none"
+            className="absolute inset-0 bg-cover bg-center opacity-25 pointer-events-none"
             style={{ backgroundImage: "url(/copa2026.png)" }}
           />
           <div className="relative max-w-6xl mx-auto px-6 pt-20 pb-16">
-            <div className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground border border-border rounded-full px-3 py-1 mb-6">
+            <div className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-foreground/70 border border-border rounded-full px-3 py-1 mb-6">
               <Trophy className="size-3" />
               FIFA World Cup · 11.JUN — 19.JUL.2026
             </div>
             <h1 className="text-5xl md:text-7xl font-bold tracking-tighter leading-[0.95] max-w-3xl">
               O bolão do seu escritório para a Copa do Mundo 2026.
             </h1>
-            <p className="mt-6 text-lg text-muted-foreground max-w-2xl">
+            <p className="mt-6 text-lg text-foreground/80 max-w-2xl">
               48 seleções, 104 jogos, três países-sede. Palpite em cada partida, acumule pontos e
               veja quem é o craque de plantão entre os colegas.
             </p>
