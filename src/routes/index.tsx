@@ -69,33 +69,39 @@ function HomePage() {
       </header>
 
       <main>
-        <section className="max-w-6xl mx-auto px-6 pt-20 pb-16">
-          <div className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground border border-border rounded-full px-3 py-1 mb-6">
-            <Trophy className="size-3" />
-            FIFA World Cup · 11.JUN — 19.JUL.2026
-          </div>
-          <h1 className="text-5xl md:text-7xl font-bold tracking-tighter leading-[0.95] max-w-3xl">
-            O bolão do seu escritório para a Copa do Mundo 2026.
-          </h1>
-          <p className="mt-6 text-lg text-muted-foreground max-w-2xl">
-            48 seleções, 104 jogos, três países-sede. Palpite em cada partida, acumule pontos e veja
-            quem é o craque de plantão entre os colegas.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            {user ? (
-              <Button asChild size="lg">
-                <Link to="/palpites">Fazer meus palpites</Link>
-              </Button>
-            ) : (
-              <>
+        <section className="relative overflow-hidden">
+          <div
+            className="absolute inset-0 bg-cover bg-center opacity-[0.06] blur-sm pointer-events-none"
+            style={{ backgroundImage: "url(/copa2026.png)" }}
+          />
+          <div className="relative max-w-6xl mx-auto px-6 pt-20 pb-16">
+            <div className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground border border-border rounded-full px-3 py-1 mb-6">
+              <Trophy className="size-3" />
+              FIFA World Cup · 11.JUN — 19.JUL.2026
+            </div>
+            <h1 className="text-5xl md:text-7xl font-bold tracking-tighter leading-[0.95] max-w-3xl">
+              O bolão do seu escritório para a Copa do Mundo 2026.
+            </h1>
+            <p className="mt-6 text-lg text-muted-foreground max-w-2xl">
+              48 seleções, 104 jogos, três países-sede. Palpite em cada partida, acumule pontos e
+              veja quem é o craque de plantão entre os colegas.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              {user ? (
                 <Button asChild size="lg">
-                  <Link to="/login">Entrar no bolão</Link>
+                  <Link to="/palpites">Fazer meus palpites</Link>
                 </Button>
-                <Button asChild size="lg" variant="outline">
-                  <Link to="/login">Já tenho conta</Link>
-                </Button>
-              </>
-            )}
+              ) : (
+                <>
+                  <Button asChild size="lg">
+                    <Link to="/login">Entrar no bolão</Link>
+                  </Button>
+                  <Button asChild size="lg" variant="outline">
+                    <Link to="/login">Já tenho conta</Link>
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         </section>
 
