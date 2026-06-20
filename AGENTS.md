@@ -406,6 +406,12 @@ computeBracketFromResults(matches)
 - **Restrição**: nenhum dado de artilheiros/cartões/cantos por falta de fonte gratuita confiável
 - **Legenda**: `Palpites.tsx` exibe tabela de multiplicadores abaixo da tabela de pontuação
 
+### 2026-06-20 — Homepage: imagem copa2026.png como background
+- **Background hero**: `public/copa2026.png` adicionada como background da seção hero
+- **Ajustes de opacidade**: 6% → 10% → 15% → 25% para equilibrar visibilidade e contraste dos textos
+- **Estilo**: `bg-cover` cobre toda a largura; sem blur; `pointer-events-none`
+- **Textos escurecidos**: badge "FIFA World Cup" com `text-foreground/70` e parágrafo descritivo com `text-foreground/80` para melhor legibilidade contra o fundo
+
 ### Próximos Passos
 1. Implementar recuperação de senha
 2. Múltiplas ligas com seleção dinâmica (remover `CURRENT_LEAGUE_ID` hardcoded)
