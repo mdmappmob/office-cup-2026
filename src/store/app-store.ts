@@ -9,7 +9,7 @@ import type { MockMatch, MockPrediction, MockLeagueMember, MatchPhase } from "@/
 import { PHASE_ORDER } from "@/mocks/types";
 import { scoreMatch } from "@/lib/scoring";
 import { settleAllPredictions } from "@/lib/supabase/settle-all.server";
-import { computeBracket as computeOfficialBracket } from "@/lib/bracket";
+import { computeBracket as computeOfficialBracket, computeBracketFromResults } from "@/lib/bracket";
 
 export const MAX_EXTRA_SLOTS = 1;
 export const LOCK_TIME_MINUTES = 10;
@@ -31,14 +31,23 @@ interface AppState {
   addPredictionSlot: (matchId: string) => MockPrediction | null;
   removePrediction: (predictionId: string) => void;
   predictionsForMatch: (matchId: string, userId?: string) => MockPrediction[];
-  settleMatch: (matchId: string, homeScore: number, awayScore: number) => Promise<{ ok: boolean; count?: number; error?: string }>;
+  settleMatch: (
+    matchId: string,
+    homeScore: number,
+    awayScore: number,
+  ) => Promise<{ ok: boolean; count?: number; error?: string }>;
   toggleMemberPaid: (memberId: string) => void;
   unlockedPhases: () => MatchPhase[];
   matchesByPhase: (phase: MatchPhase) => MockMatch[];
   predictionFor: (matchId: string) => MockPrediction | undefined;
   phaseProgress: (phase: MatchPhase) => { filled: number; total: number };
+  phaseSettleProgress: (phase: MatchPhase) => { settled: number; total: number };
+  isPhaseFullySettled: (phase: MatchPhase) => boolean;
   regenerateBracket: () => void;
+  onPhaseCompleted: (completedPhase: MatchPhase) => void;
+  clearFuturePhasePredictions: (completedPhase: MatchPhase) => void;
   recomputeStandings: () => void;
+  recalculateAllScores: () => void;
   isPhaseExpired: (phase: MatchPhase) => boolean;
   getPhaseFirstMatchDate: (phase: MatchPhase) => string | null;
   isMatchTimeLocked: (match: MockMatch) => boolean;
@@ -71,6 +80,10 @@ function makeEmptyPrediction(
 
 function computeBracket(matches: MockMatch[], predictions: MockPrediction[]): MockMatch[] {
   return computeOfficialBracket(matches, predictions);
+}
+
+function computeBracketFromMatches(matches: MockMatch[]): MockMatch[] {
+  return computeBracketFromResults(matches);
 }
 
 export const useAppStore = create<AppState>()(
@@ -122,16 +135,16 @@ export const useAppStore = create<AppState>()(
           : { ...makeEmptyPrediction(matchId, slot, userId), ...patch };
         const others = get().predictions.filter((p) => p.id !== merged.id);
         const newPredictions = [...others, merged];
-        const newMatches = computeBracket(get().matches, newPredictions);
-        set({ predictions: newPredictions, matches: newMatches });
+        set({ predictions: newPredictions });
         get().syncPredictionsToSupabase();
       },
       addPredictionSlot: (matchId) => {
         const match = get().matches.find((m) => m.id === matchId);
         if (match && get().isMatchTimeLocked(match)) return null;
         const userId = get().currentUserId;
-        const userSlots = get()
-          .predictions.filter((p) => p.match_id === matchId && p.user_id === userId);
+        const userSlots = get().predictions.filter(
+          (p) => p.match_id === matchId && p.user_id === userId,
+        );
         if (userSlots.length >= MAX_EXTRA_SLOTS + 1) return null;
         const slots = userSlots.map((p) => p.slot);
         const nextSlot = (slots.length === 0 ? 0 : Math.max(...slots)) + 1;
@@ -172,7 +185,7 @@ export const useAppStore = create<AppState>()(
             homeFlag: settled.home_flag,
             awayFlag: settled.away_flag,
             matchDate: settled.match_date,
-            venueTz: settled.venue_tz,
+            venueTz: settled.venue_tz ?? null,
             phase: settled.phase,
             group: settled.group ?? null,
             status: "finished",
@@ -181,6 +194,10 @@ export const useAppStore = create<AppState>()(
         });
         if (!result.ok) {
           console.warn("Erro ao settle remoto:", result.error);
+        }
+        // Check if the entire phase is now settled
+        if (get().isPhaseFullySettled(settled.phase)) {
+          get().onPhaseCompleted(settled.phase);
         }
         return result;
       },
@@ -339,7 +356,9 @@ export const useAppStore = create<AppState>()(
             if (!map[uid]) map[uid] = uid.slice(0, 8);
           }
           set({ profiles: map });
-        } catch {}
+        } catch {
+          /* ignore */
+        }
       },
       syncPredictionsToSupabase: async () => {
         const userId = get().currentUserId;
@@ -423,11 +442,40 @@ export const useAppStore = create<AppState>()(
         });
         get().syncMembersToSupabase();
       },
+      clearFuturePhasePredictions: (completedPhase) => {
+        const completedIdx = PHASE_ORDER.indexOf(completedPhase);
+        if (completedIdx === -1) return;
+        const futurePhases = new Set(PHASE_ORDER.slice(completedIdx + 1));
+        const futureMatchIds = new Set(
+          get()
+            .matches.filter((m) => futurePhases.has(m.phase))
+            .map((m) => m.id),
+        );
+        set({ predictions: get().predictions.filter((p) => !futureMatchIds.has(p.match_id)) });
+        // Also clear from Supabase
+        get().syncPredictionsToSupabase();
+      },
+      onPhaseCompleted: (completedPhase) => {
+        // 1. Clear predictions for future phases
+        get().clearFuturePhasePredictions(completedPhase);
+        // 2. Recalculate bracket from actual results
+        get().regenerateBracket();
+        // 3. Reset teams for R32 if completing grupos (they'll be populated by regenerateBracket)
+      },
       regenerateBracket: () => {
-        set({ matches: computeBracket(get().matches, get().predictions) });
+        set({ matches: computeBracketFromMatches(get().matches) });
       },
       matchesByPhase: (phase) => get().matches.filter((m) => m.phase === phase),
       predictionFor: (matchId) => get().predictions.find((p) => p.match_id === matchId),
+      phaseSettleProgress: (phase) => {
+        const phaseMatches = get().matchesByPhase(phase);
+        const settled = phaseMatches.filter((m) => m.status === "finished").length;
+        return { settled, total: phaseMatches.length };
+      },
+      isPhaseFullySettled: (phase) => {
+        const { settled, total } = get().phaseSettleProgress(phase);
+        return total > 0 && settled === total;
+      },
       phaseProgress: (phase) => {
         const matches = get().matchesByPhase(phase);
         const filled = matches.filter((m) => {
@@ -468,12 +516,10 @@ export const useAppStore = create<AppState>()(
         get().syncMembersToSupabase();
       },
       unlockedPhases: () => {
-        const unlocked: MatchPhase[] = ["grupos"];
-        for (let i = 1; i < PHASE_ORDER.length; i++) {
-          const prev = PHASE_ORDER[i - 1];
-          const { filled, total } = get().phaseProgress(prev);
-          if (total > 0 && filled === total) unlocked.push(PHASE_ORDER[i]);
-          else break;
+        const unlocked: MatchPhase[] = [];
+        for (const phase of PHASE_ORDER) {
+          unlocked.push(phase);
+          if (!get().isPhaseFullySettled(phase)) break;
         }
         return unlocked;
       },
@@ -489,9 +535,7 @@ export const useAppStore = create<AppState>()(
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {
-          if (state.predictions.length > 0) {
-            state.regenerateBracket();
-          }
+          state.regenerateBracket();
           state.recalculateAllScores();
         }
       },

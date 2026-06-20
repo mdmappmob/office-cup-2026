@@ -41,13 +41,14 @@ Implementação completa do chaveamento da Copa 2026 conforme regulamento da FIF
 ### Funções exportadas
 | Função | Descrição |
 |---|---|
-| `computeGroupStandings()` | Tabela de cada grupo a partir dos palpites |
-| `sortGroupStandings()` | Ordenação com todos os tiebreakers FIFA |
-| `computeH2H()` | Desempate por pontos/saldo/gols entre times empatados |
-| `rankThirdPlaceTeams()` | Ranking dos 12 terceiros lugares → top 8 avançam |
 | `buildRoundOf32()` | Alocação dos classificados com base na matriz FIFA |
-| `propagateKnockout()` | Propagação automática de vencedores entre fases |
-| `computeBracket()` | Função principal que orquestra tudo |
+| `getTeamForSlot()` | Resolve time de uma posição (1º/2º/3º) de um grupo |
+| `computeGroupStandingsFromResults(matches)` | Tabela de cada grupo a partir dos **resultados reais** |
+| `propagateKnockoutFromResults(matches)` | Propagação de vencedores entre fases usando **resultados reais** |
+| `computeBracketFromResults(matches)` | Função principal — chaveamento único baseado em resultados reais |
+| *(legado)* `computeGroupStandings()` | Antigo, baseado em palpites — não usado |
+| *(legado)* `propagateKnockout()` | Antigo, baseado em palpites — não usado |
+| *(legado)* `computeBracket()` | Antigo, baseado em palpites — não usado |
 
 ### Critérios de desempate (ordem FIFA)
 1. Pontos
@@ -76,7 +77,8 @@ Implementação completa do chaveamento da Copa 2026 conforme regulamento da FIF
 1. `restoreSession()` (auth-store.ts) tenta sessão Supabase; se falha, fallback SQLite
 2. Se Supabase, chama `setCurrentUser(supabaseUserId)` → `loadFromSupabase()` → `loadProfiles()` e `ensureProfile()`
 3. AppStore carrega partidas (mockMatches — fixtures reais da Copa 2026)
-4. Se usuário logado, redireciona para /dashboard
+4. `regenerateBracket()` recalcula chaveamento com `computeBracketFromResults` a partir dos resultados reais
+5. Se usuário logado, redireciona para /dashboard
 
 ### Cadastro / Login
 1. `signUp`/`signIn` via Supabase Auth (`src/lib/supabase/auth.ts`)
@@ -86,23 +88,21 @@ Implementação completa do chaveamento da Copa 2026 conforme regulamento da FIF
 
 ### Partidas
 - 103 partidas reais: 72 grupos (12 grupos × 6 jogos) + 31 mata-mata (r32/16/8/4/2/1)
-- Times das fases mata-mata são populados dinamicamente com base nos palpites do usuário (bracket)
+- Times das fases mata-mata são populados dinamicamente com base nos **resultados reais** (placares lançados pelo admin), não mais com base em palpites
+- Chaveamento é **único para todos os usuários** — todo mundo vê os mesmos confrontos
 - Datas reais da Copa 2026 (11 jun - 19 jul)
 - Fuso horário por partida explicitado nos fixtures: `[group, dateISO, home, away, venueTz]` com constantes EDT/CDT/MT/ET
 
 ### Palpites (src/pages/Palpites.tsx)
-- **Avançar fase**: botão "Avançar fase" visível em todos os dispositivos
-- Progresso da fase atual mostrado ao lado do botão
+- **Fase a fase**: as fases são liberadas automaticamente quando o admin settleia a última partida da fase anterior. **Não há mais botão "Avançar fase"** nem atalho Ctrl+S.
+- **Abas com badges**: cada fase mostra ✓ (encerrada), ▶ (atual) ou 🔒 (futura)
+- **Fase encerrada**: exibe placar real + seu palpite + pontos conquistados (view-only)
+- **Fase atual**: inputs habilitados para palpitar (até 10 min após o início de cada partida)
+- **Fase futura**: bloqueada, mostra cadeado
 - Fases mata-mata usam `BracketRow` (Card responsivo) com layout adaptável
 - Fase de grupos usa `GroupTable` com data do jogo exibida
-- Ctrl+S continua funcionando como atalho
 - **Trava por tempo**: palpites são bloqueados conforme regras detalhadas na seção "Trava por Tempo". Guard também no `upsertPrediction` da store e no `addPredictionSlot`.
 - **Banner informativo**: banner azul fixo no topo informando "Janela de alteração: você pode alterar seu palpite até 10 minutos após o início da partida"
-- **Avançar fase**: botão "Avançar fase" visível em todos os dispositivos
-- Progresso da fase atual mostrado ao lado do botão
-- Fases mata-mata usam `BracketRow` (Card responsivo) com layout adaptável
-- Fase de grupos usa `GroupTable` com data do jogo exibida
-- Ctrl+S continua funcionando como atalho
 
 ### Resultados / Apuração (src/pages/AdminResultados.tsx)
 - **Membros podem visualizar** resultados e pontos, sem os botões de admin
@@ -115,6 +115,11 @@ Implementação completa do chaveamento da Copa 2026 conforme regulamento da FIF
   2. Recalcula `points_earned` e `is_zebra` para cada uma
   3. Atualiza `total_points` na tabela `members` para todos os usuários afetados
   4. **Upserta o resultado na tabela `matches`** do Supabase (via service role)
+- **Detecção de fase completa**: se a partida encerrada era a última da fase, `settleMatch()` dispara `onPhaseCompleted()` que:
+  1. Limpa predictions de TODOS os usuários para as fases seguintes
+  2. Recalcula o bracket a partir dos resultados reais (`computeBracketFromResults`)
+  3. A próxima fase abre automaticamente para palpites
+- Toast condicional: "Fase de Grupos encerrada! 16-avos de Final liberada com chaveamento real."
 - Partidas com data passada são destacadas para lançamento
 
 ### Ranking / Dashboard
@@ -244,11 +249,29 @@ Persist via `partialize`:
 - Build gera `.vercel/output/` com preset nitro `vercel`
 - Basta conectar o repositório GitHub no painel da Vercel
 
+## Fluxo de Chaveamento (Result-based)
+
+```
+computeBracketFromResults(matches)
+  │
+  ├─ computeGroupStandingsFromResults(matches)
+  │    └─ Usa home_score/away_score das partidas de grupos
+  │    └─ Critérios FIFA: pts → H2H pts → H2H GD → H2H GF → GD → GF → Fair Play → Ranking
+  │
+  ├─ buildRoundOf32(standings)
+  │    └─ Aloca 1º, 2º, 3º lugares conforme matriz FIFA (Anexo C)
+  │
+  └─ propagateKnockoutFromResults(matches)
+       └─ r32 → oitavas → quartas → semi → final
+       └─ Vencedor = home_score >= away_score
+       └─ Só propaga se TODAS as partidas da fase têm resultado
+```
+
 ## Arquivos Relevantes
 
 | Arquivo | Função |
 |---|---|
-| `src/lib/bracket.ts` | Lógica oficial FIFA do chaveamento (904 linhas) |
+| `src/lib/bracket.ts` | Lógica oficial FIFA do chaveamento (+1200 linhas, novas funções result-based) |
 | `src/store/app-store.ts` | Zustand store: persist + Supabase sync + profiles + bracket |
 | `src/store/auth-store.ts` | Auth: login/signup/restoreSession + ensureProfile |
 | `src/lib/scoring.ts` | Pontuação dos palpites vs resultados reais |
@@ -292,7 +315,12 @@ Persist via `partialize`:
    - Recalcula `points_earned` + `is_zebra` para cada prediction
    - Recalcula `total_points` na tabela `members` para todos afetados
    - **Upserta resultado na tabela `matches`** (agora visível a todos)
-4. `loadFromSupabase()` no mount do Ranking recarrega dados + recalcula localmente se prediction veio com 0
+4. `settleMatch()` verifica se a fase foi completamente encerrada (`isPhaseFullySettled`)
+5. Se sim, dispara `onPhaseCompleted()`:
+   - `clearFuturePhasePredictions()` — apaga predictions das fases seguintes
+   - `regenerateBracket()` — recalcula chaveamento com `computeBracketFromResults`
+   - Próxima fase abre automaticamente no Palpites
+6. `loadFromSupabase()` no mount do Ranking recarrega dados + recalcula localmente se prediction veio com 0
 
 ### Funcionalidades Verificadas
 - ✅ Login/Logout com Supabase Auth
@@ -354,6 +382,19 @@ Persist via `partialize`:
 - **Causa raiz**: mapping correto existia no código mas deploy no Vercel não havia sido acionado — build stale impedia o fix de entrar em produção
 - **Resolução**: novo commit forçou build fresh e o mapeamento passou a funcionar
 - **Troubleshooting**: debug toast com detalhes do `resolveMatch` (API→mapeado→matches locais) adicionado e posteriormente removido
+
+### 2026-06-19 — Result-based bracket + phase-by-phase predictions
+- **Mudança radical no chaveamento**: bracket agora é calculado a partir dos **resultados reais** (`home_score`/`away_score`), não mais dos palpites do usuário
+- **Novas funções em `bracket.ts`**: `computeGroupStandingsFromResults`, `propagateKnockoutFromResults`, `computeBracketFromResults`
+- **Palpites fase a fase**: cada fase só abre quando o admin settleia a última partida da fase anterior
+- **Botão "Avançar fase" removido**: fases avançam automaticamente, sem ação do usuário
+- **Ctrl+S removido**: não há mais atalho de teclado para avançar fase
+- **Abas com badges**: ✓ encerrada / ▶ atual / 🔒 futura
+- **View-only em fases passadas**: mostra placar real + palpite + pontos (opção c)
+- **`upsertPrediction` otimizado**: não chama mais `computeBracket` a cada palpite (só quando admin settleia)
+- **`clearFuturePhasePredictions`**: apaga predictions de todos os usuários para fases futuras ao completar uma fase
+- **Novos membros**: entram a qualquer momento, veem o mesmo chaveamento de todos, palpam a fase atual (fases passadas = 0 pontos)
+- **Toast de fase encerrada**: AdminResultados mostra toast diferente quando uma fase é completamente settleada
 
 ### Próximos Passos
 1. Implementar recuperação de senha

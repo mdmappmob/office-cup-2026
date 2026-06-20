@@ -994,3 +994,247 @@ export function computeBracket(matches: MockMatch[], predictions: MockPrediction
 
   return next;
 }
+
+// ---------------------------------------------------------------------------
+// Result-based bracket (uses actual match results, not predictions)
+// ---------------------------------------------------------------------------
+
+function getStandingsForGroupFromResults(groupMatches: MockMatch[]): GroupStanding[] {
+  const teams = new Map<string, GroupStanding>();
+
+  for (const m of groupMatches) {
+    if (!teams.has(m.home_team)) {
+      teams.set(m.home_team, {
+        team: m.home_team,
+        flag: m.home_flag,
+        group: m.group ?? "",
+        mp: 0,
+        w: 0,
+        d: 0,
+        l: 0,
+        gf: 0,
+        ga: 0,
+        gd: 0,
+        pts: 0,
+        fairPlay: fairPlayScore(m.home_team),
+        fifaRank: FIFA_RANKING[m.home_team] ?? DEFAULT_FIFA_RANK,
+      });
+    }
+    if (!teams.has(m.away_team)) {
+      teams.set(m.away_team, {
+        team: m.away_team,
+        flag: m.away_flag,
+        group: m.group ?? "",
+        mp: 0,
+        w: 0,
+        d: 0,
+        l: 0,
+        gf: 0,
+        ga: 0,
+        gd: 0,
+        pts: 0,
+        fairPlay: fairPlayScore(m.away_team),
+        fifaRank: FIFA_RANKING[m.away_team] ?? DEFAULT_FIFA_RANK,
+      });
+    }
+
+    const hs = m.home_score;
+    const as = m.away_score;
+    if (hs === null || as === null) continue;
+
+    const home = teams.get(m.home_team)!;
+    const away = teams.get(m.away_team)!;
+    home.mp++;
+    away.mp++;
+    home.gf += hs;
+    home.ga += as;
+    away.gf += as;
+    away.ga += hs;
+    home.gd = home.gf - home.ga;
+    away.gd = away.gf - away.ga;
+
+    if (hs > as) {
+      home.w++;
+      home.pts += 3;
+      away.l++;
+    } else if (as > hs) {
+      away.w++;
+      away.pts += 3;
+      home.l++;
+    } else {
+      home.d++;
+      home.pts++;
+      away.d++;
+      away.pts++;
+    }
+  }
+
+  return Array.from(teams.values());
+}
+
+function computeH2HFromResults(
+  tied: GroupStanding[],
+  groupMatches: MockMatch[],
+): Map<string, H2HStats> {
+  const stats = new Map<string, H2HStats>();
+  for (const t of tied) stats.set(t.team, { team: t.team, pts: 0, gd: 0, gf: 0 });
+
+  for (const m of groupMatches) {
+    if (!stats.has(m.home_team) || !stats.has(m.away_team)) continue;
+    const hs = m.home_score;
+    const as = m.away_score;
+    if (hs === null || as === null) continue;
+    const h = stats.get(m.home_team)!;
+    const a = stats.get(m.away_team)!;
+    h.gf += hs;
+    h.gd += hs - as;
+    a.gf += as;
+    a.gd += as - hs;
+    if (hs > as) h.pts += 3;
+    else if (as > hs) a.pts += 3;
+    else {
+      h.pts++;
+      a.pts++;
+    }
+  }
+  return stats;
+}
+
+function sortGroupStandingsFromResults(
+  standings: GroupStanding[],
+  groupMatches: MockMatch[],
+): GroupStanding[] {
+  const sorted = [...standings];
+  sorted.sort((a, b) => {
+    if (a.pts !== b.pts) return b.pts - a.pts;
+    const tied = standings.filter((s) => s.pts === a.pts);
+    if (tied.length >= 2) {
+      const h2h = computeH2HFromResults(tied, groupMatches);
+      const ha = h2h.get(a.team)!;
+      const hb = h2h.get(b.team)!;
+      if (ha.pts !== hb.pts) return hb.pts - ha.pts;
+      if (ha.gd !== hb.gd) return hb.gd - ha.gd;
+      if (ha.gf !== hb.gf) return hb.gf - ha.gf;
+    }
+    if (a.gd !== b.gd) return b.gd - a.gd;
+    if (a.gf !== b.gf) return b.gf - a.gf;
+    if (a.fairPlay !== b.fairPlay) return b.fairPlay - a.fairPlay;
+    return a.fifaRank - b.fifaRank;
+  });
+  return sorted;
+}
+
+export function computeGroupStandingsFromResults(matches: MockMatch[]): GroupStandingsResult {
+  const groupMatches = matches.filter((m) => m.phase === "grupos");
+  const groups = Array.from(new Set(groupMatches.map((m) => m.group!))).sort();
+
+  const result: Record<string, GroupStanding[]> = {};
+  const allThird: GroupStanding[] = [];
+
+  for (const g of groups) {
+    const gms = groupMatches.filter((m) => m.group === g);
+    const raw = getStandingsForGroupFromResults(gms);
+    const sorted = sortGroupStandingsFromResults(raw, gms);
+    result[g] = sorted;
+    if (sorted.length >= 3) allThird.push(sorted[2]);
+  }
+
+  allThird.sort((a, b) => {
+    if (a.pts !== b.pts) return b.pts - a.pts;
+    if (a.gd !== b.gd) return b.gd - a.gd;
+    if (a.gf !== b.gf) return b.gf - a.gf;
+    if (a.fairPlay !== b.fairPlay) return b.fairPlay - a.fairPlay;
+    return a.fifaRank - b.fifaRank;
+  });
+
+  const qualifiedThird = allThird.slice(0, 8);
+  const qualifiedLetters = qualifiedThird
+    .map((t) => t.group)
+    .filter(Boolean)
+    .sort();
+
+  return {
+    groups: result,
+    thirdPlaceRanking: allThird,
+    qualifiedThirdLetters: qualifiedLetters,
+  };
+}
+
+export function propagateKnockoutFromResults(matches: MockMatch[]): MockMatch[] {
+  const next = matches.map((m) => ({ ...m }));
+
+  const propagate = (fromPhase: MatchPhase, toPhase: MatchPhase) => {
+    const fromMatches = next.filter((m) => m.phase === fromPhase);
+    const toMatches = next.filter((m) => m.phase === toPhase);
+    if (toMatches.length === 0) return;
+
+    const allSettled = fromMatches.every((m) => m.home_score !== null && m.away_score !== null);
+    if (!allSettled) return;
+
+    const winners = fromMatches.map((m) => {
+      return m.home_score! >= m.away_score!
+        ? { team: m.home_team, flag: m.home_flag }
+        : { team: m.away_team, flag: m.away_flag };
+    });
+
+    for (let i = 0; i < toMatches.length; i++) {
+      const h = winners[i * 2];
+      const a = winners[i * 2 + 1];
+      if (h) {
+        toMatches[i].home_team = h.team;
+        toMatches[i].home_flag = h.flag;
+      }
+      if (a) {
+        toMatches[i].away_team = a.team;
+        toMatches[i].away_flag = a.flag;
+      }
+    }
+  };
+
+  propagate("r32", "oitavas");
+  propagate("oitavas", "quartas");
+  propagate("quartas", "semi");
+  propagate("semi", "final");
+
+  return next;
+}
+
+export function computeBracketFromResults(matches: MockMatch[]): MockMatch[] {
+  const next = matches.map((m) => ({ ...m }));
+
+  // Populate R32 from actual group results
+  const groupMatches = next.filter((m) => m.phase === "grupos");
+  const allGroupsSettled = groupMatches.every(
+    (m) => m.home_score !== null && m.away_score !== null,
+  );
+
+  if (allGroupsSettled) {
+    const standings = computeGroupStandingsFromResults(next);
+    const r32Matchups = buildRoundOf32(standings);
+    const r32Matches = next.filter((m) => m.phase === "r32");
+
+    for (const m of r32Matchups) {
+      const homeTeam = getTeamForSlot(
+        m.homeGroup,
+        m.homeType,
+        standings,
+        standings.thirdPlaceRanking,
+      );
+      const awayTeam = getTeamForSlot(
+        m.awayGroup,
+        m.awayType,
+        standings,
+        standings.thirdPlaceRanking,
+      );
+      if (homeTeam && awayTeam && r32Matches[m.r32MatchIndex]) {
+        r32Matches[m.r32MatchIndex].home_team = homeTeam.team;
+        r32Matches[m.r32MatchIndex].home_flag = homeTeam.flag;
+        r32Matches[m.r32MatchIndex].away_team = awayTeam.team;
+        r32Matches[m.r32MatchIndex].away_flag = awayTeam.flag;
+      }
+    }
+  }
+
+  // Propagate winners through knockout phases from actual results
+  return propagateKnockoutFromResults(next);
+}

@@ -84,7 +84,7 @@ function Body() {
       }
       let applied = 0;
       let skipped = 0;
-      let notFound: string[] = [];
+      const notFound: string[] = [];
       for (const r of results) {
         if (r.status !== "finished" || r.homeScore === null || r.awayScore === null) continue;
         const currentMatches = useAppStore.getState().matches;
@@ -93,7 +93,9 @@ function Body() {
           if (match.home_score === null || match.away_score === null) {
             const res = await predictionsRepo.settleMatch(match.id, r.homeScore, r.awayScore);
             if (!res.ok) {
-              toast.error(`Falha ao registrar ${r.homeTeam}×${r.awayTeam}`, { description: res.error });
+              toast.error(`Falha ao registrar ${r.homeTeam}×${r.awayTeam}`, {
+                description: res.error,
+              });
             }
             applied++;
           } else {
@@ -105,10 +107,13 @@ function Body() {
       }
       if (notFound.length > 0) {
         console.warn("Sync: partidas não encontradas", notFound);
-        const finishedCount = results.filter(r => r.status === "finished" && r.homeScore !== null).length;
-        const msg = notFound.length === finishedCount
-          ? `Nenhuma das ${finishedCount} partidas finalizadas retornadas pela API correspondeu aos times locais.`
-          : `${notFound.length} de ${finishedCount} resultado(s) retornados pela API não corresponderam: ${notFound.slice(0, 5).join(", ")}`;
+        const finishedCount = results.filter(
+          (r) => r.status === "finished" && r.homeScore !== null,
+        ).length;
+        const msg =
+          notFound.length === finishedCount
+            ? `Nenhuma das ${finishedCount} partidas finalizadas retornadas pela API correspondeu aos times locais.`
+            : `${notFound.length} de ${finishedCount} resultado(s) retornados pela API não corresponderam: ${notFound.slice(0, 5).join(", ")}`;
         toast.warning("Partidas não encontradas", {
           description: msg,
           duration: 8000,
@@ -240,9 +245,21 @@ function ResultRow({ matchId }: { matchId: string }) {
       toast.error("Informe os dois placares.");
       return;
     }
+    const prevPhase = match.phase;
     const result = await predictionsRepo.settleMatch(matchId, h, a);
     if (result.ok) {
-      toast.success(`Resultado registrado · ${predictions.length} palpites apurados.`);
+      const st = useAppStore.getState();
+      const phaseCompleted = st.isPhaseFullySettled(prevPhase);
+      if (phaseCompleted) {
+        const nextIdx = PHASE_ORDER.indexOf(prevPhase) + 1;
+        const nextLabel = nextIdx < PHASE_ORDER.length ? PHASE_LABEL[PHASE_ORDER[nextIdx]] : null;
+        toast.success(
+          `${PHASE_LABEL[prevPhase]} encerrada!${nextLabel ? ` ${nextLabel} liberada com chaveamento real.` : " Bolão encerrado!"}`,
+          { duration: 6000 },
+        );
+      } else {
+        toast.success(`Resultado registrado · ${predictions.length} palpites apurados.`);
+      }
     } else {
       toast.error(`Erro ao sincronizar: ${result.error}`);
     }

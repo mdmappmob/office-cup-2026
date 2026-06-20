@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useAppStore, MAX_EXTRA_SLOTS } from "@/store/app-store";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -21,16 +21,7 @@ import {
   type MockPrediction,
 } from "@/mocks/types";
 import { fmtTime, fmtDate } from "@/lib/date";
-import {
-  Lock,
-  Sparkles,
-  Brain,
-  ChevronDown,
-  CheckCircle2,
-  X,
-  Plus,
-  Trash2,
-} from "lucide-react";
+import { Lock, Sparkles, Brain, ChevronDown, CheckCircle2, X, Plus, Trash2 } from "lucide-react";
 import { analyzeMatch } from "@/lib/copilot";
 import { matchesRepo, predictionsRepo } from "@/lib/db";
 import { useShallow } from "zustand/react/shallow";
@@ -40,18 +31,10 @@ import { toast } from "sonner";
 
 const USER_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-function isPhaseComplete(
-  phase: MatchPhase,
-  matches: MockMatch[],
-  predictions: MockPrediction[],
-): boolean {
+function isPhaseSettled(phase: MatchPhase, matches: MockMatch[]): boolean {
   const phaseMatches = matches.filter((m) => m.phase === phase);
   if (phaseMatches.length === 0) return false;
-  return phaseMatches.every((m) => {
-    if (m.home_team === "—" || m.away_team === "—") return false;
-    const p = predictions.find((x) => x.match_id === m.id);
-    return p && p.predicted_home_score !== null && p.predicted_away_score !== null;
-  });
+  return phaseMatches.every((m) => m.status === "finished");
 }
 
 export function PalpitesPage() {
@@ -61,86 +44,46 @@ export function PalpitesPage() {
   const regenerateBracket = useAppStore((s) => s.regenerateBracket);
 
   const unlocked = useMemo(() => {
-    const result: MatchPhase[] = ["grupos"];
-    for (let i = 1; i < PHASE_ORDER.length; i++) {
-      const prev = PHASE_ORDER[i - 1];
-      if (isPhaseComplete(prev, matches, predictions)) result.push(PHASE_ORDER[i]);
-      else break;
+    const result: MatchPhase[] = [];
+    for (const phase of PHASE_ORDER) {
+      result.push(phase);
+      if (!isPhaseSettled(phase, matches)) break;
     }
     return result;
-  }, [matches, predictions]);
+  }, [matches]);
 
-  const [activePhase, setActivePhase] = useState<MatchPhase>("grupos");
+  const [activePhase, setActivePhase] = useState<MatchPhase>(() => {
+    for (const phase of PHASE_ORDER) {
+      if (!isPhaseSettled(phase, matches)) return phase;
+    }
+    return PHASE_ORDER[PHASE_ORDER.length - 1];
+  });
+
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
 
-  function advancePhase() {
-    const st = useAppStore.getState();
-    const cp = activePhase;
-    if (!isPhaseComplete(cp, st.matches, st.predictions)) {
-      const phaseMatches = st.matches.filter((m) => m.phase === cp);
-      const filled = phaseMatches.filter((m) => {
-        const p = st.predictions.find((x) => x.match_id === m.id);
-        return !!p && p.predicted_home_score !== null && p.predicted_away_score !== null;
-      }).length;
-      toast.error(`Faltam ${phaseMatches.length - filled} jogo(s) na ${PHASE_LABEL[cp]}`);
-      return;
-    }
-    st.regenerateBracket();
-    const currentIdx = PHASE_ORDER.indexOf(cp);
-    const nextPhase = PHASE_ORDER[currentIdx + 1];
-    if (nextPhase) {
-      setActivePhase(nextPhase);
-      toast.success(`${PHASE_LABEL[cp]} concluída! Avançou para ${PHASE_LABEL[nextPhase]}`);
-    } else {
-      toast.success(`${PHASE_LABEL[cp]} concluída!`);
-    }
-  }
-
-  const phaseComplete = useMemo(
-    () => isPhaseComplete(activePhase, matches, predictions),
-    [activePhase, matches, predictions],
-  );
-
   const phaseMatches = matches.filter((m) => m.phase === activePhase);
+  const phaseSettled = isPhaseSettled(activePhase, matches);
   const phaseFilled = phaseMatches.filter((m) => {
     const p = predictions.find((x) => x.match_id === m.id);
     return !!p && p.predicted_home_score !== null && p.predicted_away_score !== null;
   }).length;
   const phaseMissing = phaseMatches.length - phaseFilled;
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
-        e.preventDefault();
-        advancePhase();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [activePhase]);
-
   return (
     <div className="max-w-6xl mx-auto px-8 py-10">
-
-
       <header className="mb-8">
         <h1 className="text-3xl font-bold tracking-tighter">Palpites</h1>
         <p className="text-sm text-muted-foreground">
-          Preencha todos os jogos de uma fase para liberar a próxima.
-          {" "}Preencha todos os jogos e clique em <strong>Avançar fase</strong> (ou{" "}
-          <kbd className="font-mono text-[10px] px-1.5 py-0.5 rounded border border-border bg-muted">
-            Ctrl + S
-          </kbd>
-          ).
-        </p>
-        <p className="text-xs text-muted-foreground mt-1">
-          Clique sobre o card de um jogo para ver informações detalhadas das seleções, palpites
-          alternativos e análise do Copilot.
+          A fase atual fica disponível para palpites até 10 minutos após o início de cada partida.
+          Quando todos os resultados de uma fase forem registrados, a próxima fase é liberada
+          automaticamente com o chaveamento real.
         </p>
         <div className="mt-3 p-3 rounded-md border border-sky-400/40 bg-sky-50 dark:bg-sky-950/20 flex items-start gap-2.5">
           <Lock className="size-4 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-semibold text-sky-700 dark:text-sky-300">Janela de alteração</p>
+            <p className="text-sm font-semibold text-sky-700 dark:text-sky-300">
+              Janela de alteração
+            </p>
             <p className="text-xs text-sky-600/80 dark:text-sky-400/80 mt-0.5">
               Todas as partidas têm 10 minutos após o início para alterar o palpite.
             </p>
@@ -170,6 +113,8 @@ export function PalpitesPage() {
           const isUnlocked = unlocked.includes(p);
           const isActive = activePhase === p;
           const disabled = !isUnlocked;
+          const settled = isPhaseSettled(p, matches);
+          const isCurrent = isUnlocked && !settled;
           return (
             <button
               key={p}
@@ -183,28 +128,17 @@ export function PalpitesPage() {
                     : "bg-muted/30 text-muted-foreground border-dashed cursor-not-allowed"
               }`}
             >
-              {disabled && <Lock className="size-3" />}
+              {settled ? (
+                <CheckCircle2 className="size-3 text-accent" />
+              ) : isCurrent ? (
+                <span className="size-3 flex items-center justify-center text-[10px]">▶</span>
+              ) : (
+                <Lock className="size-3" />
+              )}
               {PHASE_LABEL[p]}
             </button>
           );
         })}
-      </div>
-
-      <div className="mb-6 flex items-center gap-3 flex-wrap">
-        <Button
-          onClick={advancePhase}
-          disabled={!phaseComplete}
-          size="default"
-          className="gap-2"
-        >
-          <CheckCircle2 className="size-4" />
-          Avançar fase
-        </Button>
-        <span className="text-xs text-muted-foreground font-mono">
-          {phaseComplete
-            ? "Todos os jogos preenchidos"
-            : `${phaseMissing} jogo(s) restante(s) — preencha todos para avançar`}
-        </span>
       </div>
 
       <PhaseProgress phase={activePhase} />
@@ -216,23 +150,6 @@ export function PalpitesPage() {
           onSelect={(id) => setSelectedMatchId((cur) => (cur === id ? null : id))}
           onClear={() => setSelectedMatchId(null)}
         />
-      </div>
-
-      <div className="mt-6 flex items-center gap-3 flex-wrap md:hidden">
-        <Button
-          onClick={advancePhase}
-          disabled={!phaseComplete}
-          size="default"
-          className="gap-2"
-        >
-          <CheckCircle2 className="size-4" />
-          Avançar fase
-        </Button>
-        <span className="text-xs text-muted-foreground font-mono">
-          {phaseComplete
-            ? "Todos os jogos preenchidos"
-            : `${phaseMissing} jogo(s) restante(s)`}
-        </span>
       </div>
     </div>
   );
@@ -412,7 +329,9 @@ function MatchRow({
   onSelect: (id: string) => void;
 }) {
   const match = useAppStore((s) => s.matches.find((x) => x.id === matchId)!);
-  const prediction = useAppStore((s) => s.predictions.find((p) => p.match_id === matchId && p.user_id === s.currentUserId));
+  const prediction = useAppStore((s) =>
+    s.predictions.find((p) => p.match_id === matchId && p.user_id === s.currentUserId),
+  );
   const upsert = predictionsRepo.upsertPrediction;
   const tbd = match.home_team === "—" || match.away_team === "—";
   const finished = match.status === "finished";
@@ -458,35 +377,58 @@ function MatchRow({
           onClick={() => {
             if (timeLocked && !finished)
               toast.error("Prazo de alteração expirado", {
-              description: "Você pode alterar o palpite até 10 minutos após o início da partida.",
-            });
+                description: "Você pode alterar o palpite até 10 minutos após o início da partida.",
+              });
           }}
         >
-          <Input
-            type="number"
-            min={0}
-            disabled={locked}
-            className="w-12 h-9 text-center font-mono text-base font-bold p-0"
-            value={prediction?.predicted_home_score ?? ""}
-            onChange={(e) =>
-              upsert(matchId, {
-                predicted_home_score: e.target.value === "" ? null : Number(e.target.value),
-              })
-            }
-          />
-          <span className="text-muted-foreground font-mono text-xs">×</span>
-          <Input
-            type="number"
-            min={0}
-            disabled={locked}
-            className="w-12 h-9 text-center font-mono text-base font-bold p-0"
-            value={prediction?.predicted_away_score ?? ""}
-            onChange={(e) =>
-              upsert(matchId, {
-                predicted_away_score: e.target.value === "" ? null : Number(e.target.value),
-              })
-            }
-          />
+          {finished ? (
+            <div className="flex flex-col items-center gap-0.5">
+              <div className="flex items-center gap-1.5">
+                <span className="font-mono text-sm font-bold text-accent">{match.home_score}</span>
+                <span className="text-muted-foreground font-mono text-xs">×</span>
+                <span className="font-mono text-sm font-bold text-accent">{match.away_score}</span>
+              </div>
+              {prediction?.predicted_home_score !== null &&
+                prediction?.predicted_home_score !== undefined && (
+                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                    <span>
+                      Seu: {prediction.predicted_home_score}×{prediction.predicted_away_score}
+                    </span>
+                    {prediction.points_earned > 0 && (
+                      <span className="text-accent font-bold">+{prediction.points_earned}pts</span>
+                    )}
+                  </div>
+                )}
+            </div>
+          ) : (
+            <>
+              <Input
+                type="number"
+                min={0}
+                disabled={locked}
+                className="w-12 h-9 text-center font-mono text-base font-bold p-0"
+                value={prediction?.predicted_home_score ?? ""}
+                onChange={(e) =>
+                  upsert(matchId, {
+                    predicted_home_score: e.target.value === "" ? null : Number(e.target.value),
+                  })
+                }
+              />
+              <span className="text-muted-foreground font-mono text-xs">×</span>
+              <Input
+                type="number"
+                min={0}
+                disabled={locked}
+                className="w-12 h-9 text-center font-mono text-base font-bold p-0"
+                value={prediction?.predicted_away_score ?? ""}
+                onChange={(e) =>
+                  upsert(matchId, {
+                    predicted_away_score: e.target.value === "" ? null : Number(e.target.value),
+                  })
+                }
+              />
+            </>
+          )}
         </div>
       </TableCell>
       <TableCell>
@@ -546,7 +488,9 @@ function BracketRow({
   onSelect: (id: string) => void;
 }) {
   const match = useAppStore((s) => s.matches.find((x) => x.id === matchId)!);
-  const prediction = useAppStore((s) => s.predictions.find((p) => p.match_id === matchId && p.user_id === s.currentUserId));
+  const prediction = useAppStore((s) =>
+    s.predictions.find((p) => p.match_id === matchId && p.user_id === s.currentUserId),
+  );
   const upsert = predictionsRepo.upsertPrediction;
   const tbd = match.home_team === "—" || match.away_team === "—";
   const finished = match.status === "finished";
@@ -593,35 +537,65 @@ function BracketRow({
               e.stopPropagation();
               if (timeLocked && !finished)
                 toast.error("Prazo de alteração expirado", {
-                  description: "Você pode alterar o palpite até 10 minutos após o início da partida.",
+                  description:
+                    "Você pode alterar o palpite até 10 minutos após o início da partida.",
                 });
             }}
           >
-            <Input
-              type="number"
-              min={0}
-              disabled={locked}
-              className="w-12 h-10 text-center font-mono text-lg font-bold p-0 max-sm:w-10 max-sm:h-9 max-sm:text-base"
-              value={prediction?.predicted_home_score ?? ""}
-              onChange={(e) =>
-                upsert(matchId, {
-                  predicted_home_score: e.target.value === "" ? null : Number(e.target.value),
-                })
-              }
-            />
-            <span className="text-muted-foreground font-mono">×</span>
-            <Input
-              type="number"
-              min={0}
-              disabled={locked}
-              className="w-12 h-10 text-center font-mono text-lg font-bold p-0 max-sm:w-10 max-sm:h-9 max-sm:text-base"
-              value={prediction?.predicted_away_score ?? ""}
-              onChange={(e) =>
-                upsert(matchId, {
-                  predicted_away_score: e.target.value === "" ? null : Number(e.target.value),
-                })
-              }
-            />
+            {finished ? (
+              <div className="flex flex-col items-center gap-0.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono text-lg font-bold text-accent max-sm:text-base">
+                    {match.home_score}
+                  </span>
+                  <span className="text-muted-foreground font-mono">×</span>
+                  <span className="font-mono text-lg font-bold text-accent max-sm:text-base">
+                    {match.away_score}
+                  </span>
+                </div>
+                {prediction?.predicted_home_score !== null &&
+                  prediction?.predicted_home_score !== undefined && (
+                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <span>
+                        Seu: {prediction.predicted_home_score}×{prediction.predicted_away_score}
+                      </span>
+                      {prediction.points_earned > 0 && (
+                        <span className="text-accent font-bold">
+                          +{prediction.points_earned}pts
+                        </span>
+                      )}
+                    </div>
+                  )}
+              </div>
+            ) : (
+              <>
+                <Input
+                  type="number"
+                  min={0}
+                  disabled={locked}
+                  className="w-12 h-10 text-center font-mono text-lg font-bold p-0 max-sm:w-10 max-sm:h-9 max-sm:text-base"
+                  value={prediction?.predicted_home_score ?? ""}
+                  onChange={(e) =>
+                    upsert(matchId, {
+                      predicted_home_score: e.target.value === "" ? null : Number(e.target.value),
+                    })
+                  }
+                />
+                <span className="text-muted-foreground font-mono">×</span>
+                <Input
+                  type="number"
+                  min={0}
+                  disabled={locked}
+                  className="w-12 h-10 text-center font-mono text-lg font-bold p-0 max-sm:w-10 max-sm:h-9 max-sm:text-base"
+                  value={prediction?.predicted_away_score ?? ""}
+                  onChange={(e) =>
+                    upsert(matchId, {
+                      predicted_away_score: e.target.value === "" ? null : Number(e.target.value),
+                    })
+                  }
+                />
+              </>
+            )}
           </div>
           <div className="flex items-center gap-3 max-sm:order-2 max-sm:justify-end">
             <Flag team={match.away_team} iso={match.away_flag} size={22} />
@@ -800,7 +774,8 @@ function AlternativePalpites({ matchId }: { matchId: string }) {
               onClick={() => {
                 if (timeLocked && !finished)
                   toast.error("Prazo de alteração expirado", {
-                    description: "Você pode alterar o palpite até 10 minutos após o início da partida.",
+                    description:
+                      "Você pode alterar o palpite até 10 minutos após o início da partida.",
                   });
               }}
             >
