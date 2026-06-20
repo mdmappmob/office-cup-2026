@@ -71,7 +71,7 @@ function HomePage() {
       <main>
         <section className="relative overflow-hidden">
           <div
-            className="absolute inset-0 bg-cover bg-center opacity-[0.06] blur-sm pointer-events-none"
+            className="absolute inset-0 bg-contain bg-center bg-no-repeat opacity-25 pointer-events-none"
             style={{ backgroundImage: "url(/copa2026.png)" }}
           />
           <div className="relative max-w-6xl mx-auto px-6 pt-20 pb-16">
