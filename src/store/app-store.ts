@@ -161,7 +161,6 @@ export const useAppStore = create<AppState>()(
         set({ matches: newMatches, predictions: newPredictions });
         get().recomputeStandings();
         get().syncPredictionsToSupabase();
-        get().syncMembersToSupabase();
         const result = await settleAllPredictions({
           data: {
             matchId,
@@ -225,6 +224,8 @@ export const useAppStore = create<AppState>()(
           }
 
           const merged = [...get().predictions];
+
+          // Merge current user's predictions (anon key)
           for (const rp of remotePredictions) {
             const idx = merged.findIndex(
               (lp) =>
@@ -250,6 +251,7 @@ export const useAppStore = create<AppState>()(
               merged.push(entry);
             }
           }
+
           const mergedMembers = remoteMembers.map((rm) => ({
             id: rm.id,
             league_id: rm.league_id,
@@ -258,10 +260,50 @@ export const useAppStore = create<AppState>()(
             total_points: rm.total_points,
           }));
           if (remoteMembers.length > 0) {
-            set({ predictions: merged, members: mergedMembers });
-          } else {
-            set({ predictions: merged });
+            set({ members: mergedMembers });
           }
+
+          // Fetch ALL members' predictions via server fn (service role)
+          // so phase ranking shows correct points for every user
+          if (remoteMembers.length > 0) {
+            const memberIds = remoteMembers.map((m) => m.user_id);
+            try {
+              const { fetchAllLeaguePredictions } =
+                await import("@/lib/supabase/fetch-all-predictions.server");
+              const allRemote = await fetchAllLeaguePredictions({
+                data: { memberUserIds: memberIds },
+              });
+              for (const rp of allRemote) {
+                const idx = merged.findIndex(
+                  (lp) =>
+                    lp.match_id === rp.match_id && lp.user_id === rp.user_id && lp.slot === rp.slot,
+                );
+                const entry = {
+                  id: rp.id,
+                  user_id: rp.user_id,
+                  league_id: rp.league_id,
+                  match_id: rp.match_id,
+                  slot: rp.slot,
+                  predicted_home_score: rp.predicted_home_score,
+                  predicted_away_score: rp.predicted_away_score,
+                  predicted_home_lineup: [],
+                  predicted_away_lineup: [],
+                  predicted_goalscorers: rp.predicted_goalscorers ?? [],
+                  is_zebra: rp.is_zebra,
+                  points_earned: rp.points_earned,
+                };
+                if (idx >= 0) {
+                  merged[idx] = entry;
+                } else {
+                  merged.push(entry);
+                }
+              }
+            } catch (err) {
+              console.warn("Erro ao buscar predictions de todos os membros", err);
+            }
+          }
+
+          set({ predictions: merged });
           // Recalcular points_earned para predictions que vieram com 0
           // mas a partida já tem resultado no estado local
           const localMatches = get().matches;
@@ -377,18 +419,11 @@ export const useAppStore = create<AppState>()(
         }
       },
       syncMembersToSupabase: async () => {
-        const userId = get().currentUserId;
-        if (!userId) return;
         const all = get().members;
         if (all.length === 0) return;
-        try {
-          await membersApi.upsertMember(userId, get().currentLeagueId, 0);
-        } catch (err) {
-          console.warn("Erro ao sincronizar member local", userId, err);
-        }
         // Sync ALL members (incl. has_paid_admin) via service role
         const { syncAllMembers } = await import("@/lib/supabase/sync-members.server");
-        syncAllMembers({
+        await syncAllMembers({
           data: {
             members: all.map((m) => ({
               user_id: m.user_id,
@@ -500,7 +535,6 @@ export const useAppStore = create<AppState>()(
         set({ predictions });
         get().recomputeStandings();
         get().syncPredictionsToSupabase();
-        get().syncMembersToSupabase();
       },
       unlockedPhases: () => {
         const unlocked: MatchPhase[] = [];

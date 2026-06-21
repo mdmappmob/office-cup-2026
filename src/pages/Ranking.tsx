@@ -1,11 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+
 import {
   Table,
   TableBody,
@@ -60,6 +55,7 @@ export function RankingPage() {
 
   const [leagueName, setLeagueName] = useState("");
   const [tab, setTab] = useState("geral");
+  const [phaseTab, setPhaseTab] = useState<MatchPhase>("grupos");
 
   useEffect(() => {
     supabase
@@ -83,14 +79,19 @@ export function RankingPage() {
       final: [],
     };
     for (const phase of PHASE_ORDER) {
-      const phaseMembers = members.map((m) => ({
+      const phaseMembers = sorted.map((m) => ({
         user_id: m.user_id,
         points: memberPointsInPhase(m.user_id, phase, predictions, matches),
       }));
-      result[phase] = phaseMembers.sort((a, b) => b.points - a.points);
+      result[phase] = phaseMembers.sort((a, b) => {
+        if (b.points !== a.points) return b.points - a.points;
+        const nameA = profiles[a.user_id] ?? "";
+        const nameB = profiles[b.user_id] ?? "";
+        return nameA.localeCompare(nameB);
+      });
     }
     return result;
-  }, [members, predictions, matches]);
+  }, [predictions, matches, sorted, profiles]);
 
   const cumulativeEarned = useMemo(() => {
     const totals: Record<string, number> = {};
@@ -212,98 +213,100 @@ export function RankingPage() {
         </TabsContent>
 
         <TabsContent value="fase">
-          <div className="space-y-4">
+          <Tabs value={phaseTab} onValueChange={(v) => setPhaseTab(v as MatchPhase)}>
+            <div className="flex items-center gap-4 mb-6">
+              <TabsList>
+                {PHASE_ORDER.map((phase) => (
+                  <TabsTrigger key={phase} value={phase}>
+                    <span className="mr-1.5">{PHASE_ICON[phase]}</span>
+                    {PHASE_LABEL[phase]}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
+
             {PHASE_ORDER.map((phase) => {
               const rankings = phaseRankings[phase];
               const mult = PHASE_MULTIPLIER[phase];
               return (
-                <Card key={phase}>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="size-9 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
-                        {PHASE_ICON[phase]}
+                <TabsContent key={phase} value={phase}>
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="size-9 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
+                          {PHASE_ICON[phase]}
+                        </div>
+                        <div>
+                          <CardTitle className="text-sm font-bold">{PHASE_LABEL[phase]}</CardTitle>
+                          <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mt-0.5">
+                            Pontuação multiplicada por{" "}
+                            <strong className="text-primary">×{mult}</strong>
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <CardTitle className="text-sm font-bold">{PHASE_LABEL[phase]}</CardTitle>
-                        <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mt-0.5">
-                          Pontuação multiplicada por{" "}
-                          <strong className="text-primary">×{mult}</strong>
-                        </p>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-12 font-mono text-[10px] uppercase tracking-widest">
-                            Pos
-                          </TableHead>
-                          <TableHead className="font-mono text-[10px] uppercase tracking-widest">
-                            Membro
-                          </TableHead>
-                          <TableHead className="text-right font-mono text-[10px] uppercase tracking-widest">
-                            Pontos na Fase
-                          </TableHead>
-                          <TableHead className="text-right font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">
-                            Acumulado
-                          </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {rankings.map((r, idx) => {
-                          if (r.points === 0) return null;
-                          const isMe = r.user_id === currentUserId || r.user_id === authUser?.id;
-                          const name = profiles[r.user_id] ?? "Usuário local";
-                          const cum = cumulativeEarned[phase]?.[r.user_id] ?? 0;
-                          return (
-                            <TableRow key={r.user_id} className={isMe ? "bg-primary/5" : ""}>
-                              <TableCell className="font-mono text-muted-foreground">
-                                {String(idx + 1).padStart(2, "0")}
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-3">
-                                  <div className="size-7 rounded-full bg-muted flex items-center justify-center text-[10px] font-semibold">
-                                    {name
-                                      .split(" ")
-                                      .map((x) => x[0])
-                                      .slice(0, 2)
-                                      .join("")}
-                                  </div>
-                                  <span
-                                    className={`text-sm ${isMe ? "font-bold text-primary" : "font-semibold"}`}
-                                  >
-                                    {name}
-                                    {isMe && " (você)"}
-                                  </span>
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-right font-mono font-bold text-sm">
-                                {r.points}
-                              </TableCell>
-                              <TableCell className="text-right font-mono text-xs text-muted-foreground">
-                                {cum}
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                        {rankings.every((r) => r.points === 0) && (
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      <Table>
+                        <TableHeader>
                           <TableRow>
-                            <TableCell
-                              colSpan={4}
-                              className="text-center text-xs text-muted-foreground py-6"
-                            >
-                              Nenhum palpite pontuado nesta fase ainda.
-                            </TableCell>
+                            <TableHead className="w-12 font-mono text-[10px] uppercase tracking-widest">
+                              Pos
+                            </TableHead>
+                            <TableHead className="font-mono text-[10px] uppercase tracking-widest">
+                              Membro
+                            </TableHead>
+                            <TableHead className="text-right font-mono text-[10px] uppercase tracking-widest">
+                              Pontos na Fase
+                            </TableHead>
+                            <TableHead className="text-right font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">
+                              Acumulado
+                            </TableHead>
                           </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </CardContent>
-                </Card>
+                        </TableHeader>
+                        <TableBody>
+                          {rankings.map((r, idx) => {
+                            const isMe = r.user_id === currentUserId || r.user_id === authUser?.id;
+                            const name = profiles[r.user_id] ?? "Usuário local";
+                            const cum = cumulativeEarned[phase]?.[r.user_id] ?? 0;
+                            return (
+                              <TableRow key={r.user_id} className={isMe ? "bg-primary/5" : ""}>
+                                <TableCell className="font-mono text-muted-foreground">
+                                  {String(idx + 1).padStart(2, "0")}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-3">
+                                    <div className="size-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold">
+                                      {name
+                                        .split(" ")
+                                        .map((x) => x[0])
+                                        .slice(0, 2)
+                                        .join("")}
+                                    </div>
+                                    <span
+                                      className={isMe ? "font-bold text-primary" : "font-semibold"}
+                                    >
+                                      {name}
+                                      {isMe && " (você)"}
+                                    </span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-right font-mono font-bold">
+                                  {r.points}
+                                </TableCell>
+                                <TableCell className="text-right font-mono text-muted-foreground">
+                                  {cum}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
               );
             })}
-          </div>
+          </Tabs>
         </TabsContent>
       </Tabs>
     </div>

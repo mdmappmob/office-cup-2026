@@ -412,6 +412,14 @@ computeBracketFromResults(matches)
 - **Estilo**: `bg-cover` cobre toda a largura; sem blur; `pointer-events-none`
 - **Textos escurecidos**: badge "FIFA World Cup" com `text-foreground/70` e parágrafo descritivo com `text-foreground/80` para melhor legibilidade contra o fundo
 
+### 2026-06-20 — Ranking por fase em abas + fetch all predictions + fix payment status race
+- **Ranking por fase**: `Ranking.tsx` — "Por Fase" agora com sub-abas (Grupos/R32/Oitavas/Quartas/Semi/Final) em vez de lista vertical; avatar `size-8` igual ao card Geral; ordenação por pontos na fase com desempate por nome
+- **Todos os membros visíveis**: linhas com 0 pontos não são mais ocultadas; coluna Status removida das tabelas por fase; alinhamento `text-right` consistente em "Pontos na Fase" e "Acumulado"
+- **Cumulativo entre fases**: `cumulativeEarned` acumula pontos por fase na ordem (grupos → r32 → ... → final); cada aba mostra acumulado até aquela fase
+- **fetchAllLeaguePredictions**: novo `src/lib/supabase/fetch-all-predictions.server.ts` — server fn que busca predictions de TODOS os membros via service role (soluciona o bug onde outros membros apareciam com 0 pontos porque o store só carregava predictions do usuário logado)
+- **loadFromSupabase**: agora carrega predictions de todos os membros após carregar `members`; merge no store local
+- **Fix syncMembersToSupabase race condition**: removido `upsertMember` que hardcodava `has_paid_admin: false`; `syncAllMembers` agora é `await` (era fire-and-forget); removidas chamadas duplicadas em `settleMatch` e `recalculateAllScores`
+
 ### Próximos Passos
 1. Implementar recuperação de senha
 2. Múltiplas ligas com seleção dinâmica (remover `CURRENT_LEAGUE_ID` hardcoded)
