@@ -90,12 +90,23 @@ function Body() {
         const currentMatches = useAppStore.getState().matches;
         const match = resolveMatch(currentMatches, r.homeTeam, r.awayTeam);
         if (match) {
-          if (match.home_score === null || match.away_score === null) {
+          const needsUpdate =
+            match.home_score === null ||
+            match.away_score === null ||
+            match.home_score !== r.homeScore ||
+            match.away_score !== r.awayScore;
+          if (needsUpdate) {
+            const isCorrection = match.home_score !== null && match.away_score !== null;
             const res = await predictionsRepo.settleMatch(match.id, r.homeScore, r.awayScore);
             if (!res.ok) {
               toast.error(`Falha ao registrar ${r.homeTeam}×${r.awayTeam}`, {
                 description: res.error,
               });
+            }
+            if (isCorrection) {
+              console.info(
+                `Sync: resultado corrigido ${match.home_team} ${match.home_score}×${match.away_score} → ${r.homeScore}×${r.awayScore}`,
+              );
             }
             applied++;
           } else {
