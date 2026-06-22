@@ -43,4 +43,3 @@ src/lib/version.ts
 .vercel
 .env*
 !.env.example
-!.env.demo
