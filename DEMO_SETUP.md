@@ -22,13 +22,19 @@ demonstração. Nenhum dado real é exposto.
    - **Project Settings → API → anon public** → `VITE_SUPABASE_ANON_KEY`
    - **Project Settings → API → service_role secret** → `SUPABASE_SERVICE_ROLE_KEY`
 
-### 2. Aplicar migrations
+### 2. Aplicar migration
 
-No SQL Editor do Supabase demo, execute os scripts na ordem:
+No SQL Editor do Supabase demo, execute:
 
-1. `supabase/migration.sql` — schema base
-2. `supabase/invite_code.sql` — coluna invite_code + tabela profiles
-3. `supabase/update.sql` — ajustes finais
+```
+supabase/seed-demo.sql
+```
+
+> **Por que não os migrations originais?**
+> `update.sql` e `invite_code.sql` contêm INSERTs que dependem de
+> `auth.users` (ex: `SELECT id FROM auth.users LIMIT 1`). No projeto demo
+> o banco está vazio, então esses INSERTs falham. O `seed-demo.sql` cria
+> apenas o schema (tabelas + RLS). O seed script popula os dados.
 
 ### 3. Configurar `.env.demo`
 
