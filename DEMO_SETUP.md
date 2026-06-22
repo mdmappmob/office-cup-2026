@@ -36,26 +36,45 @@ supabase/seed-demo.sql
 > o banco está vazio, então esses INSERTs falham. O `seed-demo.sql` cria
 > apenas o schema (tabelas + RLS). O seed script popula os dados.
 
-### 3. Configurar `.env.demo`
+### 3. Backup do `.env` de produção
 
-Copie o template:
+Salve o `.env` atual em outro lugar (ex: `.env.prod.bak`) — ele será
+restaurado ao final da demo.
+
+### 4. Ativar ambiente demo
+
+Copie o `.env.demo` para `.env`:
 
 ```bash
 cp .env.demo .env
 ```
 
-Edite com as credenciais do projeto demo.
-
-### 4. Instalar dependências
+### 5. Instalar dependências
 
 ```bash
 npm install
 ```
 
-### 5. Rodar seed
+### 6. Rodar seed
 
 ```bash
 npx tsx scripts/seed-demo.ts
+```
+
+### 7. Rodar app
+
+```bash
+npm run dev
+```
+
+Acesse http://localhost:8080
+
+### 8. Finalizar demo
+
+Ao terminar, restaure o `.env` de produção:
+
+```bash
+cp .env.prod.bak .env
 ```
 
 Isso cria:
