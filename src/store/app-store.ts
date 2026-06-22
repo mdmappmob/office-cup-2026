@@ -552,7 +552,11 @@ export const useAppStore = create<AppState>()(
         members: s.members,
         theme: s.theme,
         isAdmin: s.isAdmin,
-        matches: s.matches,
+      }),
+      merge: (persisted, current) => ({
+        ...current,
+        ...(persisted as Record<string, unknown>),
+        matches: current.matches,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {

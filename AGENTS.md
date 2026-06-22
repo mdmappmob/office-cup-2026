@@ -1,5 +1,9 @@
 # OFFICECUP 26 — Bolão Corporativo Copa 2026
 
+## ⚠️ REGRA ABSOLUTA — NUNCA ALTERAR NADA SEM AUTORIZAÇÃO
+
+**Nunca modificar, criar, deletar arquivos, executar scripts, alterar configurações, banco de dados, deploy ou qualquer recurso sem autorização explícita do usuário.** Mesmo que pareça óbvio, necessário ou "só uma correção rápida". Pergunte primeiro. Sempre.
+
 ## Stack
 - TanStack Start + React 19 + TypeScript + Vite + Tailwind 4 + shadcn/ui
 - Zustand com persist (localStorage) para dados da aplicação
