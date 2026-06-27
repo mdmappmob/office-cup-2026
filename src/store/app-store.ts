@@ -222,9 +222,10 @@ export const useAppStore = create<AppState>()(
               return m;
             });
             set({ matches: mergedMatches });
+            get().regenerateBracket();
           }
 
-          const merged = [...get().predictions];
+          let merged = [...get().predictions];
 
           // Merge current user's predictions (anon key)
           for (const rp of remotePredictions) {
@@ -301,6 +302,26 @@ export const useAppStore = create<AppState>()(
               }
             } catch (err) {
               console.warn("Erro ao buscar predictions de todos os membros", err);
+            }
+          }
+
+          // Segurança: filtra predictions de fases futuras
+          {
+            const currentIdx = PHASE_ORDER.findIndex((p) => !get().isPhaseFullySettled(p));
+            if (currentIdx >= 0) {
+              const allowed = new Set(PHASE_ORDER.slice(0, currentIdx + 1));
+              const allowedIds = new Set(
+                get()
+                  .matches.filter((m) => allowed.has(m.phase))
+                  .map((m) => m.id),
+              );
+              const before = merged.length;
+              merged = merged.filter((p) => allowedIds.has(p.match_id));
+              if (merged.length !== before) {
+                console.log(
+                  `loadFromSupabase: filtradas ${before - merged.length} predictions de fases futuras`,
+                );
+              }
             }
           }
 
