@@ -424,6 +424,15 @@ computeBracketFromResults(matches)
 - **loadFromSupabase**: agora carrega predictions de todos os membros após carregar `members`; merge no store local
 - **Fix syncMembersToSupabase race condition**: removido `upsertMember` que hardcodava `has_paid_admin: false`; `syncAllMembers` agora é `await` (era fire-and-forget); removidas chamadas duplicadas em `settleMatch` e `recalculateAllScores`
 
+### 2026-06-22 — Crise de corrupção de dados + merge fix + regra absoluta
+- **Incidente**: script `seed-demo.ts` populou 72 resultados falsos no Supabase produção (via service role), e dados demo foram persistidos no Zustand localStorage
+- **Ciclo de recriação**: Zustand persist armazenava `matches` → reidratação carregava resultados falsos → `onRehydrateStorage` → `recalculateAllScores` → `syncPredictionsToSupabase` + `backfillMatchResults` → recriava dados no Supabase
+- **Merge fix**: `merge` no persist (app-store.ts:556-560) força `matches: current.matches` (mockMatches com scores null) ignorando cache do localStorage
+- **matches removido do partialize**: `matches` removido de `partialize` para nunca ser persistido
+- **Limpeza manual**: 72 match results, 128 predictions points, 3 members total_points zerados via REST com service role (2x — a primeira foi re-populada pelo Vercel com código antigo)
+- **Deploy Vercel**: commit `042853c` enviado ao `main` para deploy automático do merge fix
+- **Regra absoluta**: adicionada ao topo do AGENTS.md — nunca alterar nada sem autorização explícita
+
 ### Próximos Passos
 1. Implementar recuperação de senha
 2. Múltiplas ligas com seleção dinâmica (remover `CURRENT_LEAGUE_ID` hardcoded)

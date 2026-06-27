@@ -36,14 +36,13 @@ export function PalpitesPage() {
   const isPhaseExpired = useAppStore((s) => s.isPhaseExpired);
   const regenerateBracket = useAppStore((s) => s.regenerateBracket);
 
-  const unlocked = useMemo(() => {
-    const result: MatchPhase[] = [];
-    for (const phase of PHASE_ORDER) {
-      result.push(phase);
-      if (!isPhaseSettled(phase, matches)) break;
-    }
-    return result;
-  }, [matches]);
+  const unlocked = PHASE_ORDER;
+
+  const firstUnsettled = useMemo(
+    () =>
+      PHASE_ORDER.find((p) => !isPhaseSettled(p, matches)) ?? PHASE_ORDER[PHASE_ORDER.length - 1],
+    [matches],
+  );
 
   const [activePhase, setActivePhase] = useState<MatchPhase>(() => {
     for (const phase of PHASE_ORDER) {
@@ -118,31 +117,23 @@ export function PalpitesPage() {
 
       <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
         {PHASE_ORDER.map((p) => {
-          const isUnlocked = unlocked.includes(p);
           const isActive = activePhase === p;
-          const disabled = !isUnlocked;
           const settled = isPhaseSettled(p, matches);
-          const isCurrent = isUnlocked && !settled;
           return (
             <button
               key={p}
-              onClick={() => !disabled && setActivePhase(p)}
-              disabled={disabled}
+              onClick={() => setActivePhase(p)}
               className={`px-4 py-2 rounded-md text-xs font-mono uppercase tracking-widest border transition-colors whitespace-nowrap flex items-center gap-2 ${
                 isActive
                   ? "bg-foreground text-background border-foreground"
-                  : isUnlocked
-                    ? "bg-card hover:bg-muted border-border"
-                    : "bg-muted/30 text-muted-foreground border-dashed cursor-not-allowed"
+                  : "bg-card hover:bg-muted border-border"
               }`}
             >
               {settled ? (
                 <CheckCircle2 className="size-3 text-accent" />
-              ) : isCurrent ? (
+              ) : p === firstUnsettled ? (
                 <span className="size-3 flex items-center justify-center text-[10px]">▶</span>
-              ) : (
-                <Lock className="size-3" />
-              )}
+              ) : null}
               {PHASE_LABEL[p]}
             </button>
           );

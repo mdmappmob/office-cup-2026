@@ -160,6 +160,7 @@ export const useAppStore = create<AppState>()(
         );
         set({ matches: newMatches, predictions: newPredictions });
         get().recomputeStandings();
+        get().regenerateBracket();
         get().syncPredictionsToSupabase();
         const result = await settleAllPredictions({
           data: {
