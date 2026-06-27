@@ -1168,25 +1168,27 @@ export function propagateKnockoutFromResults(matches: MockMatch[]): MockMatch[] 
     const toMatches = next.filter((m) => m.phase === toPhase);
     if (toMatches.length === 0) return;
 
-    const allSettled = fromMatches.every((m) => m.home_score !== null && m.away_score !== null);
-    if (!allSettled) return;
-
-    const winners = fromMatches.map((m) => {
-      return m.home_score! >= m.away_score!
-        ? { team: m.home_team, flag: m.home_flag }
-        : { team: m.away_team, flag: m.away_flag };
-    });
-
+    // Propaga vencedores progressivamente — cada partida com resultado alimenta a fase seguinte
     for (let i = 0; i < toMatches.length; i++) {
-      const h = winners[i * 2];
-      const a = winners[i * 2 + 1];
-      if (h) {
-        toMatches[i].home_team = h.team;
-        toMatches[i].home_flag = h.flag;
+      const homeMatch = fromMatches[i * 2];
+      const awayMatch = fromMatches[i * 2 + 1];
+
+      if (homeMatch && homeMatch.home_score !== null && homeMatch.away_score !== null) {
+        const homeWinner =
+          homeMatch.home_score >= homeMatch.away_score
+            ? { team: homeMatch.home_team, flag: homeMatch.home_flag }
+            : { team: homeMatch.away_team, flag: homeMatch.away_flag };
+        toMatches[i].home_team = homeWinner.team;
+        toMatches[i].home_flag = homeWinner.flag;
       }
-      if (a) {
-        toMatches[i].away_team = a.team;
-        toMatches[i].away_flag = a.flag;
+
+      if (awayMatch && awayMatch.home_score !== null && awayMatch.away_score !== null) {
+        const awayWinner =
+          awayMatch.home_score >= awayMatch.away_score
+            ? { team: awayMatch.home_team, flag: awayMatch.home_flag }
+            : { team: awayMatch.away_team, flag: awayMatch.away_flag };
+        toMatches[i].away_team = awayWinner.team;
+        toMatches[i].away_flag = awayWinner.flag;
       }
     }
   };
@@ -1202,36 +1204,29 @@ export function propagateKnockoutFromResults(matches: MockMatch[]): MockMatch[] 
 export function computeBracketFromResults(matches: MockMatch[]): MockMatch[] {
   const next = matches.map((m) => ({ ...m }));
 
-  // Populate R32 from actual group results
-  const groupMatches = next.filter((m) => m.phase === "grupos");
-  const allGroupsSettled = groupMatches.every(
-    (m) => m.home_score !== null && m.away_score !== null,
-  );
+  // Populate R32 progressively — cada grupo que já tem resultado define seus classificados
+  const standings = computeGroupStandingsFromResults(next);
+  const r32Matchups = buildRoundOf32(standings);
+  const r32Matches = next.filter((m) => m.phase === "r32");
 
-  if (allGroupsSettled) {
-    const standings = computeGroupStandingsFromResults(next);
-    const r32Matchups = buildRoundOf32(standings);
-    const r32Matches = next.filter((m) => m.phase === "r32");
-
-    for (const m of r32Matchups) {
-      const homeTeam = getTeamForSlot(
-        m.homeGroup,
-        m.homeType,
-        standings,
-        standings.thirdPlaceRanking,
-      );
-      const awayTeam = getTeamForSlot(
-        m.awayGroup,
-        m.awayType,
-        standings,
-        standings.thirdPlaceRanking,
-      );
-      if (homeTeam && awayTeam && r32Matches[m.r32MatchIndex]) {
-        r32Matches[m.r32MatchIndex].home_team = homeTeam.team;
-        r32Matches[m.r32MatchIndex].home_flag = homeTeam.flag;
-        r32Matches[m.r32MatchIndex].away_team = awayTeam.team;
-        r32Matches[m.r32MatchIndex].away_flag = awayTeam.flag;
-      }
+  for (const m of r32Matchups) {
+    const homeTeam = getTeamForSlot(
+      m.homeGroup,
+      m.homeType,
+      standings,
+      standings.thirdPlaceRanking,
+    );
+    const awayTeam = getTeamForSlot(
+      m.awayGroup,
+      m.awayType,
+      standings,
+      standings.thirdPlaceRanking,
+    );
+    if (homeTeam && awayTeam && r32Matches[m.r32MatchIndex]) {
+      r32Matches[m.r32MatchIndex].home_team = homeTeam.team;
+      r32Matches[m.r32MatchIndex].home_flag = homeTeam.flag;
+      r32Matches[m.r32MatchIndex].away_team = awayTeam.team;
+      r32Matches[m.r32MatchIndex].away_flag = awayTeam.flag;
     }
   }
 
