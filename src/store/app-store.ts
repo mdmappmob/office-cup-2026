@@ -225,7 +225,7 @@ export const useAppStore = create<AppState>()(
             get().regenerateBracket();
           }
 
-          const merged = [...get().predictions];
+          let merged = [...get().predictions];
 
           // Merge current user's predictions (anon key)
           for (const rp of remotePredictions) {
@@ -305,9 +305,27 @@ export const useAppStore = create<AppState>()(
             }
           }
 
-          // (filtro removido — todas as fases estão liberadas)
-
-          set({ predictions: merged });
+          // Limpa predictions de partidas com times TBD ("—")
+          // para evitar que palpites antigos de fases nao iniciadas ressurgam
+          const localMatchesForCleanup = get().matches;
+          const staleMatchIds = new Set<string>();
+          const filtered = merged.filter((p) => {
+            const m = localMatchesForCleanup.find((mm) => mm.id === p.match_id);
+            const isTbd = m && (m.home_team === "—" || m.away_team === "—");
+            if (isTbd) staleMatchIds.add(p.match_id);
+            return !isTbd;
+          });
+          const removed = merged.length - filtered.length;
+          if (removed > 0) {
+            if (get().isAdmin) {
+              const { clearKnockoutPredictions } =
+                await import("@/lib/supabase/clear-knockout-predictions.server");
+              clearKnockoutPredictions({
+                data: { matchIds: [...staleMatchIds], leagueId: get().currentLeagueId },
+              }).catch((e) => console.warn("Erro limpando predictions stale", e));
+            }
+            merged = filtered;
+          }
           // Recalcular points_earned para predictions que vieram com 0
           // mas a partida já tem resultado no estado local
           const localMatches = get().matches;
