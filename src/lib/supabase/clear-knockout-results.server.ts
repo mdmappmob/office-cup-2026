@@ -33,16 +33,19 @@ export const clearKnockoutResults = createServerFn({ method: "POST" })
       return { ok: false, error: "Credenciais não configuradas" };
     }
     try {
-      // 1. Zerar scores de todas as partidas em matches
-      // usa id=neq. para contornar exigencia de WHERE clause do Supabase REST
-      await supabaseFetch(supabaseUrl, serviceKey, "matches?id=neq.", {
-        method: "PATCH",
-        body: JSON.stringify({
-          home_score: null,
-          away_score: null,
-          status: "scheduled",
-        }),
-      } as RequestInit);
+      // 1. Zerar scores apenas das partidas de mata-mata em matches
+      // cada prefixo tem WHERE clause (match_id=like.xxx*) evitando erro 400
+      const matchPrefixes = ["r32", "o", "q", "s", "f"];
+      for (const prefix of matchPrefixes) {
+        await supabaseFetch(supabaseUrl, serviceKey, `matches?match_id=like.${prefix}*`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            home_score: null,
+            away_score: null,
+            status: "scheduled",
+          }),
+        } as RequestInit);
+      }
 
       // 2. Deletar predictions das fases mata-mata (r32+)
       const knockoutPrefixes = ["r", "o", "q", "s", "f"];

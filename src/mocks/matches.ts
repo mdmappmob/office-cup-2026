@@ -118,18 +118,17 @@ function makeGroupMatches(): MockMatch[] {
 
 function makeBracket(
   phase: MatchPhase,
-  count: number,
+  dates: string[],
   idPrefix: string,
-  baseDate: string,
   tz: string = EDT,
 ): MockMatch[] {
-  return Array.from({ length: count }).map((_, i) => ({
+  return dates.map((date, i) => ({
     id: `${idPrefix}${i}`,
     home_team: "—",
     away_team: "—",
     home_flag: "",
     away_flag: "",
-    match_date: baseDate,
+    match_date: date,
     venue_tz: tz,
     phase,
     home_score: null,
@@ -141,9 +140,60 @@ function makeBracket(
 
 export const mockMatches: MockMatch[] = [
   ...makeGroupMatches(),
-  ...makeBracket("r32", 16, "r", "2026-06-30T16:00:00-03:00", EDT),
-  ...makeBracket("oitavas", 8, "o", "2026-07-04T20:00:00-03:00", EDT),
-  ...makeBracket("quartas", 4, "q", "2026-07-09T17:00:00-03:00", EDT),
-  ...makeBracket("semi", 2, "s", "2026-07-14T16:00:00-03:00", EDT),
-  ...makeBracket("final", 1, "f", "2026-07-19T16:00:00-03:00", EDT),
+  // R32: 16 matches, Jun 28 - Jul 3
+  ...makeBracket(
+    "r32",
+    [
+      "2026-06-28T15:00:00-03:00",
+      "2026-06-29T13:00:00-03:00",
+      "2026-06-29T16:30:00-03:00",
+      "2026-06-29T21:00:00-03:00",
+      "2026-06-30T13:00:00-03:00",
+      "2026-06-30T17:00:00-03:00",
+      "2026-06-30T21:00:00-03:00",
+      "2026-07-01T12:00:00-03:00",
+      "2026-07-01T16:00:00-03:00",
+      "2026-07-01T20:00:00-03:00",
+      "2026-07-02T15:00:00-03:00",
+      "2026-07-02T19:00:00-03:00",
+      "2026-07-02T23:00:00-03:00",
+      "2026-07-03T14:00:00-03:00",
+      "2026-07-03T18:00:00-03:00",
+      "2026-07-03T21:30:00-03:00",
+    ],
+    "r",
+    EDT,
+  ),
+  // Oitavas: 8 matches, Jul 4-7
+  ...makeBracket(
+    "oitavas",
+    [
+      "2026-07-04T13:00:00-03:00",
+      "2026-07-04T17:00:00-03:00",
+      "2026-07-05T16:00:00-03:00",
+      "2026-07-05T20:00:00-03:00",
+      "2026-07-06T15:00:00-03:00",
+      "2026-07-06T20:00:00-03:00",
+      "2026-07-07T12:00:00-03:00",
+      "2026-07-07T16:00:00-03:00",
+    ],
+    "o",
+    EDT,
+  ),
+  // Quartas: 4 matches, Jul 9-11
+  ...makeBracket(
+    "quartas",
+    [
+      "2026-07-09T16:00:00-03:00",
+      "2026-07-10T15:00:00-03:00",
+      "2026-07-11T17:00:00-03:00",
+      "2026-07-11T21:00:00-03:00",
+    ],
+    "q",
+    EDT,
+  ),
+  // Semi: 2 matches, Jul 14-15
+  ...makeBracket("semi", ["2026-07-14T15:00:00-03:00", "2026-07-15T15:00:00-03:00"], "s", EDT),
+  // Final: Jul 19
+  ...makeBracket("final", ["2026-07-19T15:00:00-03:00"], "f", EDT),
 ];

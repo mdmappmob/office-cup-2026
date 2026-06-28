@@ -466,8 +466,15 @@ export const useAppStore = create<AppState>()(
         if (!result.ok || "error" in result) {
           throw new Error((result as { error: string }).error ?? "Falha ao resetar dados");
         }
-        // Reset local matches to clean state (no results)
-        set({ matches: mockMatches.map((m) => ({ ...m })) });
+        // Reset only knockout matches scores (preserve group results for bracket computation)
+        set({
+          matches: get().matches.map((m) => {
+            if (["r32", "o", "q", "s", "f"].some((pref) => m.id.startsWith(pref))) {
+              return { ...m, home_score: null, away_score: null, status: "scheduled" as const };
+            }
+            return m;
+          }),
+        });
         get().regenerateBracket();
         // Remove knockout predictions from local store
         const knockoutPrefixes = ["r", "o", "q", "s", "f"];
