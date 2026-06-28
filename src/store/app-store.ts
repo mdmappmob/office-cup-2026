@@ -225,7 +225,7 @@ export const useAppStore = create<AppState>()(
             get().regenerateBracket();
           }
 
-          let merged = [...get().predictions];
+          const merged = [...get().predictions];
 
           // Merge current user's predictions (anon key)
           for (const rp of remotePredictions) {
@@ -305,25 +305,7 @@ export const useAppStore = create<AppState>()(
             }
           }
 
-          // Segurança: filtra predictions de fases futuras
-          {
-            const currentIdx = PHASE_ORDER.findIndex((p) => !get().isPhaseFullySettled(p));
-            if (currentIdx >= 0) {
-              const allowed = new Set(PHASE_ORDER.slice(0, currentIdx + 1));
-              const allowedIds = new Set(
-                get()
-                  .matches.filter((m) => allowed.has(m.phase))
-                  .map((m) => m.id),
-              );
-              const before = merged.length;
-              merged = merged.filter((p) => allowedIds.has(p.match_id));
-              if (merged.length !== before) {
-                console.log(
-                  `loadFromSupabase: filtradas ${before - merged.length} predictions de fases futuras`,
-                );
-              }
-            }
-          }
+          // (filtro removido — todas as fases estão liberadas)
 
           set({ predictions: merged });
           // Recalcular points_earned para predictions que vieram com 0

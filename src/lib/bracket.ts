@@ -1133,6 +1133,8 @@ export function computeGroupStandingsFromResults(matches: MockMatch[]): GroupSta
 
   for (const g of groups) {
     const gms = groupMatches.filter((m) => m.group === g);
+    const allPlayed = gms.every((m) => m.home_score !== null && m.away_score !== null);
+    if (!allPlayed) continue;
     const raw = getStandingsForGroupFromResults(gms);
     const sorted = sortGroupStandingsFromResults(raw, gms);
     result[g] = sorted;
