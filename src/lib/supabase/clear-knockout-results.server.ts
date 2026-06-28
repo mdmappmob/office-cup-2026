@@ -34,16 +34,14 @@ export const clearKnockoutResults = createServerFn({ method: "POST" })
     }
     try {
       // 1. Zerar scores de todas as partidas em matches
-      await supabaseFetch(supabaseUrl, serviceKey, "matches", {
+      // usa id=neq. para contornar exigencia de WHERE clause do Supabase REST
+      await supabaseFetch(supabaseUrl, serviceKey, "matches?id=neq.", {
         method: "PATCH",
         body: JSON.stringify({
           home_score: null,
           away_score: null,
           status: "scheduled",
         }),
-        headers: {
-          Prefer: "resolution=merge-duplicates",
-        },
       } as RequestInit);
 
       // 2. Deletar predictions das fases mata-mata (r32+)
