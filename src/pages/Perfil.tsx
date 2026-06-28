@@ -3,11 +3,28 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useAppStore } from "@/store/app-store";
 import { useAuthStore } from "@/store/auth-store";
 import { mockProfiles } from "@/mocks/profiles";
 import { APP_VERSION, APP_COMMIT } from "@/lib/version";
-import { Trash2, AlertTriangle, Upload, CheckCircle2, Copy, Users, KeyRound } from "lucide-react";
+import {
+  Trash2,
+  AlertTriangle,
+  Upload,
+  CheckCircle2,
+  Copy,
+  Users,
+  KeyRound,
+  RotateCcw,
+} from "lucide-react";
 import { toast } from "sonner";
 import { migrateUserData } from "@/lib/supabase/migrate.server";
 import { supabase } from "@/lib/supabase/client";
@@ -19,6 +36,10 @@ export function PerfilPage() {
   const [joining, setJoining] = useState(false);
   const [leagueCode, setLeagueCode] = useState("");
   const [joinedLeague, setJoinedLeague] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
+  const [auditData, setAuditData] = useState<Array<{ name: string; totalPoints: number }> | null>(
+    null,
+  );
   const authUser = useAuthStore((s) => s.user);
   const isAdmin = useAppStore((s) => s.isAdmin);
   const currentUserId = useAppStore((s) => s.currentUserId);
@@ -106,6 +127,45 @@ export function PerfilPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUser?.id, joinedLeague]);
+
+  const handleResetKnockout = async () => {
+    if (!authUser?.id) return;
+    setResetting(true);
+    setAuditData(null);
+    try {
+      const { resetKnockoutData } = useAppStore.getState();
+      await resetKnockoutData();
+      // Re-sync from Supabase to get latest data
+      await useAppStore.getState().loadFromSupabase();
+      // Audit: get current predictions (only grupo) and calculate points per member
+      const predictions = useAppStore.getState().predictions;
+      const members = useAppStore.getState().members;
+      const profiles = useAppStore.getState().profiles;
+      const bestByUser = new Map<string, number>();
+      for (const p of predictions) {
+        const key = `${p.user_id}|${p.match_id}`;
+        const cur = bestByUser.get(key) ?? 0;
+        if (p.points_earned > cur) bestByUser.set(key, p.points_earned);
+      }
+      const userTotals = new Map<string, number>();
+      for (const [key, pts] of bestByUser) {
+        const uid = key.split("|")[0];
+        userTotals.set(uid, (userTotals.get(uid) ?? 0) + pts);
+      }
+      const audit = Array.from(userTotals.entries())
+        .map(([uid, pts]) => ({
+          name: profiles[uid] ?? uid.slice(0, 8),
+          totalPoints: pts,
+        }))
+        .sort((a, b) => b.totalPoints - a.totalPoints);
+      setAuditData(audit);
+      toast.success(`Dados R32+ resetados. ${audit.length} membros auditados.`);
+    } catch (err) {
+      toast.error("Erro ao resetar", { description: (err as Error).message });
+    } finally {
+      setResetting(false);
+    }
+  };
 
   const handleJoinWithCode = async (code: string) => {
     setJoining(true);
@@ -359,6 +419,54 @@ export function PerfilPage() {
             </div>
           </CardContent>
         </Card>
+
+        {isAdmin && (
+          <Card className="border-destructive/30">
+            <CardHeader>
+              <CardTitle className="text-sm font-mono uppercase tracking-widest text-destructive flex items-center gap-2">
+                <RotateCcw className="size-3.5" /> Resetar R32+
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Limpa resultados e palpites das fases mata-mata (R32 até Final) no Supabase e local.
+                Palpites da fase de grupos e pontuação são preservados. Após reset, realiza
+                auditoria dos pontos de cada membro.
+              </p>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={resetting}
+                onClick={handleResetKnockout}
+              >
+                {resetting ? "Resetando..." : "Resetar R32+"}
+              </Button>
+              {auditData && (
+                <div className="mt-4">
+                  <p className="text-xs font-semibold text-foreground mb-2">
+                    Auditoria — Pontos Fase de Grupos:
+                  </p>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Membro</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {auditData.map((row) => (
+                        <TableRow key={row.name}>
+                          <TableCell className="font-medium">{row.name}</TableCell>
+                          <TableCell className="text-right font-mono">{row.totalPoints}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <Card className="border-destructive/30">
           <CardHeader>

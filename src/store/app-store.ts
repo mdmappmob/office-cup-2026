@@ -55,6 +55,7 @@ interface AppState {
   loadProfiles: () => Promise<void>;
   syncPredictionsToSupabase: () => Promise<void>;
   syncMembersToSupabase: () => Promise<void>;
+  resetKnockoutData: () => Promise<void>;
 }
 
 function makeEmptyPrediction(
@@ -455,6 +456,27 @@ export const useAppStore = create<AppState>()(
             })),
           },
         }).catch(console.warn);
+      },
+      resetKnockoutData: async () => {
+        const { clearKnockoutResults } =
+          await import("@/lib/supabase/clear-knockout-results.server");
+        const result = await clearKnockoutResults({
+          data: { leagueId: get().currentLeagueId },
+        });
+        if (!result.ok || "error" in result) {
+          throw new Error((result as { error: string }).error ?? "Falha ao resetar dados");
+        }
+        // Reset local matches to clean state (no results)
+        set({ matches: mockMatches.map((m) => ({ ...m })) });
+        get().regenerateBracket();
+        // Remove knockout predictions from local store
+        const knockoutPrefixes = ["r", "o", "q", "s", "f"];
+        set({
+          predictions: get().predictions.filter(
+            (p) => !knockoutPrefixes.some((pref) => p.match_id.startsWith(pref)),
+          ),
+        });
+        get().recomputeStandings();
       },
       recomputeStandings: () => {
         const preds = get().predictions;
