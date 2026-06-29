@@ -38,6 +38,8 @@ export const backfillMatchResults = createServerFn({ method: "POST" })
         group: string | null;
         home_score: number;
         away_score: number;
+        winner: string | null;
+        winner_flag: string | null;
         status: string;
         bracket_slot: string | null;
       }>;

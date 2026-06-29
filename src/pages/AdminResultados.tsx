@@ -232,6 +232,8 @@ function Body() {
   );
 }
 
+const KNOCKOUT_PHASES = new Set(["r32", "oitavas", "quartas", "semi", "final"]);
+
 function ResultRow({ matchId }: { matchId: string }) {
   const match = useAppStore((s) => s.matches.find((m) => m.id === matchId)!);
   const predictions = useAppStore(
@@ -240,13 +242,22 @@ function ResultRow({ matchId }: { matchId: string }) {
   const isAdmin = useAppStore((s) => s.isAdmin);
   const [hs, setHs] = useState<string>(match.home_score?.toString() ?? "");
   const [as, setAs] = useState<string>(match.away_score?.toString() ?? "");
+  const [winner, setWinner] = useState<string>(match.winner ?? "");
   const tbd = match.home_team === "—" || match.away_team === "—";
   const finished = match.status === "finished";
+  const isKnockout = KNOCKOUT_PHASES.has(match.phase);
+  const hNum = Number(hs);
+  const aNum = Number(as);
+  const scoresEntered = hs !== "" && as !== "" && !Number.isNaN(hNum) && !Number.isNaN(aNum);
+  const scoresEqual = scoresEntered && hNum === aNum;
+  const needsWinner = isKnockout && scoresEqual;
+  const showWinnerPicker = isKnockout && scoresEntered && scoresEqual;
 
   useEffect(() => {
     setHs(match.home_score?.toString() ?? "");
     setAs(match.away_score?.toString() ?? "");
-  }, [match.home_score, match.away_score]);
+    setWinner(match.winner ?? "");
+  }, [match.home_score, match.away_score, match.winner]);
 
   const handleSettle = async () => {
     const h = Number(hs);
@@ -255,8 +266,18 @@ function ResultRow({ matchId }: { matchId: string }) {
       toast.error("Informe os dois placares.");
       return;
     }
+    if (needsWinner && !winner) {
+      toast.error("Selecione quem avançou de fase (prorrogação/pênaltis).");
+      return;
+    }
+    const w = needsWinner ? winner : undefined;
+    const wf = needsWinner
+      ? winner === match.home_team
+        ? match.home_flag
+        : match.away_flag
+      : undefined;
     const prevPhase = match.phase;
-    const result = await predictionsRepo.settleMatch(matchId, h, a);
+    const result = await predictionsRepo.settleMatch(matchId, h, a, w, wf);
     if (result.ok) {
       const st = useAppStore.getState();
       const phaseCompleted = st.isPhaseFullySettled(prevPhase);
@@ -297,24 +318,61 @@ function ResultRow({ matchId }: { matchId: string }) {
         </div>
       </TableCell>
       <TableCell>
-        <div className="flex items-center gap-1.5 justify-center">
-          <Input
-            type="number"
-            min={0}
-            disabled={!isAdmin || tbd || finished}
-            className="w-14 h-9 text-center font-mono text-base font-bold p-0"
-            value={hs}
-            onChange={(e) => setHs(e.target.value)}
-          />
-          <span className="text-muted-foreground font-mono">×</span>
-          <Input
-            type="number"
-            min={0}
-            disabled={!isAdmin || tbd || finished}
-            className="w-14 h-9 text-center font-mono text-base font-bold p-0"
-            value={as}
-            onChange={(e) => setAs(e.target.value)}
-          />
+        <div className="flex flex-col items-center gap-1.5">
+          <div className="flex items-center gap-1.5 justify-center">
+            <Input
+              type="number"
+              min={0}
+              disabled={!isAdmin || tbd || finished}
+              className="w-14 h-9 text-center font-mono text-base font-bold p-0"
+              value={hs}
+              onChange={(e) => {
+                setHs(e.target.value);
+                setWinner("");
+              }}
+            />
+            <span className="text-muted-foreground font-mono">×</span>
+            <Input
+              type="number"
+              min={0}
+              disabled={!isAdmin || tbd || finished}
+              className="w-14 h-9 text-center font-mono text-base font-bold p-0"
+              value={as}
+              onChange={(e) => {
+                setAs(e.target.value);
+                setWinner("");
+              }}
+            />
+          </div>
+          {showWinnerPicker && isAdmin && !finished && (
+            <div className="flex items-center gap-1.5 mt-1">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                Avançou:
+              </span>
+              <button
+                type="button"
+                onClick={() => setWinner(match.home_team)}
+                className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${
+                  winner === match.home_team
+                    ? "bg-foreground text-background border-foreground"
+                    : "bg-card border-border text-muted-foreground"
+                }`}
+              >
+                {match.home_team}
+              </button>
+              <button
+                type="button"
+                onClick={() => setWinner(match.away_team)}
+                className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${
+                  winner === match.away_team
+                    ? "bg-foreground text-background border-foreground"
+                    : "bg-card border-border text-muted-foreground"
+                }`}
+              >
+                {match.away_team}
+              </button>
+            </div>
+          )}
         </div>
       </TableCell>
       <TableCell>
@@ -339,7 +397,7 @@ function ResultRow({ matchId }: { matchId: string }) {
           <Button
             size="sm"
             variant={finished ? "outline" : "default"}
-            disabled={tbd}
+            disabled={tbd || (needsWinner && !winner)}
             onClick={handleSettle}
           >
             {finished ? "Reapurar" : "Encerrar partida"}

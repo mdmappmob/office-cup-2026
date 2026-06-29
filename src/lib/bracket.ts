@@ -1176,8 +1176,9 @@ export function propagateKnockoutFromResults(matches: MockMatch[]): MockMatch[] 
       const awayMatch = fromMatches[i * 2 + 1];
 
       if (homeMatch && homeMatch.home_score !== null && homeMatch.away_score !== null) {
-        const homeWinner =
-          homeMatch.home_score >= homeMatch.away_score
+        const homeWinner = homeMatch.winner
+          ? { team: homeMatch.winner, flag: homeMatch.winner_flag ?? homeMatch.home_flag }
+          : homeMatch.home_score >= homeMatch.away_score
             ? { team: homeMatch.home_team, flag: homeMatch.home_flag }
             : { team: homeMatch.away_team, flag: homeMatch.away_flag };
         toMatches[i].home_team = homeWinner.team;
@@ -1185,8 +1186,9 @@ export function propagateKnockoutFromResults(matches: MockMatch[]): MockMatch[] 
       }
 
       if (awayMatch && awayMatch.home_score !== null && awayMatch.away_score !== null) {
-        const awayWinner =
-          awayMatch.home_score >= awayMatch.away_score
+        const awayWinner = awayMatch.winner
+          ? { team: awayMatch.winner, flag: awayMatch.winner_flag ?? awayMatch.home_flag }
+          : awayMatch.home_score >= awayMatch.away_score
             ? { team: awayMatch.home_team, flag: awayMatch.home_flag }
             : { team: awayMatch.away_team, flag: awayMatch.away_flag };
         toMatches[i].away_team = awayWinner.team;

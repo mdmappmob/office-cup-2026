@@ -32,6 +32,7 @@
 - As categorias são mutuamente exclusivas: aplica-se sempre a maior pontuação possível
 - `totalUserPoints()` soma `p.points_earned` diretamente (não recalcula via `scoreMatch`)
 - `breakdownFromPoints()` deriva categorias de acerto a partir de `points_earned` + `is_zebra`, sem depender de `match.home_score` — usado pelo Dashboard mesmo sem resultados locais
+- **Só vale o tempo regular (90' + acréscimos)**: prorrogação e pênaltis não contam para a pontuação. O `home_score`/`away_score` armazenado é sempre o placar ao final do tempo regular. Quem avançou de fase em caso de empate é registrado no campo `winner` (usado apenas para propagação do bracket).
 
 ## Bracket Oficial FIFA (src/lib/bracket.ts)
 
@@ -113,6 +114,7 @@ Implementação completa do chaveamento da Copa 2026 conforme regulamento da FIF
 - Botões "Sincronizar resultados" e "Encerrar partida"/"Reapurar" renderizam apenas para admin
 - Inputs de placar desabilitados para não-admin (visualização apenas)
 - Admin lança resultado de qualquer partida
+- **Prorrogação**: em fases mata-mata, se o placar do tempo regular for empate, o admin deve selecionar quem avançou (prorrogação/pênaltis) no seletor "Avançou:" que aparece abaixo do placar. Esse vencedor é armazenado no campo `winner` e usado apenas para propagação do bracket, sem afetar a pontuação.
 - **Sincronização automática**: botão "Sincronizar resultados" busca placares da football-data.org
 - Ao encerrar partida, `settleMatch()` (app-store.ts) recalcula pontos localmente + dispara `settleAllPredictions` (server fn) que:
   1. Busca TODAS as predictions da partida no Supabase
@@ -156,7 +158,8 @@ Implementação completa do chaveamento da Copa 2026 conforme regulamento da FIF
 |---|---|---|
 | id | TEXT PK | ex: `g0`, `r32_1` |
 | home_team, away_team | TEXT | Placeholder `_` (dados reais só no Zustand local) |
-| home_score, away_score | INTEGER NULL | Preenchido ao apurar |
+| home_score, away_score | INTEGER NULL | Placar do tempo regular (90' + acréscimos) |
+| winner, winner_flag | TEXT NULL | Time que avançou (prorrogação/pênaltis em caso de empate) |
 | status | TEXT | `scheduled` / `finished` |
 | phase, group, bracket_slot | TEXT | Metadados da partida |
 
@@ -265,10 +268,11 @@ computeBracketFromResults(matches)
   ├─ buildRoundOf32(standings)
   │    └─ Aloca 1º, 2º, 3º lugares conforme matriz FIFA (Anexo C)
   │
-  └─ propagateKnockoutFromResults(matches)
+   └─ propagateKnockoutFromResults(matches)
        └─ r32 → oitavas → quartas → semi → final
-       └─ Vencedor = home_score >= away_score
+       └─ Vencedor = match.winner (se existir) senão home_score >= away_score
        └─ Só propaga se TODAS as partidas da fase têm resultado
+       └─ winner é usado quando o tempo regular termina empatado e alguém avança na prorrogação/pênaltis
 ```
 
 ## Arquivos Relevantes

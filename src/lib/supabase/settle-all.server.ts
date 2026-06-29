@@ -44,6 +44,8 @@ export const settleAllPredictions = createServerFn({ method: "POST" })
       group: string | null;
       status: string;
       bracketSlot: string | null;
+      winner: string | null;
+      winnerFlag: string | null;
     }) => d,
   )
   .handler(async ({ data }) => {
@@ -60,13 +62,15 @@ export const settleAllPredictions = createServerFn({ method: "POST" })
       home_flag: data.homeFlag,
       away_flag: data.awayFlag,
       match_date: data.matchDate,
-      venue_tz: data.venueTz ?? null,
+      venue_tz: data.venueTz ?? "",
       phase: data.phase as MockMatch["phase"],
-      group: data.group ?? null,
+      group: data.group ?? "",
       home_score: data.homeScore,
       away_score: data.awayScore,
+      winner: data.winner ?? undefined,
+      winner_flag: data.winnerFlag ?? undefined,
       status: "finished",
-      bracket_slot: data.bracketSlot ?? null,
+      bracket_slot: data.bracketSlot ?? "",
     };
 
     try {
@@ -129,6 +133,8 @@ export const settleAllPredictions = createServerFn({ method: "POST" })
           away_score: data.awayScore,
           status: "finished",
           bracket_slot: data.bracketSlot ?? null,
+          winner: data.winner,
+          winner_flag: data.winnerFlag,
         }),
       });
 

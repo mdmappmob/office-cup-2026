@@ -35,6 +35,8 @@ interface AppState {
     matchId: string,
     homeScore: number,
     awayScore: number,
+    winner?: string,
+    winnerFlag?: string,
   ) => Promise<{ ok: boolean; count?: number; error?: string }>;
   toggleMemberPaid: (memberId: string) => void;
   unlockedPhases: () => MatchPhase[];
@@ -149,10 +151,17 @@ export const useAppStore = create<AppState>()(
           .predictions.filter((p) => p.match_id === matchId && p.user_id === uid)
           .sort((a, b) => a.slot - b.slot);
       },
-      settleMatch: async (matchId, homeScore, awayScore) => {
+      settleMatch: async (matchId, homeScore, awayScore, winner, winnerFlag) => {
         const newMatches = get().matches.map((m) =>
           m.id === matchId
-            ? { ...m, home_score: homeScore, away_score: awayScore, status: "finished" as const }
+            ? {
+                ...m,
+                home_score: homeScore,
+                away_score: awayScore,
+                winner: winner ?? m.winner,
+                winner_flag: winnerFlag ?? m.winner_flag,
+                status: "finished" as const,
+              }
             : m,
         );
         const settled = newMatches.find((m) => m.id === matchId)!;
@@ -178,6 +187,8 @@ export const useAppStore = create<AppState>()(
             group: settled.group ?? null,
             status: "finished",
             bracketSlot: settled.bracket_slot ?? null,
+            winner: settled.winner ?? null,
+            winnerFlag: settled.winner_flag ?? null,
           },
         });
         if (!result.ok) {
@@ -217,6 +228,8 @@ export const useAppStore = create<AppState>()(
                   ...m,
                   home_score: remote.home_score,
                   away_score: remote.away_score,
+                  winner: (remote as { winner?: string }).winner ?? m.winner,
+                  winner_flag: (remote as { winner_flag?: string }).winner_flag ?? m.winner_flag,
                   status: "finished" as const,
                 };
               }
@@ -369,6 +382,8 @@ export const useAppStore = create<AppState>()(
                     group: m.group ?? null,
                     home_score: m.home_score!,
                     away_score: m.away_score!,
+                    winner: m.winner ?? null,
+                    winner_flag: m.winner_flag ?? null,
                     status: "finished",
                     bracket_slot: m.bracket_slot ?? null,
                   })),
@@ -470,7 +485,14 @@ export const useAppStore = create<AppState>()(
         set({
           matches: get().matches.map((m) => {
             if (["r32", "o", "q", "s", "f"].some((pref) => m.id.startsWith(pref))) {
-              return { ...m, home_score: null, away_score: null, status: "scheduled" as const };
+              return {
+                ...m,
+                home_score: null,
+                away_score: null,
+                winner: undefined,
+                winner_flag: undefined,
+                status: "scheduled" as const,
+              };
             }
             return m;
           }),
