@@ -7,6 +7,8 @@ interface FootballDataMatch {
   awayTeam: { name: string };
   score: {
     fullTime: { home: number | null; away: number | null };
+    extraTime?: { home: number | null; away: number | null };
+    penalties?: { home: number | null; away: number | null };
   };
   status: string;
   utcDate: string;
@@ -60,14 +62,23 @@ export const syncFootballData = createServerFn({ method: "GET" }).handler(
 
       const data = (await response.json()) as FootballDataResponse;
 
-      const results: SyncResult[] = data.matches.map((m) => ({
-        homeTeam: m.homeTeam.name,
-        awayTeam: m.awayTeam.name,
-        homeScore: m.score.fullTime.home,
-        awayScore: m.score.fullTime.away,
-        status: mapStatus(m.status),
-        matchDate: m.utcDate,
-      }));
+      const results: SyncResult[] = data.matches.map((m) => {
+        const hasExtraTime =
+          m.score.extraTime != null &&
+          (m.score.extraTime.home != null || m.score.extraTime.away != null);
+        const hasPenalties =
+          m.score.penalties != null &&
+          (m.score.penalties.home != null || m.score.penalties.away != null);
+        return {
+          homeTeam: m.homeTeam.name,
+          awayTeam: m.awayTeam.name,
+          homeScore: m.score.fullTime.home,
+          awayScore: m.score.fullTime.away,
+          status: mapStatus(m.status),
+          matchDate: m.utcDate,
+          wentToExtraTime: hasExtraTime || hasPenalties,
+        };
+      });
 
       return { ok: true, results };
     } catch (err) {

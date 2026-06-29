@@ -6,6 +6,7 @@ export interface SyncResult {
   awayScore: number | null;
   status: "scheduled" | "live" | "finished";
   matchDate: string;
+  wentToExtraTime?: boolean;
 }
 
 export const API_TEAM_MAP: Record<string, string> = {
