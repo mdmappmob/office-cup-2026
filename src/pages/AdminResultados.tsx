@@ -336,7 +336,7 @@ function ResultRow({ matchId }: { matchId: string }) {
             <Input
               type="number"
               min={0}
-              disabled={!isAdmin || tbd || finished}
+              disabled={!isAdmin || tbd}
               className="w-14 h-9 text-center font-mono text-base font-bold p-0"
               value={hs}
               onChange={(e) => {
@@ -348,7 +348,7 @@ function ResultRow({ matchId }: { matchId: string }) {
             <Input
               type="number"
               min={0}
-              disabled={!isAdmin || tbd || finished}
+              disabled={!isAdmin || tbd}
               className="w-14 h-9 text-center font-mono text-base font-bold p-0"
               value={as}
               onChange={(e) => {
@@ -357,7 +357,7 @@ function ResultRow({ matchId }: { matchId: string }) {
               }}
             />
           </div>
-          {showWinnerPicker && isAdmin && !finished && (
+          {showWinnerPicker && isAdmin && (
             <div className="flex items-center gap-1.5 mt-1">
               <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
                 Avançou:
