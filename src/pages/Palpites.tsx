@@ -191,7 +191,13 @@ function MatchListByGroup({
   onClear: () => void;
 }) {
   const allMatches = useAppStore((s) => s.matches);
-  const matches = useMemo(() => allMatches.filter((m) => m.phase === phase), [allMatches, phase]);
+  const matches = useMemo(
+    () =>
+      allMatches
+        .filter((m) => m.phase === phase)
+        .toSorted((a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime()),
+    [allMatches, phase],
+  );
   const grouped = useMemo(() => {
     if (phase !== "grupos") return { __all: matches };
     return matches.reduce<Record<string, typeof matches>>((acc, m) => {

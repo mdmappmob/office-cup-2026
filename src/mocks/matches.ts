@@ -140,26 +140,42 @@ function makeBracket(
 
 export const mockMatches: MockMatch[] = [
   ...makeGroupMatches(),
-  // R32: 16 matches, Jun 28 - Jul 3
+  // R32: 16 matches, Jun 28 - Jul 3 (ordem do bracket: Match 73→88→78→83→76→75→84→86→79→85→81→74→82→77→87→80)
   ...makeBracket(
     "r32",
     [
-      "2026-06-28T15:00:00-03:00",
-      "2026-06-29T13:00:00-03:00",
-      "2026-06-29T16:30:00-03:00",
-      "2026-06-29T21:00:00-03:00",
-      "2026-06-30T13:00:00-03:00",
-      "2026-06-30T17:00:00-03:00",
-      "2026-06-30T21:00:00-03:00",
-      "2026-07-01T12:00:00-03:00",
-      "2026-07-01T16:00:00-03:00",
-      "2026-07-01T20:00:00-03:00",
-      "2026-07-02T15:00:00-03:00",
-      "2026-07-02T19:00:00-03:00",
-      "2026-07-02T23:00:00-03:00",
-      "2026-07-03T14:00:00-03:00",
-      "2026-07-03T18:00:00-03:00",
-      "2026-07-03T21:30:00-03:00",
+      // r0 – Match 73: 2nd A vs 2nd B (Los Angeles, 3PM ET)
+      "2026-06-28T16:00:00-03:00",
+      // r1 – Match 88: 2nd D vs 2nd G (Dallas, 2PM ET)
+      "2026-07-03T15:00:00-03:00",
+      // r2 – Match 78: 2nd E vs 2nd I (Dallas, 1PM ET)
+      "2026-06-30T14:00:00-03:00",
+      // r3 – Match 83: 2nd K vs 2nd L (Toronto, 7PM ET)
+      "2026-07-02T20:00:00-03:00",
+      // r4 – Match 76: 1st C vs 2nd F (Houston, 1PM ET) — Brasil×Japão
+      "2026-06-29T14:00:00-03:00",
+      // r5 – Match 75: 1st F vs 2nd C (Monterrey, 9PM ET)
+      "2026-06-29T22:00:00-03:00",
+      // r6 – Match 84: 1st H vs 2nd J (Los Angeles, 3PM ET)
+      "2026-07-02T16:00:00-03:00",
+      // r7 – Match 86: 1st J vs 2nd H (Miami, 6PM ET)
+      "2026-07-03T19:00:00-03:00",
+      // r8 – Match 79: 1st A vs 3rd (Mexico City, 9PM ET)
+      "2026-06-30T22:00:00-03:00",
+      // r9 – Match 85: 1st B vs 3rd (Vancouver, 11PM ET)
+      "2026-07-03T00:00:00-03:00",
+      // r10 – Match 81: 1st D vs 3rd (San Francisco, 8PM ET)
+      "2026-07-01T21:00:00-03:00",
+      // r11 – Match 74: 1st E vs 3rd (Boston, 4:30PM ET)
+      "2026-06-29T17:30:00-03:00",
+      // r12 – Match 82: 1st G vs 3rd (Seattle, 4PM ET)
+      "2026-07-01T17:00:00-03:00",
+      // r13 – Match 77: 1st I vs 3rd (East Rutherford, 5PM ET)
+      "2026-06-30T18:00:00-03:00",
+      // r14 – Match 87: 1st K vs 3rd (Kansas City, 9:30PM ET)
+      "2026-07-03T22:30:00-03:00",
+      // r15 – Match 80: 1st L vs 3rd (Atlanta, 12PM ET)
+      "2026-07-01T13:00:00-03:00",
     ],
     "r",
     EDT,
