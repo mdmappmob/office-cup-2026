@@ -84,12 +84,19 @@ function Body() {
       }
       let applied = 0;
       let skipped = 0;
+      let skippedKnockout = 0;
       const notFound: string[] = [];
       for (const r of results) {
         if (r.status !== "finished" || r.homeScore === null || r.awayScore === null) continue;
         const currentMatches = useAppStore.getState().matches;
         const match = resolveMatch(currentMatches, r.homeTeam, r.awayTeam);
         if (match) {
+          // Skip knockout matches — API retorna placar com prorrogação,
+          // mas só o tempo regular vale para pontuação
+          if (["r32", "oitavas", "quartas", "semi", "final"].includes(match.phase)) {
+            skippedKnockout++;
+            continue;
+          }
           const needsUpdate =
             match.home_score === null ||
             match.away_score === null ||
@@ -132,6 +139,12 @@ function Body() {
       }
       if (applied > 0) {
         useAppStore.getState().regenerateBracket();
+      }
+      if (skippedKnockout > 0) {
+        toast.warning(
+          `${skippedKnockout} partida(s) de mata-mata ignorada(s) — a API retorna placar com prorrogação. Lance o resultado do tempo regular manualmente.`,
+          { duration: 8000 },
+        );
       }
       toast.success(
         [
