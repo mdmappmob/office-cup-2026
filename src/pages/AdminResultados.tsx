@@ -157,7 +157,13 @@ function Body() {
       setSyncing(false);
     }
   };
-  const phaseMatches = useMemo(() => matches.filter((m) => m.phase === phase), [matches, phase]);
+  const phaseMatches = useMemo(() => {
+    const filtered = matches.filter((m) => m.phase === phase);
+    if (phase !== "grupos") {
+      return filtered.slice().sort((a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime());
+    }
+    return filtered;
+  }, [matches, phase]);
 
   return (
     <div className="max-w-6xl mx-auto px-8 py-10">
