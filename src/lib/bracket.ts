@@ -1162,18 +1162,43 @@ export function computeGroupStandingsFromResults(matches: MockMatch[]): GroupSta
   };
 }
 
+// Mapeamento oficial FIFA (Match 89-96) — a ordem das oitavas (o0..o7) é
+// definida para que o pareamento sequencial quartas (o0×o1, o2×o3, ...)
+// produza as quartas de final corretas:
+//   q0 (QF-1, Match 97) = o0×o1 = W89×W90 → SF-1
+//   q1 (QF-2, Match 98) = o2×o3 = W93×W94 → SF-1
+//   q2 (QF-3, Match 99) = o4×o5 = W91×W92 → SF-2
+//   q3 (QF-4, Match 100) = o6×o7 = W95×W96 → SF-2
+const R32_TO_OITAVAS_PAIRS: [number, number][] = [
+  [4, 2],   // o0 (Match 89):  W74 × W77  → 1stC/2ndF × 2ndE/2ndI
+  [0, 11],  // o1 (Match 90):  W73 × W75  → 2ndA/2ndB × 1stE/3rd
+  [6, 3],   // o2 (Match 93):  W83 × W84  → 1stH/2ndJ × 2ndK/2ndL
+  [12, 10], // o3 (Match 94):  W81 × W82  → 1stG/3rd × 1stD/3rd
+  [5, 13],  // o4 (Match 91):  W76 × W78  → 1stF/2ndC × 1stI/3rd
+  [8, 15],  // o5 (Match 92):  W79 × W80  → 1stA/3rd × 1stL/3rd
+  [1, 14],  // o6 (Match 95):  W86 × W88  → 2ndD/2ndG × 1stK/3rd
+  [9, 7],   // o7 (Match 96):  W85 × W87  → 1stB/3rd × 1stJ/2ndH
+];
+
 export function propagateKnockoutFromResults(matches: MockMatch[]): MockMatch[] {
   const next = matches.map((m) => ({ ...m }));
 
-  const propagate = (fromPhase: MatchPhase, toPhase: MatchPhase) => {
+  const propagate = (
+    fromPhase: MatchPhase,
+    toPhase: MatchPhase,
+    customPairs?: [number, number][],
+  ) => {
     const fromMatches = next.filter((m) => m.phase === fromPhase);
     const toMatches = next.filter((m) => m.phase === toPhase);
     if (toMatches.length === 0) return;
 
-    // Propaga vencedores progressivamente — cada partida com resultado alimenta a fase seguinte
     for (let i = 0; i < toMatches.length; i++) {
-      const homeMatch = fromMatches[i * 2];
-      const awayMatch = fromMatches[i * 2 + 1];
+      const [homeIdx, awayIdx] = customPairs
+        ? customPairs[i]
+        : [i * 2, i * 2 + 1];
+
+      const homeMatch = fromMatches[homeIdx];
+      const awayMatch = fromMatches[awayIdx];
 
       if (homeMatch && homeMatch.home_score !== null && homeMatch.away_score !== null) {
         const homeWinner = homeMatch.winner
@@ -1197,7 +1222,7 @@ export function propagateKnockoutFromResults(matches: MockMatch[]): MockMatch[] 
     }
   };
 
-  propagate("r32", "oitavas");
+  propagate("r32", "oitavas", R32_TO_OITAVAS_PAIRS);
   propagate("oitavas", "quartas");
   propagate("quartas", "semi");
   propagate("semi", "final");
