@@ -191,13 +191,13 @@ function MatchListByGroup({
   onClear: () => void;
 }) {
   const allMatches = useAppStore((s) => s.matches);
-  const matches = useMemo(
-    () =>
-      allMatches
-        .filter((m) => m.phase === phase)
-        .toSorted((a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime()),
-    [allMatches, phase],
-  );
+  const matches = useMemo(() => {
+    const filtered = allMatches.filter((m) => m.phase === phase);
+    if (phase === "r32") {
+      return filtered.slice().sort((a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime());
+    }
+    return filtered;
+  }, [allMatches, phase]);
   const grouped = useMemo(() => {
     if (phase !== "grupos") return { __all: matches };
     return matches.reduce<Record<string, typeof matches>>((acc, m) => {
