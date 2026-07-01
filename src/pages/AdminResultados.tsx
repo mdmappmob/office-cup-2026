@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Flag } from "@/components/Flag";
 import { CheckCircle2, RefreshCw } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { syncFootballData } from "@/lib/results-sync.server";
 import { API_TEAM_MAP } from "@/lib/results-sync";
@@ -295,6 +296,9 @@ function ResultRow({ matchId }: { matchId: string }) {
   const [as, setAs] = useState<string>(match.away_score?.toString() ?? "");
   const [ehs, setEhs] = useState<string>(match.extra_home_score?.toString() ?? "");
   const [eas, setEas] = useState<string>(match.extra_away_score?.toString() ?? "");
+  const [showExtra, setShowExtra] = useState(
+    match.extra_home_score !== null || match.extra_away_score !== null,
+  );
   const tbd = match.home_team === "—" || match.away_team === "—";
   const finished = match.status === "finished";
   const isKnockout = KNOCKOUT_PHASES.has(match.phase);
@@ -302,8 +306,8 @@ function ResultRow({ matchId }: { matchId: string }) {
   const aNum = Number(as);
   const ehNum = Number(ehs);
   const eaNum = Number(eas);
-  const eh = ehs !== "" ? ehNum : null;
-  const ea = eas !== "" ? eaNum : null;
+  const eh = showExtra ? (ehs !== "" ? ehNum : null) : null;
+  const ea = showExtra ? (eas !== "" ? eaNum : null) : null;
   const { winner, winnerFlag } = autoWinner(match.home_team, match.away_team, match.home_flag, match.away_flag, eh, ea, hNum, aNum);
 
   useEffect(() => {
@@ -311,6 +315,9 @@ function ResultRow({ matchId }: { matchId: string }) {
     setAs(match.away_score?.toString() ?? "");
     setEhs(match.extra_home_score?.toString() ?? "");
     setEas(match.extra_away_score?.toString() ?? "");
+    if (match.extra_home_score !== null || match.extra_away_score !== null) {
+      setShowExtra(true);
+    }
   }, [match.home_score, match.away_score, match.extra_home_score, match.extra_away_score]);
 
   const handleSettle = async () => {
@@ -320,12 +327,22 @@ function ResultRow({ matchId }: { matchId: string }) {
       toast.error("Informe os dois placares do tempo regular.");
       return;
     }
-    if (isKnockout && !winner) {
-      toast.error("Informe os placares da prorrogação/pênaltis.");
-      return;
+    if (isKnockout) {
+      if (showExtra && (ehs === "" || eas === "")) {
+        toast.error("Informe os placares da prorrogação/pênaltis.");
+        return;
+      }
+      if (!showExtra && hNum === aNum) {
+        toast.error(
+          "Tempo regular empatado. Marque 'Prorrogação/Pênaltis' para definir quem avançou.",
+        );
+        return;
+      }
     }
     const prevPhase = match.phase;
-    const result = await predictionsRepo.settleMatch(matchId, h, a, eh, ea, winner, winnerFlag);
+    const result = await predictionsRepo.settleMatch(
+      matchId, h, a, showExtra ? eh : null, showExtra ? ea : null, winner, winnerFlag,
+    );
     if (result.ok) {
       const st = useAppStore.getState();
       const phaseCompleted = st.isPhaseFullySettled(prevPhase);
@@ -388,8 +405,31 @@ function ResultRow({ matchId }: { matchId: string }) {
               onChange={(e) => setAs(e.target.value)}
             />
           </div>
-          {/* Prorrogação/Pênaltis — define quem avança */}
+          {/* Checkbox para marcar prorrogação/pênaltis */}
           {isKnockout && (
+            <div className="flex items-center gap-1.5 mt-1">
+              <Checkbox
+                id={`extra-${matchId}`}
+                checked={showExtra}
+                onCheckedChange={(c) => {
+                  setShowExtra(!!c);
+                  if (!c) {
+                    setEhs("");
+                    setEas("");
+                  }
+                }}
+                disabled={!isAdmin || tbd}
+              />
+              <label
+                htmlFor={`extra-${matchId}`}
+                className="text-[10px] font-mono text-muted-foreground cursor-pointer select-none"
+              >
+                Prorrogação
+              </label>
+            </div>
+          )}
+          {/* Prorrogação/Pênaltis — define quem avança */}
+          {showExtra && (
             <div className="flex flex-col items-center gap-0.5 mt-0.5">
               <div className="flex items-center gap-1 justify-center">
                 <span className="text-[9px] font-mono text-muted-foreground/60 mr-0.5">P.R.</span>
@@ -444,7 +484,11 @@ function ResultRow({ matchId }: { matchId: string }) {
           <Button
             size="sm"
             variant={finished ? "outline" : "default"}
-            disabled={tbd || (isKnockout && !winner)}
+            disabled={
+              tbd ||
+              (isKnockout && showExtra && (ehs === "" || eas === "")) ||
+              (isKnockout && !showExtra && hNum === aNum)
+            }
             onClick={handleSettle}
           >
             {finished ? "Reapurar" : "Encerrar partida"}
