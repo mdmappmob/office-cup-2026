@@ -91,6 +91,12 @@ function Body() {
         const currentMatches = useAppStore.getState().matches;
         const match = resolveMatch(currentMatches, r.homeTeam, r.awayTeam);
         if (match) {
+          // Skip matches already manually settled by admin for extra time/penalties
+          // (winner field is only set when admin manually selects who advanced)
+          if (match.status === "finished" && match.winner) {
+            skippedExtraTime++;
+            continue;
+          }
           // Skip matches that went beyond regular time — API retorna placar
           // com prorrogação, mas só o tempo regular vale para pontuação
           if (r.wentToExtraTime) {
@@ -142,7 +148,7 @@ function Body() {
       }
       if (skippedExtraTime > 0) {
         toast.warning(
-          `${skippedKnockout} partida(s) ignorada(s) — foram além do tempo regular (prorrogação/pênaltis). Lance o resultado do tempo regular manualmente em "Apuração".`,
+          `${skippedExtraTime} partida(s) ignorada(s) — foram além do tempo regular (prorrogação/pênaltis). Lance o resultado do tempo regular manualmente em "Apuração".`,
           { duration: 8000 },
         );
       }

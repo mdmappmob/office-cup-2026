@@ -1165,19 +1165,29 @@ export function computeGroupStandingsFromResults(matches: MockMatch[]): GroupSta
 // Mapeamento oficial FIFA (Match 89-96) — a ordem das oitavas (o0..o7) é
 // definida para que o pareamento sequencial quartas (o0×o1, o2×o3, ...)
 // produza as quartas de final corretas:
-//   q0 (QF-1, Match 97) = o0×o1 = W89×W90 → SF-1
-//   q1 (QF-2, Match 98) = o2×o3 = W93×W94 → SF-1
-//   q2 (QF-3, Match 99) = o4×o5 = W91×W92 → SF-2
+//   q0 (QF-1, Match 97) = o0×o1 = W90×W89 → SF-1
+//   q1 (QF-2, Match 98) = o2×o3 = W91×W92 → SF-1
+//   q2 (QF-3, Match 99) = o4×o5 = W93×W94 → SF-2
 //   q3 (QF-4, Match 100) = o6×o7 = W95×W96 → SF-2
+// Ordem das oitavas por data (o0..o7) conforme fixtures em matches.ts:
+//   o0 = Jul 4 13:00 ET — Match 90 (W73×W75)
+//   o1 = Jul 4 17:00 ET — Match 89 (W74×W77)
+//   o2 = Jul 5 16:00 ET — Match 91 (W76×W78)
+//   o3 = Jul 5 20:00 ET — Match 92 (W79×W80)
+//   o4 = Jul 6 15:00 ET — Match 93 (W83×W84)
+//   o5 = Jul 6 20:00 ET — Match 94 (W81×W82)
+//   o6 = Jul 7 12:00 ET — Match 95 (W86×W88)
+//   o7 = Jul 7 16:00 ET — Match 96 (W85×W87)
+// Semifinais: SF-1 = q0×q1 (oitavas 0-3), SF-2 = q2×q3 (oitavas 4-7)
 const R32_TO_OITAVAS_PAIRS: [number, number][] = [
-  [4, 2],   // o0 (Match 89):  W74 × W77  → 1stC/2ndF × 2ndE/2ndI
-  [0, 11],  // o1 (Match 90):  W73 × W75  → 2ndA/2ndB × 1stE/3rd
-  [6, 3],   // o2 (Match 93):  W83 × W84  → 1stH/2ndJ × 2ndK/2ndL
-  [12, 10], // o3 (Match 94):  W81 × W82  → 1stG/3rd × 1stD/3rd
-  [5, 13],  // o4 (Match 91):  W76 × W78  → 1stF/2ndC × 1stI/3rd
-  [8, 15],  // o5 (Match 92):  W79 × W80  → 1stA/3rd × 1stL/3rd
-  [1, 14],  // o6 (Match 95):  W86 × W88  → 2ndD/2ndG × 1stK/3rd
-  [9, 7],   // o7 (Match 96):  W85 × W87  → 1stB/3rd × 1stJ/2ndH
+  [0, 5],   // o0 (Match 90):  W73 × W75  → 2ndA/2ndB × 1stF/2ndC
+  [11, 13], // o1 (Match 89):  W74 × W77  → 1stE/3rd × 1stI/3rd
+  [4, 2],   // o2 (Match 91):  W76 × W78  → 1stC/2ndF × 2ndE/2ndI
+  [8, 15],  // o3 (Match 92):  W79 × W80  → 1stA/3rd × 1stL/3rd
+  [3, 6],   // o4 (Match 93):  W83 × W84  → 2ndK/2ndL × 1stH/2ndJ
+  [10, 12], // o5 (Match 94):  W81 × W82  → 1stD/3rd × 1stG/3rd
+  [7, 1],   // o6 (Match 95):  W86 × W88  → 1stJ/2ndH × 2ndD/2ndG
+  [9, 14],  // o7 (Match 96):  W85 × W87  → 1stB/3rd × 1stK/3rd
 ];
 
 export function propagateKnockoutFromResults(matches: MockMatch[]): MockMatch[] {
