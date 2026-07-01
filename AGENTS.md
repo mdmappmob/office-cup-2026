@@ -437,6 +437,19 @@ computeBracketFromResults(matches)
 - **Deploy Vercel**: commit `042853c` enviado ao `main` para deploy automático do merge fix
 - **Regra absoluta**: adicionada ao topo do AGENTS.md — nunca alterar nada sem autorização explícita
 
+### 2026-06-30 — Fix R32→oitavas mapping + proteção contra API overwrite + verificação de chaveamento
+- **Bug R32_TO_OITAVAS_PAIRS**: mapeamento incorreto fazia oitavas exibirem confrontos errados (ex.: Brasil×Canadã em vez de Brasil×Noruega). Corrigido com base na numeração oficial FIFA (Match 89–96) pareando corretamente W73–W88.
+- **Proteção API sync**: adicionado guard em `AdminResultados.tsx` que pula matches já `finished` com `winner` setado, prevenindo que resultados lançados manualmente (prorrogação/pênaltis) sejam sobrescritos pela sync automática.
+- **Verificação completa do bracket**: todos os 8 confrontos de oitavas, pareamento das 4 quartas, 2 semis e final conferidos contra a referência fornecida pelo usuário.
+- **Pareamento das quartas**: q0=o0×o1 (jogos 1×2), q1=o2×o3 (5×6), q2=o4×o5 (3×4), q3=o6×o7 (7×8); semis: s0=q0×q1 (1,2,5,6), s1=q2×q3 (3,4,7,8); final: s0×s1.
+- **Commit**: `f317f76`
+
+### 2026-06-30 — Fix winner não persistia ao recarregar (loadFromSupabase)
+- **Bug**: `loadFromSupabase()` no `app-store.ts:213` fazia `.select("id, home_score, away_score, status")` sem incluir `winner` e `winner_flag`. Ao recarregar a página, o `winner` definido pelo admin em partidas com prorrogação/pênaltis era perdido.
+- **Consequência**: sem `winner`, `propagateKnockoutFromResults` usava `home_score >= away_score` para decidir quem avança, ignorando quem o admin selecionou manualmente. Times incorretos (ex.: Holanda, Alemanha) reapareciam no bracket.
+- **Fix**: adicionado `winner, winner_flag` ao `.select()`.
+- **Impacto**: também corrige o guard da sync de API (`AdminResultados.tsx:96`) que depende de `match.winner` para pular partidas já finalizadas manualmente. Antes o `winner` vinha `undefined` mesmo quando existia no banco, então a sync sobrescrevia resultados mesmo com o guard presente.
+
 ### Próximos Passos
 1. Implementar recuperação de senha
 2. Múltiplas ligas com seleção dinâmica (remover `CURRENT_LEAGUE_ID` hardcoded)

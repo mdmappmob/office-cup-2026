@@ -210,7 +210,7 @@ export const useAppStore = create<AppState>()(
             membersApi.fetchMembers(leagueId),
             supabase
               .from("matches")
-              .select("id, home_score, away_score, status")
+              .select("id, home_score, away_score, status, winner, winner_flag")
               .neq("status", "scheduled"),
           ]);
 
