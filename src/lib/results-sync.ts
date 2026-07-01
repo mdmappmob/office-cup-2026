@@ -4,9 +4,10 @@ export interface SyncResult {
   awayTeam: string;
   homeScore: number | null;
   awayScore: number | null;
+  extraHomeScore: number | null;
+  extraAwayScore: number | null;
   status: "scheduled" | "live" | "finished";
   matchDate: string;
-  wentToExtraTime?: boolean;
 }
 
 export const API_TEAM_MAP: Record<string, string> = {

@@ -63,20 +63,32 @@ export const syncFootballData = createServerFn({ method: "GET" }).handler(
       const data = (await response.json()) as FootballDataResponse;
 
       const results: SyncResult[] = data.matches.map((m) => {
-        const hasExtraTime =
+        const useExtra =
           m.score.extraTime != null &&
           (m.score.extraTime.home != null || m.score.extraTime.away != null);
-        const hasPenalties =
+        const usePenalties =
+          !useExtra &&
           m.score.penalties != null &&
           (m.score.penalties.home != null || m.score.penalties.away != null);
+        const extraHome = useExtra
+          ? m.score.extraTime!.home
+          : usePenalties
+            ? m.score.penalties!.home
+            : null;
+        const extraAway = useExtra
+          ? m.score.extraTime!.away
+          : usePenalties
+            ? m.score.penalties!.away
+            : null;
         return {
           homeTeam: m.homeTeam.name,
           awayTeam: m.awayTeam.name,
           homeScore: m.score.fullTime.home,
           awayScore: m.score.fullTime.away,
+          extraHomeScore: extraHome,
+          extraAwayScore: extraAway,
           status: mapStatus(m.status),
           matchDate: m.utcDate,
-          wentToExtraTime: hasExtraTime || hasPenalties,
         };
       });
 

@@ -84,33 +84,41 @@ function Body() {
       }
       let applied = 0;
       let skipped = 0;
-      let skippedExtraTime = 0;
+      let skippedWinnerGuard = 0;
       const notFound: string[] = [];
       for (const r of results) {
         if (r.status !== "finished" || r.homeScore === null || r.awayScore === null) continue;
         const currentMatches = useAppStore.getState().matches;
         const match = resolveMatch(currentMatches, r.homeTeam, r.awayTeam);
         if (match) {
-          // Skip matches already manually settled by admin for extra time/penalties
-          // (winner field is only set when admin manually selects who advanced)
+          // Skip matches already manually settled by admin (winner field set)
           if (match.status === "finished" && match.winner) {
-            skippedExtraTime++;
+            skippedWinnerGuard++;
             continue;
           }
-          // Skip matches that went beyond regular time — API retorna placar
-          // com prorrogação, mas só o tempo regular vale para pontuação
-          if (r.wentToExtraTime) {
-            skippedExtraTime++;
-            continue;
+          // Auto-calculate winner from extra scores (fallback to regular scores)
+          const extraHome = r.extraHomeScore;
+          const extraAway = r.extraAwayScore;
+          let w: string | undefined;
+          let wf: string | undefined;
+          if (extraHome !== null && extraAway !== null && extraHome !== extraAway) {
+            w = extraHome > extraAway ? match.home_team : match.away_team;
+            wf = extraHome > extraAway ? match.home_flag : match.away_flag;
+          } else if (r.homeScore !== r.awayScore) {
+            w = r.homeScore > r.awayScore ? match.home_team : match.away_team;
+            wf = r.homeScore > r.awayScore ? match.home_flag : match.away_flag;
           }
           const needsUpdate =
             match.home_score === null ||
             match.away_score === null ||
             match.home_score !== r.homeScore ||
-            match.away_score !== r.awayScore;
+            match.away_score !== r.awayScore ||
+            match.extra_home_score !== extraHome ||
+            match.extra_away_score !== extraAway ||
+            match.winner !== w;
           if (needsUpdate) {
             const isCorrection = match.home_score !== null && match.away_score !== null;
-            const res = await predictionsRepo.settleMatch(match.id, r.homeScore, r.awayScore);
+            const res = await predictionsRepo.settleMatch(match.id, r.homeScore, r.awayScore, extraHome, extraAway, w, wf);
             if (!res.ok) {
               toast.error(`Falha ao registrar ${r.homeTeam}×${r.awayTeam}`, {
                 description: res.error,
@@ -146,17 +154,12 @@ function Body() {
       if (applied > 0) {
         useAppStore.getState().regenerateBracket();
       }
-      if (skippedExtraTime > 0) {
-        toast.warning(
-          `${skippedExtraTime} partida(s) ignorada(s) — foram além do tempo regular (prorrogação/pênaltis). Lance o resultado do tempo regular manualmente em "Apuração".`,
-          { duration: 8000 },
-        );
-      }
       toast.success(
         [
           applied,
           "resultado(s) aplicado(s)",
           skipped > 0 ? `, ${skipped} já encerrado(s)` : "",
+          skippedWinnerGuard > 0 ? `, ${skippedWinnerGuard} ignorada(s) (winner manual)` : "",
         ].join(""),
       );
     } finally {
