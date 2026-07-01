@@ -112,6 +112,8 @@ function makeGroupMatches(): MockMatch[] {
     group: g,
     home_score: null,
     away_score: null,
+    extra_home_score: null,
+    extra_away_score: null,
     status: "scheduled" as const,
   }));
 }
@@ -133,6 +135,8 @@ function makeBracket(
     phase,
     home_score: null,
     away_score: null,
+    extra_home_score: null,
+    extra_away_score: null,
     status: "scheduled" as const,
     bracket_slot: `${phase}-${i}`,
   }));

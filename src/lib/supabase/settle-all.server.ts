@@ -34,6 +34,8 @@ export const settleAllPredictions = createServerFn({ method: "POST" })
       matchId: string;
       homeScore: number;
       awayScore: number;
+      extraHomeScore: number | null;
+      extraAwayScore: number | null;
       homeTeam: string;
       awayTeam: string;
       homeFlag: string;
@@ -67,6 +69,8 @@ export const settleAllPredictions = createServerFn({ method: "POST" })
       group: data.group ?? "",
       home_score: data.homeScore,
       away_score: data.awayScore,
+      extra_home_score: data.extraHomeScore,
+      extra_away_score: data.extraAwayScore,
       winner: data.winner ?? undefined,
       winner_flag: data.winnerFlag ?? undefined,
       status: "finished",
@@ -131,6 +135,8 @@ export const settleAllPredictions = createServerFn({ method: "POST" })
           group: data.group ?? null,
           home_score: data.homeScore,
           away_score: data.awayScore,
+          extra_home_score: data.extraHomeScore,
+          extra_away_score: data.extraAwayScore,
           status: "finished",
           bracket_slot: data.bracketSlot ?? null,
           winner: data.winner,

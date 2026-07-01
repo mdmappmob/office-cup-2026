@@ -44,6 +44,8 @@ export interface MockMatch {
   group?: string;
   home_score: number | null;
   away_score: number | null;
+  extra_home_score: number | null;
+  extra_away_score: number | null;
   winner?: string;
   winner_flag?: string;
   status: "scheduled" | "live" | "finished";

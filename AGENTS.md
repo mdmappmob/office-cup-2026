@@ -450,6 +450,17 @@ computeBracketFromResults(matches)
 - **Fix**: adicionado `winner, winner_flag` ao `.select()`.
 - **Impacto**: também corrige o guard da sync de API (`AdminResultados.tsx:96`) que depende de `match.winner` para pular partidas já finalizadas manualmente. Antes o `winner` vinha `undefined` mesmo quando existia no banco, então a sync sobrescrevia resultados mesmo com o guard presente.
 
+### 2026-06-30 — Placar duplo: tempo regular + prorrogação + winner manual definitivo
+- **Problema**: admin perdia o `winner` em partidas de mata-mata com prorrogação/pênaltis sempre que recarregava a página, porque: (1) `loadFromSupabase` não trazia `winner`/`winner_flag`, (2) não havia campo separado para o placar da prorrogação, e (3) o UI misturava tempo regular com definição de quem avança.
+- **Novos campos**: `extra_home_score` e `extra_away_score` em `MockMatch` — armazenam o placar da prorrogação/pênaltis, sem impacto na pontuação (que sempre usa `home_score`/`away_score` do tempo regular).
+- **UI reformulada (AdminResultados)**: para partidas de mata-mata, mostra duas linhas de input:
+  - **T.R.** (Tempo Regular) — `home_score × away_score` → usado para pontuação
+  - **P.R.** (Prorrogação) — `[time_casa] extra_home × extra_away [time_visitante]` → placar real + botões clicáveis para selecionar quem avançou
+  - Abaixo: "Avançou: [time]" em destaque
+- **Fluxo**: admin clica no nome do time que avançou (independente do placar do tempo regular) → `winner` é salvo e persiste → `propagateKnockoutFromResults` usa `winner` para propagar → ao recarregar, `loadFromSupabase` traz `extra_home_score`, `extra_away_score`, `winner`, `winner_flag`.
+- **Arquivos alterados**: `types.ts`, `matches.ts`, `app-store.ts`, `db/index.ts`, `settle-all.server.ts`, `backfill-matches.server.ts`, `AdminResultados.tsx`
+- **Commit**: `9a00503`
+
 ### Próximos Passos
 1. Implementar recuperação de senha
 2. Múltiplas ligas com seleção dinâmica (remover `CURRENT_LEAGUE_ID` hardcoded)

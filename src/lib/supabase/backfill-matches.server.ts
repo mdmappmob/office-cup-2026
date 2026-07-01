@@ -25,7 +25,7 @@ async function supabaseFetch(
 
 export const backfillMatchResults = createServerFn({ method: "POST" })
   .validator(
-    (d: {
+    (      d: {
       matches: Array<{
         id: string;
         home_team: string;
@@ -38,6 +38,8 @@ export const backfillMatchResults = createServerFn({ method: "POST" })
         group: string | null;
         home_score: number;
         away_score: number;
+        extra_home_score: number | null;
+        extra_away_score: number | null;
         winner: string | null;
         winner_flag: string | null;
         status: string;

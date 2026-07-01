@@ -21,6 +21,8 @@ export interface PredictionsRepo {
     matchId: string,
     homeScore: number,
     awayScore: number,
+    extraHomeScore?: number | null,
+    extraAwayScore?: number | null,
     winner?: string,
     winnerFlag?: string,
   ): Promise<{ ok: boolean; count?: number; error?: string }>;
@@ -50,7 +52,7 @@ export const predictionsRepo: PredictionsRepo = {
   removePrediction: (predictionId: string) => {
     useAppStore.getState().removePrediction(predictionId);
   },
-  settleMatch: async (matchId, homeScore, awayScore, winner, winnerFlag) => {
-    return useAppStore.getState().settleMatch(matchId, homeScore, awayScore, winner, winnerFlag);
+  settleMatch: async (matchId, homeScore, awayScore, extraHomeScore, extraAwayScore, winner, winnerFlag) => {
+    return useAppStore.getState().settleMatch(matchId, homeScore, awayScore, extraHomeScore, extraAwayScore, winner, winnerFlag);
   },
 };
