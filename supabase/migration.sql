@@ -63,6 +63,12 @@ CREATE INDEX IF NOT EXISTS idx_matches_phase ON matches(phase);
 CREATE INDEX IF NOT EXISTS idx_members_user ON members(user_id);
 CREATE INDEX IF NOT EXISTS idx_leagues_admin ON leagues(admin_id);
 
+-- 6. COLUNAS PARA PRORROGAÇÃO/PÊNALTIS E AVANÇO
+ALTER TABLE matches ADD COLUMN IF NOT EXISTS extra_home_score INTEGER DEFAULT NULL;
+ALTER TABLE matches ADD COLUMN IF NOT EXISTS extra_away_score INTEGER DEFAULT NULL;
+ALTER TABLE matches ADD COLUMN IF NOT EXISTS winner TEXT DEFAULT NULL;
+ALTER TABLE matches ADD COLUMN IF NOT EXISTS winner_flag TEXT DEFAULT NULL;
+
 -- =============================================================
 -- RLS (Row Level Security)
 -- =============================================================
