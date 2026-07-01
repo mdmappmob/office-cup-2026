@@ -395,7 +395,7 @@ function ResultRow({ matchId }: { matchId: string }) {
                   type="number"
                   min={0}
                   disabled={!isAdmin || tbd}
-                  className="w-9 h-7 text-center font-mono text-xs font-bold p-0"
+                  className="w-11 h-8 text-center font-mono text-sm font-bold p-0"
                   value={ehs}
                   onChange={(e) => setEhs(e.target.value)}
                 />
@@ -404,7 +404,7 @@ function ResultRow({ matchId }: { matchId: string }) {
                   type="number"
                   min={0}
                   disabled={!isAdmin || tbd}
-                  className="w-9 h-7 text-center font-mono text-xs font-bold p-0"
+                  className="w-11 h-8 text-center font-mono text-sm font-bold p-0"
                   value={eas}
                   onChange={(e) => setEas(e.target.value)}
                 />
