@@ -259,6 +259,29 @@ function Body() {
 
 const KNOCKOUT_PHASES = new Set(["r32", "oitavas", "quartas", "semi", "final"]);
 
+function autoWinner(
+  homeTeam: string,
+  awayTeam: string,
+  homeFlag: string,
+  awayFlag: string,
+  eh: number | null,
+  ea: number | null,
+  h: number,
+  a: number,
+): { winner: string | undefined; winnerFlag: string | undefined } {
+  if (eh !== null && ea !== null && eh !== ea) {
+    return eh > ea
+      ? { winner: homeTeam, winnerFlag: homeFlag }
+      : { winner: awayTeam, winnerFlag: awayFlag };
+  }
+  if (h !== a) {
+    return h > a
+      ? { winner: homeTeam, winnerFlag: homeFlag }
+      : { winner: awayTeam, winnerFlag: awayFlag };
+  }
+  return { winner: undefined, winnerFlag: undefined };
+}
+
 function ResultRow({ matchId }: { matchId: string }) {
   const match = useAppStore((s) => s.matches.find((m) => m.id === matchId)!);
   const predictions = useAppStore(
@@ -269,7 +292,6 @@ function ResultRow({ matchId }: { matchId: string }) {
   const [as, setAs] = useState<string>(match.away_score?.toString() ?? "");
   const [ehs, setEhs] = useState<string>(match.extra_home_score?.toString() ?? "");
   const [eas, setEas] = useState<string>(match.extra_away_score?.toString() ?? "");
-  const [winner, setWinner] = useState<string>(match.winner ?? "");
   const tbd = match.home_team === "—" || match.away_team === "—";
   const finished = match.status === "finished";
   const isKnockout = KNOCKOUT_PHASES.has(match.phase);
@@ -277,16 +299,16 @@ function ResultRow({ matchId }: { matchId: string }) {
   const aNum = Number(as);
   const ehNum = Number(ehs);
   const eaNum = Number(eas);
-  const scoresEntered = hs !== "" && as !== "" && !Number.isNaN(hNum) && !Number.isNaN(aNum);
-  const extraEntered = ehs !== "" && eas !== "" && !Number.isNaN(ehNum) && !Number.isNaN(eaNum);
+  const eh = ehs !== "" ? ehNum : null;
+  const ea = eas !== "" ? eaNum : null;
+  const { winner, winnerFlag } = autoWinner(match.home_team, match.away_team, match.home_flag, match.away_flag, eh, ea, hNum, aNum);
 
   useEffect(() => {
     setHs(match.home_score?.toString() ?? "");
     setAs(match.away_score?.toString() ?? "");
     setEhs(match.extra_home_score?.toString() ?? "");
     setEas(match.extra_away_score?.toString() ?? "");
-    setWinner(match.winner ?? "");
-  }, [match.home_score, match.away_score, match.extra_home_score, match.extra_away_score, match.winner]);
+  }, [match.home_score, match.away_score, match.extra_home_score, match.extra_away_score]);
 
   const handleSettle = async () => {
     const h = Number(hs);
@@ -295,20 +317,12 @@ function ResultRow({ matchId }: { matchId: string }) {
       toast.error("Informe os dois placares do tempo regular.");
       return;
     }
-    const eh = ehs !== "" ? Number(ehs) : null;
-    const ea = eas !== "" ? Number(eas) : null;
-    if (isKnockout && (!winner)) {
-      toast.error("Clique no nome da seleção que avançou de fase.");
+    if (isKnockout && !winner) {
+      toast.error("Informe os placares da prorrogação/pênaltis.");
       return;
     }
-    const w = isKnockout ? winner : undefined;
-    const wf = isKnockout
-      ? winner === match.home_team
-        ? match.home_flag
-        : match.away_flag
-      : undefined;
     const prevPhase = match.phase;
-    const result = await predictionsRepo.settleMatch(matchId, h, a, eh, ea, w, wf);
+    const result = await predictionsRepo.settleMatch(matchId, h, a, eh, ea, winner, winnerFlag);
     if (result.ok) {
       const st = useAppStore.getState();
       const phaseCompleted = st.isPhaseFullySettled(prevPhase);
@@ -359,10 +373,7 @@ function ResultRow({ matchId }: { matchId: string }) {
               disabled={!isAdmin || tbd}
               className="w-11 h-8 text-center font-mono text-sm font-bold p-0"
               value={hs}
-              onChange={(e) => {
-                setHs(e.target.value);
-                if (!isKnockout) setWinner("");
-              }}
+              onChange={(e) => setHs(e.target.value)}
             />
             <span className="text-muted-foreground font-mono text-sm">×</span>
             <Input
@@ -371,10 +382,7 @@ function ResultRow({ matchId }: { matchId: string }) {
               disabled={!isAdmin || tbd}
               className="w-11 h-8 text-center font-mono text-sm font-bold p-0"
               value={as}
-              onChange={(e) => {
-                setAs(e.target.value);
-                if (!isKnockout) setWinner("");
-              }}
+              onChange={(e) => setAs(e.target.value)}
             />
           </div>
           {/* Prorrogação/Pênaltis — define quem avança */}
@@ -382,22 +390,7 @@ function ResultRow({ matchId }: { matchId: string }) {
             <div className="flex flex-col items-center gap-0.5 mt-0.5">
               <div className="flex items-center gap-1 justify-center">
                 <span className="text-[9px] font-mono text-muted-foreground/60 mr-0.5">P.R.</span>
-                {isAdmin ? (
-                  <button
-                    type="button"
-                    disabled={tbd}
-                    onClick={() => setWinner(match.home_team)}
-                    className={`px-1.5 py-0.5 rounded text-[11px] font-semibold border leading-tight ${
-                      winner === match.home_team
-                        ? "bg-foreground text-background border-foreground"
-                        : "bg-card border-border text-muted-foreground"
-                    }`}
-                  >
-                    {match.home_team}
-                  </button>
-                ) : (
-                  <span className="text-xs font-semibold">{match.home_team}</span>
-                )}
+                <span className="text-xs font-semibold">{match.home_team}</span>
                 <Input
                   type="number"
                   min={0}
@@ -415,22 +408,7 @@ function ResultRow({ matchId }: { matchId: string }) {
                   value={eas}
                   onChange={(e) => setEas(e.target.value)}
                 />
-                {isAdmin ? (
-                  <button
-                    type="button"
-                    disabled={tbd}
-                    onClick={() => setWinner(match.away_team)}
-                    className={`px-1.5 py-0.5 rounded text-[11px] font-semibold border leading-tight ${
-                      winner === match.away_team
-                        ? "bg-foreground text-background border-foreground"
-                        : "bg-card border-border text-muted-foreground"
-                    }`}
-                  >
-                    {match.away_team}
-                  </button>
-                ) : (
-                  <span className="text-xs font-semibold">{match.away_team}</span>
-                )}
+                <span className="text-xs font-semibold">{match.away_team}</span>
               </div>
               {winner && (
                 <div className="text-[10px] font-mono text-accent font-bold">
